@@ -12,5 +12,6 @@ R"(int main(){
 })");
     lexer::Lexer l(input);
     auto program_ast = parse::construct_ast(l);
-    program_ast->codegen(std::cout);
+    auto global_context = context::Context();
+    program_ast->codegen(std::cout, global_context);
 }

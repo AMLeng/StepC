@@ -26,7 +26,7 @@ namespace{
         if(!is_literal(constant_value)){
             throw parse_error::ParseError("Expected literal",constant_value);
         }
-        return std::make_unique<ast::Constant>(constant_value.value, "int");
+        return std::make_unique<ast::Constant>(constant_value.value);
     }
 
     std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l){
