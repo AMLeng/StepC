@@ -197,6 +197,21 @@ Token Lexer::read_token_from_stream(){
         return create_token(Token::TokenType::Not, token_value, starting_position, current_pos);
     }
 
+    //Handle binary operators, aside from "minus" which was taken care of above
+    if(c=='+'){
+        advance_input(token_value, c);
+        return create_token(Token::TokenType::Plus, token_value, starting_position, current_pos);
+    }
+    if(c =='*'){
+        advance_input(token_value, c);
+        return create_token(Token::TokenType::Mult, token_value, starting_position, current_pos);
+    }
+    //Note that we have already taken care of comments
+    if(c =='/'){
+        advance_input(token_value, c);
+        return create_token(Token::TokenType::Div, token_value, starting_position, current_pos);
+    }
+
     //Other cases/not implemented yet/not parsable
     throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
     return create_token(Token::TokenType::END, token_value, starting_position, current_pos);
