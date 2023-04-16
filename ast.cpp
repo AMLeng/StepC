@@ -28,8 +28,12 @@ void FunctionDef::pretty_print(int depth){
 
 std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context::Context& c){
     assert(return_type == "int");
+    AST::print_whitespace(c.current_depth);
     output << "define i32 @" + name+"(){"<<std::endl;
+    c.current_depth++;
     function_body->codegen(output, c);
+    c.current_depth--;
+    AST::print_whitespace(c.current_depth);
     output << "}"<<std::endl;
     return std::make_unique<value::Value>("@"+name);
 }
@@ -40,8 +44,8 @@ void ReturnStmt::pretty_print(int depth){
     return_expr->pretty_print(depth+1);
 }
 std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context::Context& c){
-    AST::print_whitespace(1);
     auto return_value = return_expr->codegen(output, c);
+    AST::print_whitespace(c.current_depth);
     output << "ret i32 " + return_value->get_value() << std::endl;
     return nullptr;
 }
@@ -62,6 +66,24 @@ void UnaryOp::pretty_print(int depth){
 }
 
 std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Context& c){
+    auto inner_exp_register = arg->codegen(output, c);
+    if(op == "-"){
+        AST::print_whitespace(c.current_depth);
+        output << c.new_temp()<<" = sub i32 0, " <<inner_exp_register->get_value() <<std::endl;
+        return std::make_unique<value::Value>(c.prev_temp(0));
+    }
+    if(op == "~"){
+        AST::print_whitespace(c.current_depth);
+        output << c.new_temp()<<" = xor i32 -1, " <<inner_exp_register->get_value() <<std::endl;
+        return std::make_unique<value::Value>(c.prev_temp(0));
+    }
+    if(op == "!"){
+        AST::print_whitespace(c.current_depth);
+        output << c.new_temp()<<" = icmp eq i32 0, " <<inner_exp_register->get_value() <<std::endl;
+        AST::print_whitespace(c.current_depth);
+        output << c.new_temp()<<" = zext i1 "<< c.prev_temp(1) <<" to i32"<<std::endl;
+        return std::make_unique<value::Value>(c.prev_temp(0));
+    }
     std::cout<<"This should be unreachable"<<std::endl;
     assert(false);
 }

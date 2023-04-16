@@ -8,7 +8,7 @@
 int main(){
     auto input =std::stringstream(
 R"(int main(){
-    return 123;
+    return ~!-4;
 })");
     lexer::Lexer l(input);
     auto program_ast = parse::construct_ast(l);

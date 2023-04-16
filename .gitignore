@@ -31,6 +31,10 @@
 *.out
 *.app
 
+# Compiled Intermediate Bytecode and Assembly
+*.s
+*.ll
+
 # Cmake Generated Files
 CMakeCache.txt
 cmake_install.cmake
