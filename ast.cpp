@@ -11,8 +11,9 @@ void Program::pretty_print(int depth){
     main_method->pretty_print(depth);
 }
 
-void Program::codegen(std::ostream& output){
-    main_method->codegen(output);
+std::unique_ptr<value::Value> Program::codegen(std::ostream& output, context::Context& c){
+    main_method->codegen(output, c);
+    return nullptr;
 }
 
 void FunctionDef::pretty_print(int depth){
@@ -25,31 +26,65 @@ void FunctionDef::pretty_print(int depth){
     function_body -> pretty_print(depth+2);
 }
 
-void FunctionDef::codegen(std::ostream& output){
+std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context::Context& c){
     assert(return_type == "int");
+    AST::print_whitespace(c.current_depth);
     output << "define i32 @" + name+"(){"<<std::endl;
-    function_body->codegen(output);
+    c.current_depth++;
+    function_body->codegen(output, c);
+    c.current_depth--;
+    AST::print_whitespace(c.current_depth);
     output << "}"<<std::endl;
+    return std::make_unique<value::Value>("@"+name);
 }
 
 void ReturnStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<< "RETURN ";
-    return_value->pretty_print(0);
+    std::cout<< "RETURN:"<<std::endl;
+    return_expr->pretty_print(depth+1);
 }
-void ReturnStmt::codegen(std::ostream& output){
-    AST::print_whitespace(1);
-    output << "ret i32 ";
-    return_value->codegen(output);
-    output << std::endl;;
+std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context::Context& c){
+    auto return_value = return_expr->codegen(output, c);
+    AST::print_whitespace(c.current_depth);
+    output << "ret i32 " + return_value->get_value() << std::endl;
+    return nullptr;
 }
 
 void Constant::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<value<<" OF TYPE "<<type<<std::endl;
-}
-void Constant::codegen(std::ostream& output){
-    output << value;
+    std::cout<<"CONSTANT "<<literal<<std::endl;
 }
 
+std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::Context& c){
+    return std::make_unique<value::Value>(literal);
+}
+
+void UnaryOp::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<<"UNARY OP "<<op<<" ON EXPR"<<std::endl;
+    arg->pretty_print(depth+1);
+}
+
+std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Context& c){
+    auto inner_exp_register = arg->codegen(output, c);
+    if(op == "-"){
+        AST::print_whitespace(c.current_depth);
+        output << c.new_temp()<<" = sub i32 0, " <<inner_exp_register->get_value() <<std::endl;
+        return std::make_unique<value::Value>(c.prev_temp(0));
+    }
+    if(op == "~"){
+        AST::print_whitespace(c.current_depth);
+        output << c.new_temp()<<" = xor i32 -1, " <<inner_exp_register->get_value() <<std::endl;
+        return std::make_unique<value::Value>(c.prev_temp(0));
+    }
+    if(op == "!"){
+        AST::print_whitespace(c.current_depth);
+        output << c.new_temp()<<" = icmp eq i32 0, " <<inner_exp_register->get_value() <<std::endl;
+        AST::print_whitespace(c.current_depth);
+        output << c.new_temp()<<" = zext i1 "<< c.prev_temp(1) <<" to i32"<<std::endl;
+        return std::make_unique<value::Value>(c.prev_temp(0));
+    }
+    std::cout<<"This should be unreachable"<<std::endl;
+    assert(false);
+}
 } //namespace ast

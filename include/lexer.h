@@ -13,7 +13,8 @@ namespace lexer{
 struct Token{
     enum class TokenType{
         LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,
-        Keyword, Identifier, IntegerLiteral, END, COMMENT
+        Keyword, Identifier, IntegerLiteral, Minus, BitwiseNot, Not,
+        END, COMMENT
     };
 
     TokenType type;

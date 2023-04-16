@@ -1,6 +1,8 @@
 #include<memory>
 #include<string>
 #include<iostream>
+#include "context.h"
+#include "value.h"
 #ifndef _AST_
 #define _AST_
 namespace ast{
@@ -10,7 +12,9 @@ class AST;
 class Program;
 class FunctionDef;
 class ReturnStmt;
+class Expr;
 class Constant;
+class UnaryOp;
 
 typedef std::string Type;
 
@@ -18,7 +22,7 @@ class AST{
 public:
     virtual void pretty_print(int depth) = 0;
     static void print_whitespace(int depth);
-    virtual void codegen(std::ostream& output) = 0;
+    virtual std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) = 0;
 };
 
 class Program : public AST{
@@ -26,7 +30,7 @@ class Program : public AST{
 public:
     Program(std::unique_ptr<FunctionDef> main) : main_method(std::move(main)) {}
     void pretty_print(int depth) override;
-    void codegen(std::ostream& output) override;
+    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
 
 class FunctionDef : public AST{
@@ -36,24 +40,37 @@ class FunctionDef : public AST{
 public:
     FunctionDef(std::string name, Type ret_type, std::unique_ptr<ReturnStmt> ret) : name(name), return_type(ret_type), function_body(std::move(ret)) {}
     void pretty_print(int depth);
-    void codegen(std::ostream& output) override;
+    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
 
 class ReturnStmt : public AST{
-    std::unique_ptr<Constant> return_value;
+    std::unique_ptr<Expr> return_expr;
 public:
-    ReturnStmt(std::unique_ptr<Constant> ret_value) : return_value(std::move(ret_value)) {}
+    ReturnStmt(std::unique_ptr<Expr> ret_expr) : return_expr(std::move(ret_expr)) {}
     void pretty_print(int depth);
-    void codegen(std::ostream& output) override;
+    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
 
-class Constant : public AST{
-    std::string value;
-    Type type;
+class Expr : public AST{
 public:
-    Constant(std::string value, Type type) : value(value), type(type) {}
-    void pretty_print(int depth);
-    void codegen(std::ostream& output) override;
+};
+
+class Constant : public Expr{
+public:
+    std::string literal;
+    Constant(std::string literal) : literal(literal) {}
+    void pretty_print(int depth) override;
+    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+};
+
+class UnaryOp : public Expr{
+    std::unique_ptr<Expr> arg;
+public:
+    std::string op;
+    UnaryOp(std::string op_name, std::unique_ptr<Expr> exp) : 
+        Expr(), op(op_name), arg(std::move(exp)) {}
+    void pretty_print(int depth) override;
+    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
 
 } //namespace ast
