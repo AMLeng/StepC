@@ -36,8 +36,8 @@ std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context
 
 void ReturnStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<< "RETURN ";
-    return_expr->pretty_print(0);
+    std::cout<< "RETURN:"<<std::endl;
+    return_expr->pretty_print(depth+1);
 }
 std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context::Context& c){
     AST::print_whitespace(1);

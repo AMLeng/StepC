@@ -163,6 +163,15 @@ R"(int main(){
     //On the other hand, this should probably be fine; we're only trying to test the parser, so the lexer's state
     //Should not matter to us
 }
+TEST_CASE("valid parse_stage_one"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 027;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 #ifdef STAGE_1
