@@ -35,6 +35,9 @@
 *.s
 *.ll
 
+# Local Test Files
+test.*
+
 # Cmake Generated Files
 CMakeCache.txt
 cmake_install.cmake
