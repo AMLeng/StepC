@@ -1,4 +1,4 @@
-# Step C -- An LLVM frontend for C, built in stages
+# StepC -- An LLVM frontend for C, built in stages
 
 ## Introduction
 Inspired by Nora Sandler's adaptation of Abdulaziz Ghuloum's "An Incremental Approach to Compiler Construction", we implement a LLVM frontend for C, in incremental steps, using C++. 
@@ -9,7 +9,7 @@ In her project, Nora Sandler directly compiles to assembly initially, and refact
 The main prgram "step_c.out" makes system calls to "llc" and "gcc" to compile the produced LLVM IR into an executable. Modifying the step_c.cpp file before building can remove these system calls (and thus those dependencies). StepC is written in C++17.
 
 ## Usage
-Build main executable "c_step.out" and unit tests with
+Build main executable "step_c.out", in addition to unit tests, with
 ```
 cmake .
 cmake --build .
