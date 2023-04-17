@@ -45,14 +45,14 @@ TEST_CASE("recognizes_identifier_with_underscore"){
     auto ss = std::stringstream("this_is_an_ident");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::Identifier);
+    REQUIRE(t.type == token::TokenType::Identifier);
     REQUIRE(t.value == "this_is_an_ident");
 }
 TEST_CASE("recognizes_identifier_with_digits"){
     auto ss = std::stringstream("ident1");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::Identifier);
+    REQUIRE(t.type == token::TokenType::Identifier);
     REQUIRE(t.value == "ident1");
 }
 TEST_CASE("decimal_literal_no_suffix"){

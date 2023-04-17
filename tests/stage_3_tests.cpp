@@ -32,7 +32,7 @@ TEST_CASE("recognizes_logical_not"){
 }
 
 //Parser tests
-TEST_CASE("valid_parse_stage_three 1"){
+TEST_CASE("parse_addition"){
     auto ss = std::stringstream(
 R"(int main(){
     return 3+5;
@@ -42,7 +42,17 @@ R"(int main(){
     //program_pointer->pretty_print(0);
 }
 
-TEST_CASE("valid_parse_stage_three 2"){
+TEST_CASE("parse_mutiplication_by_negative"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 3*-5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+
+TEST_CASE("multiplication_higher_than_subtraction"){
     auto ss = std::stringstream(
 R"(int main(){
     return 3*5-2;
@@ -51,7 +61,7 @@ R"(int main(){
     auto program_pointer = parse::construct_ast(l);
     //program_pointer->pretty_print(0);
 }
-TEST_CASE("valid_parse_stage_three 3"){
+TEST_CASE("subtraction_left_associative"){
     auto ss = std::stringstream(
 R"(int main(){
     return 3-5-2;
@@ -60,7 +70,49 @@ R"(int main(){
     auto program_pointer = parse::construct_ast(l);
     //program_pointer->pretty_print(0);
 }
-TEST_CASE("parse_error_stage_three"){
+TEST_CASE("parentheses"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 3*(5+2);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("nested_parentheses"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return (3*(5+2)-4);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("missing_l_paren"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return -4);
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+}
+TEST_CASE("missing_r_paren"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return (-4*5;
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+}
+TEST_CASE("parse_error_stage_three 1"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return /3;
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+}
+TEST_CASE("parse_error_stage_three 2"){
     auto ss = std::stringstream(
 R"(int main(){
     return 3-5-2+;

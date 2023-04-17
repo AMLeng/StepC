@@ -94,6 +94,14 @@ namespace{
             token::TokenType::Not)){
             expr_ptr =  parse_unary_op(l);
         }
+        if(matches_type(expr_start,token::TokenType::LParen)){
+            l.get_token();
+            expr_ptr = parse_expr(l);
+            check_token_type(l.get_token(), token::TokenType::RParen);
+        }
+        if(expr_ptr == nullptr){
+            throw parse_error::ParseError("Expected beginning of expression",l.peek_token());
+        }
         //While the next thing is an operator of high precedence, keep parsing
         while(true){
             auto potential_op_token = l.peek_token();
@@ -105,9 +113,6 @@ namespace{
                 break;
             }
             expr_ptr = parse_binary_op(l, std::move(expr_ptr), binding_power.second);
-        }
-        if(expr_ptr == nullptr){
-            throw parse_error::ParseError("Unknown Expression",l.peek_token());
         }
         return expr_ptr;
     }

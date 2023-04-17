@@ -4,4 +4,4 @@ Stage 1: Set up layout of lexer, parser, and code generation from an AST. Parse 
 
 Stage 2: Add unary operators and some basic context/value classes to keep track of SSA registers.
 
-Stage 3: Add binary operators and operator precedence (essentially using Pratt parsing), refactored code to automatically call llc and g++ to create an executable. (We don't call opt beforehand, but one could do so to create more optimized code).
+Stage 3: Add binary operators, parentheses for grouping, and operator precedence (essentially using [Pratt parsing](https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html)), added code to automatically call llc and g++ to create an executable. (We don't call opt beforehand, but one could do so to create more optimized code). This now allows our program to be tested with Nora Sandler's test suite/script (forked to [here](https://github.com/AMLeng/incremental_c_compiler_tests)).
