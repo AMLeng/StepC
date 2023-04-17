@@ -59,7 +59,7 @@ Token Lexer::read_token_from_stream(){
     if(std::isalpha(c)){
         do{
             advance_input(token_value, c);
-        }while(std::isalpha(c));
+        }while(std::isalpha(c) || std::isdigit(c) || c == '_');
 
         if(is_keyword(token_value)){
             return create_token(Token::TokenType::Keyword, token_value, starting_position, current_pos);
