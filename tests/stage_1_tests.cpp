@@ -12,7 +12,7 @@
 TEST_CASE("recognizes_empty_input_stream"){
     auto ss = std::stringstream("");
     lexer::Lexer l(ss);
-    REQUIRE(l.get_token().type == lexer::Token::TokenType::END);
+    REQUIRE(l.get_token().type == token::TokenType::END);
     REQUIRE(l.get_location().first == 1);
     REQUIRE(l.get_location().second == 1);
 }
@@ -20,7 +20,7 @@ TEST_CASE("recognizes_keyword_int"){
     auto ss = std::stringstream("int");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::Keyword);
+    REQUIRE(t.type == token::TokenType::Keyword);
     REQUIRE(t.value == "int");
     REQUIRE(l.get_location().first == 1);
     REQUIRE(l.get_location().second == 4);
@@ -29,7 +29,7 @@ TEST_CASE("recognizes_keyword_return"){
     auto ss = std::stringstream("return");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::Keyword);
+    REQUIRE(t.type == token::TokenType::Keyword);
     REQUIRE(t.value == "return");
     REQUIRE(l.get_location().first == 1);
     REQUIRE(l.get_location().second == 7);
@@ -38,42 +38,56 @@ TEST_CASE("recognizes_identifier_main"){
     auto ss = std::stringstream("main");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::Identifier);
+    REQUIRE(t.type == token::TokenType::Identifier);
     REQUIRE(t.value == "main");
+}
+TEST_CASE("recognizes_identifier_with_underscore"){
+    auto ss = std::stringstream("this_is_an_ident");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    REQUIRE(t.type == token::TokenType::Identifier);
+    REQUIRE(t.value == "this_is_an_ident");
+}
+TEST_CASE("recognizes_identifier_with_digits"){
+    auto ss = std::stringstream("ident1");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    REQUIRE(t.type == token::TokenType::Identifier);
+    REQUIRE(t.value == "ident1");
 }
 TEST_CASE("decimal_literal_no_suffix"){
     auto ss = std::stringstream("25");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::IntegerLiteral);
+    REQUIRE(t.type == token::TokenType::IntegerLiteral);
     REQUIRE(t.value == "25");
 }
 TEST_CASE("decimal_literal_u"){
     auto ss = std::stringstream("2532u");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::IntegerLiteral);
+    REQUIRE(t.type == token::TokenType::IntegerLiteral);
     REQUIRE(t.value == "2532u");
 }
 TEST_CASE("decimal_literal_no_ll"){
     auto ss = std::stringstream("3993993ll");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::IntegerLiteral);
+    REQUIRE(t.type == token::TokenType::IntegerLiteral);
     REQUIRE(t.value == "3993993ll");
 }
 TEST_CASE("decimal_literal_uLL"){
     auto ss = std::stringstream("9230uLL");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::IntegerLiteral);
+    REQUIRE(t.type == token::TokenType::IntegerLiteral);
     REQUIRE(t.value == "9230uLL");
 }
 TEST_CASE("decimal_literal_llU"){
     auto ss = std::stringstream("4435llU");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::IntegerLiteral);
+    REQUIRE(t.type == token::TokenType::IntegerLiteral);
     REQUIRE(t.value == "4435llU");
 }
 TEST_CASE("decimal_literal_lLU"){
@@ -96,7 +110,7 @@ TEST_CASE("octal_literal"){
     auto ss = std::stringstream("025");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::IntegerLiteral);
+    REQUIRE(t.type == token::TokenType::IntegerLiteral);
     REQUIRE(t.value == "025");
 }
 TEST_CASE("invalid_octal_literal"){
@@ -117,7 +131,7 @@ TEST_CASE("hex_literal"){
     auto ss = std::stringstream("0x25afeF");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::IntegerLiteral);
+    REQUIRE(t.type == token::TokenType::IntegerLiteral);
     REQUIRE(t.value == "0x25afeF");
 }
 TEST_CASE("invalid_hex_literal"){
@@ -135,7 +149,7 @@ R"(
         025)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
-    REQUIRE(t.type == lexer::Token::TokenType::IntegerLiteral);
+    REQUIRE(t.type == token::TokenType::IntegerLiteral);
     REQUIRE(t.value == "025");
     REQUIRE(l.get_location().first == 3);
     REQUIRE(l.get_location().second == 12);
