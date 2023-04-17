@@ -126,12 +126,14 @@ Token Lexer::read_token_from_stream(){
                 }
             }else{
                 //Octal integer
-                do{
+                //We use a while loop and not a do-while loop
+                //Since "0" is a perfectly valid octal literal
+                while(std::isdigit(c)){
                     if(c == '8' || c == '9'){
                         throw lexer_error::InvalidLiteral("Invalid octal integer", token_value, c, starting_position);
                     }
                     advance_input(token_value, c);
-                }while(std::isdigit(c));
+                }
                 if(c != '.'){
                     //Suffix handling
                     bool u_read = false;
