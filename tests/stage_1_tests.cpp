@@ -173,6 +173,26 @@ R"(int main(){
     //program_pointer->pretty_print(0);
 }
 
+TEST_CASE("valid_parse_stage_one 1"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 0;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+
+TEST_CASE("valid_parse_stage_one 2"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 032;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 #ifdef STAGE_1
 
