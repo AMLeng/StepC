@@ -10,7 +10,7 @@ class ParseError : public std::exception{
     public:
         ParseError(std::string_view what_arg, const token::Token& tok){
             error_str = ("Parse error on token " + tok.value + 
-            "at line "+std::to_string(tok.loc.start_line)+" and column "+std::to_string(tok.loc.start_col)
+            " at line "+std::to_string(tok.loc.start_line)+" and column "+std::to_string(tok.loc.start_col)
             +": ").append(what_arg);
         }
         const char* what() const noexcept override{

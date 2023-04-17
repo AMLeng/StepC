@@ -1,9 +1,9 @@
 #include "ast.h"
 #include <cassert>
 namespace ast{
-void AST::print_whitespace(int depth){
+void AST::print_whitespace(int depth, std::ostream& output){
     for(int i=0; i<depth; i++){
-        std::cout << "  ";
+        output << "  ";
     }
 }
 
@@ -28,12 +28,12 @@ void FunctionDef::pretty_print(int depth){
 
 std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context::Context& c){
     assert(return_type == "int");
-    AST::print_whitespace(c.current_depth);
+    AST::print_whitespace(c.current_depth, output);
     output << "define i32 @" + name+"(){"<<std::endl;
     c.current_depth++;
     function_body->codegen(output, c);
     c.current_depth--;
-    AST::print_whitespace(c.current_depth);
+    AST::print_whitespace(c.current_depth, output);
     output << "}"<<std::endl;
     return std::make_unique<value::Value>("@"+name);
 }
@@ -45,7 +45,7 @@ void ReturnStmt::pretty_print(int depth){
 }
 std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context::Context& c){
     auto return_value = return_expr->codegen(output, c);
-    AST::print_whitespace(c.current_depth);
+    AST::print_whitespace(c.current_depth, output);
     output << "ret i32 " + return_value->get_value() << std::endl;
     return nullptr;
 }
@@ -69,17 +69,17 @@ std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Co
     auto inner_exp_register = arg->codegen(output, c);
     switch(op){
         case token::TokenType::Minus:
-            AST::print_whitespace(c.current_depth);
+            AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = sub i32 0, " <<inner_exp_register->get_value() <<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         case token::TokenType::BitwiseNot:
-            AST::print_whitespace(c.current_depth);
+            AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = xor i32 -1, " <<inner_exp_register->get_value() <<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         case token::TokenType::Not:
-            AST::print_whitespace(c.current_depth);
+            AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = icmp eq i32 0, " <<inner_exp_register->get_value() <<std::endl;
-            AST::print_whitespace(c.current_depth);
+            AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = zext i1 "<< c.prev_temp(1) <<" to i32"<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         default:
@@ -102,19 +102,19 @@ std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::C
     auto right_register = right->codegen(output, c);
     switch(op){
         case token::TokenType::Minus:
-            AST::print_whitespace(c.current_depth);
+            AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = sub i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         case token::TokenType::Plus:
-            AST::print_whitespace(c.current_depth);
+            AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = add i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         case token::TokenType::Mult:
-            AST::print_whitespace(c.current_depth);
+            AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = mul i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         case token::TokenType::Div:
-            AST::print_whitespace(c.current_depth);
+            AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = sdiv i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         default:

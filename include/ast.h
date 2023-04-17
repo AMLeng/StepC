@@ -21,7 +21,7 @@ typedef std::string Type;
 
 struct AST{
     virtual void pretty_print(int depth) = 0;
-    static void print_whitespace(int depth);
+    static void print_whitespace(int depth, std::ostream& output = std::cout);
     virtual std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) = 0;
 };
 

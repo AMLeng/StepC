@@ -37,6 +37,7 @@
 
 # Local Test Files
 test.*
+test
 
 # Cmake Generated Files
 CMakeCache.txt
