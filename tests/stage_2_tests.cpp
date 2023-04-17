@@ -12,17 +12,17 @@
 TEST_CASE("recognizes_minus"){
     auto ss = std::stringstream("-3");
     lexer::Lexer l(ss);
-    REQUIRE(l.get_token().type == lexer::Token::TokenType::Minus);
+    REQUIRE(l.get_token().type == token::TokenType::Minus);
 }
 TEST_CASE("recognizes_bitwise_not"){
     auto ss = std::stringstream("~5");
     lexer::Lexer l(ss);
-    REQUIRE(l.get_token().type == lexer::Token::TokenType::BitwiseNot);
+    REQUIRE(l.get_token().type == token::TokenType::BitwiseNot);
 }
 TEST_CASE("recognizes_logical_not"){
     auto ss = std::stringstream("!7");
     lexer::Lexer l(ss);
-    REQUIRE(l.get_token().type == lexer::Token::TokenType::Not);
+    REQUIRE(l.get_token().type == token::TokenType::Not);
 }
 
 //Parser tests

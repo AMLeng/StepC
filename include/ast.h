@@ -73,5 +73,16 @@ public:
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
 
+class BinaryOp : public Expr{
+    std::unique_ptr<Expr> left;
+    std::unique_ptr<Expr> right;
+public:
+    std::string op;
+    BinaryOp(std::string op_name, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
+        Expr(), op(op_name), left(std::move(left)), right(std::move(right)) {}
+    void pretty_print(int depth) override;
+    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+};
+
 } //namespace ast
 #endif

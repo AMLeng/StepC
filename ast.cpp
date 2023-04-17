@@ -87,4 +87,21 @@ std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Co
     std::cout<<"This should be unreachable"<<std::endl;
     assert(false);
 }
+
+void BinaryOp::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<<"BINARY OP "<<op<<" WITH LEFT ARG"<<std::endl;
+    left->pretty_print(depth+1);
+    AST::print_whitespace(depth);
+    std::cout<<"AND RIGHT ARG"<<std::endl;
+    right->pretty_print(depth+1);
+}
+
+std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::Context& c){
+    auto left_register = left->codegen(output, c);
+    auto right_register = right->codegen(output, c);
+    //TO BE IMPLEMENTED
+    std::cout<<"This should be unreachable"<<std::endl;
+    assert(false);
+}
 } //namespace ast

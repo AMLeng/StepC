@@ -11,9 +11,9 @@ bool is_keyword(const std::string& word){
         || word == "return";
 }
 
-Token create_token(Token::TokenType type, std::string value, std::pair<int, int> tok_start, std::pair<int, int> tok_end){
+token::Token create_token(token::TokenType type, std::string value, std::pair<int, int> tok_start, std::pair<int, int> tok_end){
     location::Location loc = {tok_start.first, tok_start.second, tok_end.first, tok_end.second};
-    return Token{type, value, loc};
+    return token::Token{type, value, loc};
 }
 } //namespace
 
@@ -44,7 +44,7 @@ void Lexer::advance_input(std::string& already_read, char& next_to_see){
     next_to_see = input_stream.peek();
 }
 
-Token Lexer::read_token_from_stream(){
+token::Token Lexer::read_token_from_stream(){
     ignore_space();
 
     std::pair<int, int> starting_position = current_pos;
@@ -52,7 +52,7 @@ Token Lexer::read_token_from_stream(){
     std::string token_value = "";
 
     if(c== EOF){
-        return Token::make_end_token(current_pos);
+        return token::Token::make_end_token(current_pos);
     }
 
     //Handle keywords and identifiers
@@ -62,31 +62,31 @@ Token Lexer::read_token_from_stream(){
         }while(std::isalpha(c));
 
         if(is_keyword(token_value)){
-            return create_token(Token::TokenType::Keyword, token_value, starting_position, current_pos);
+            return create_token(token::TokenType::Keyword, token_value, starting_position, current_pos);
         }
-        return create_token(Token::TokenType::Identifier, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::Identifier, token_value, starting_position, current_pos);
     }//Finished handling keywords and identifiers
 
     //Handle all punctuation
     if(c == '('){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::LParen, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::LParen, token_value, starting_position, current_pos);
     }
     if(c == ')'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::RParen, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::RParen, token_value, starting_position, current_pos);
     }
     if(c=='{'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::LBrace, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::LBrace, token_value, starting_position, current_pos);
     }
     if(c =='}'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::RBrace, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::RBrace, token_value, starting_position, current_pos);
     }
     if(c ==';'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::Semicolon, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::Semicolon, token_value, starting_position, current_pos);
     }
 
     //Handle ints
@@ -119,7 +119,7 @@ Token Lexer::read_token_from_stream(){
                     if(c == 'u' || c == 'U' && !u_read){
                         advance_input(token_value, c);
                     }
-                    return create_token(Token::TokenType::IntegerLiteral, token_value, starting_position, current_pos);
+                    return create_token(token::TokenType::IntegerLiteral, token_value, starting_position, current_pos);
                 }else{
                     //Hex floating point
                     throw lexer_error::NotImplemented("Floating-point literals not yet implemented", token_value, c, starting_position);
@@ -149,7 +149,7 @@ Token Lexer::read_token_from_stream(){
                     if(c == 'u' || c == 'U' && !u_read){
                         advance_input(token_value, c);
                     }
-                    return create_token(Token::TokenType::IntegerLiteral, token_value, starting_position, current_pos);
+                    return create_token(token::TokenType::IntegerLiteral, token_value, starting_position, current_pos);
                 }else{
                     throw lexer_error::InvalidLiteral("Octal floating-point numbers not allowed", token_value, c, starting_position);
                 }
@@ -176,7 +176,7 @@ Token Lexer::read_token_from_stream(){
             if(c == 'u' || c == 'U' && !u_read){
                 advance_input(token_value, c);
             }
-            return create_token(Token::TokenType::IntegerLiteral, token_value, starting_position, current_pos);
+            return create_token(token::TokenType::IntegerLiteral, token_value, starting_position, current_pos);
         }else{
             //Decimal floating point
             throw lexer_error::NotImplemented("Floating-point literals not yet implemented", token_value, c, starting_position);
@@ -186,35 +186,35 @@ Token Lexer::read_token_from_stream(){
     //Handle unary operators
     if(c=='-'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::Minus, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::Minus, token_value, starting_position, current_pos);
     }
     if(c =='~'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::BitwiseNot, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::BitwiseNot, token_value, starting_position, current_pos);
     }
     if(c =='!'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::Not, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::Not, token_value, starting_position, current_pos);
     }
 
     //Handle binary operators, aside from "minus" which was taken care of above
     if(c=='+'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::Plus, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::Plus, token_value, starting_position, current_pos);
     }
     if(c =='*'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::Mult, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::Mult, token_value, starting_position, current_pos);
     }
     //Note that we have already taken care of comments
     if(c =='/'){
         advance_input(token_value, c);
-        return create_token(Token::TokenType::Div, token_value, starting_position, current_pos);
+        return create_token(token::TokenType::Div, token_value, starting_position, current_pos);
     }
 
     //Other cases/not implemented yet/not parsable
     throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
-    return create_token(Token::TokenType::END, token_value, starting_position, current_pos);
+    return create_token(token::TokenType::END, token_value, starting_position, current_pos);
 }
 
 } //namespace lexer
