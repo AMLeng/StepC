@@ -1,5 +1,6 @@
 #ifndef _TOKEN_
 #define _TOKEN_
+#include "location.h"
 namespace token{
 enum class TokenType{
     LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,

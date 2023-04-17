@@ -6,7 +6,6 @@
 #include <cassert>
 #include <string>
 #include <exception>
-#include "location.h"
 #include "token.h"
 
 namespace lexer{
