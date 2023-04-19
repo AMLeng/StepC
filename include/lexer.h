@@ -10,7 +10,6 @@
 
 namespace lexer{
 
-
 class Lexer{
         std::istream& input_stream;
         std::exception_ptr lexer_error; 
@@ -24,9 +23,10 @@ class Lexer{
         //Reads the next token to next_token, unless it produces an error
         //In which case set next_token to a token of type END
         //And produse an error
+        struct LexingSubmethods;
         void update_next_token();
-        void advance_input(std::string& current_token_value, char& c);
         void ignore_space();
+        void advance_input(std::string& current_token_value, char& c);
         Lexer(const Lexer& l) = delete; //Explicitly uncopyable
         Lexer operator=(const Lexer& l) = delete; 
 

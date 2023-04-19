@@ -4,7 +4,8 @@
 namespace token{
 enum class TokenType{
     LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,
-    Keyword, Identifier, IntegerLiteral, BitwiseNot, Not, Minus, Plus, Mult, Div,
+    Keyword, Identifier, IntegerLiteral, FloatLiteral,
+    BitwiseNot, Not, Minus, Plus, Mult, Div,
     END, COMMENT
 };
 

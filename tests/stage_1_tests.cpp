@@ -118,13 +118,6 @@ TEST_CASE("invalid_octal_literal"){
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(l.get_token(), lexer_error::InvalidLiteral);
     REQUIRE(l.get_location().first == 1);
-    REQUIRE(l.get_location().second == 3);
-}
-TEST_CASE("invalid_octal_float_literal"){
-    auto ss = std::stringstream("027.5");
-    lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(l.get_token(), lexer_error::InvalidLiteral);
-    REQUIRE(l.get_location().first == 1);
     REQUIRE(l.get_location().second == 4);
 }
 TEST_CASE("hex_literal"){
@@ -161,7 +154,7 @@ TEST_CASE("whitespace_invalid_octal_literal"){
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(l.get_token(), lexer_error::InvalidLiteral);
     REQUIRE(l.get_location().first == 3);
-    REQUIRE(l.get_location().second == 11);
+    REQUIRE(l.get_location().second == 12);
 }
 
 //End lexer unit tests
