@@ -22,5 +22,9 @@ add_executable(stage_3_tests tests/stage_3_tests.cpp lexer.cpp parse.cpp ast.cpp
 set_target_properties(stage_3_tests PROPERTIES SUFFIX ".out")
 target_link_libraries(stage_3_tests PRIVATE Catch2::Catch2WithMain)
 
+add_executable(stage_4_tests tests/stage_4_tests.cpp lexer.cpp parse.cpp ast.cpp)
+set_target_properties(stage_4_tests PROPERTIES SUFFIX ".out")
+target_link_libraries(stage_4_tests PRIVATE Catch2::Catch2WithMain)
+
 add_executable(step_c step_c.cpp lexer.cpp parse.cpp ast.cpp )
 set_target_properties(step_c PROPERTIES SUFFIX ".out")

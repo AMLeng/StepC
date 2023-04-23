@@ -1,5 +1,6 @@
 #include "ast.h"
 #include <cassert>
+#include <cctype>
 namespace ast{
 void AST::print_whitespace(int depth, std::ostream& output){
     for(int i=0; i<depth; i++){
@@ -50,9 +51,54 @@ std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context:
     return nullptr;
 }
 
+Constant::Constant(token::Token tok){
+    literal = tok.value;
+    switch(tok.type){
+        case token::TokenType::IntegerLiteral:
+            while(!std::isxdigit(literal.back())){
+                auto c = literal.back();
+                literal.pop_back();
+                if(c == 'u' || c == 'U'){
+                    type = "unsigned " + type;
+                    continue;
+                }
+                if(c == 'l' || c == 'L'){
+                    type = type + "long ";
+                    continue;
+                }
+                //Unreachable
+                std::cout<<"This should be unreachable"<<std::endl;
+                assert(false);
+            }
+            type = type + "int";
+            break;
+        case token::TokenType::FloatLiteral:
+            switch(literal.back()){
+                case 'l':
+                case 'L':
+                    literal.pop_back();
+                    type = "long double";
+                    break;
+                case 'f':
+                case 'F':
+                    literal.pop_back();
+                    type = "float";
+                    break;
+                default:
+                    type = "double";
+                    assert(std::isdigit(literal.back()));
+
+            }
+            break;
+        default:
+            std::cout<<"This should be unreachable"<<std::endl;
+            assert(false);
+    }
+}
+
 void Constant::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"CONSTANT "<<literal<<std::endl;
+    std::cout<<"CONSTANT "<<literal<<" of type "<<type<<std::endl;
 }
 
 std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::Context& c){

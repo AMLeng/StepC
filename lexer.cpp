@@ -64,8 +64,8 @@ struct Lexer::LexingSubmethods{
     static token::Token lex_numeric_literals(Lexer& l);
 
     static void handle_int_literal_suffix(Lexer& l, char& c, std::string& token_value);
-    static token::Token lex_hex_float(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position);
-    static token::Token lex_decimal_float(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position);
+    static token::Token lex_hex_fractional(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position);
+    static token::Token lex_decimal_fractional(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position);
 };
 
 token::Token Lexer::LexingSubmethods::lex_keyword_ident(Lexer& l){
@@ -107,7 +107,7 @@ token::Token Lexer::read_token_from_stream(){
     if(c == '.'){
         advance_input(token_value, c);
         if(std::isdigit(c)){
-            return Lexer::LexingSubmethods::lex_decimal_float(*this, c, token_value, starting_position);
+            return Lexer::LexingSubmethods::lex_decimal_fractional(*this, c, token_value, starting_position);
         }
         if(std::isalpha(c)){
             return create_token(token::TokenType::Period, token_value, starting_position, current_pos);
@@ -127,21 +127,49 @@ token::Token Lexer::read_token_from_stream(){
     return create_token(token::TokenType::END, "", starting_position, current_pos);
 }
 
-token::Token Lexer::LexingSubmethods::lex_decimal_float(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position){
-    return token::Token::make_end_token(l.current_pos);
-}
-token::Token Lexer::LexingSubmethods::lex_hex_float(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position){
+token::Token Lexer::LexingSubmethods::lex_decimal_fractional(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position){
+    //Assumes that token_value already contains the integral part, if any
     if(c == '.'){
         l.advance_input(token_value, c);
-        while(std::isxdigit(c)){
+    }
+    while(std::isdigit(c)){
+        l.advance_input(token_value, c);
+    }
+    if(c == 'e' || c == 'E'){
+        l.advance_input(token_value, c);
+        if(c == '+' || c == '-'){
             l.advance_input(token_value, c);
         }
+        if(!std::isdigit(c)){
+            throw lexer_error::InvalidLiteral(
+                    "Decimal floating point in scientific notation missing exponent", token_value, c, starting_position);
+        }
+        while(std::isdigit(c)){
+            l.advance_input(token_value,c);
+        }
+    }
+    //Suffix handling
+    if(c == 'f' || c == 'F' || c == 'l' || c == 'L'){
+        l.advance_input(token_value, c);
+    }
+    return create_token(token::TokenType::FloatLiteral, token_value, starting_position, l.current_pos);
+}
+token::Token Lexer::LexingSubmethods::lex_hex_fractional(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position){
+    //Assumes that token_value already contains the integral part, if any
+    if(c == '.'){
+        l.advance_input(token_value, c);
+    }
+    while(std::isxdigit(c)){
+        l.advance_input(token_value, c);
     }
     if(c != 'p' && c != 'P'){
         throw lexer_error::InvalidLiteral(
                 "Hexadecimal floating point values are required to have an exponent", token_value, c, starting_position);
     }
     l.advance_input(token_value, c);
+    if(c == '+' || c == '-'){
+        l.advance_input(token_value, c);
+    }
     if(!std::isdigit(c)){
         throw lexer_error::InvalidLiteral(
                 "Hexadecimal floating point values are required to have a decimal exponent", token_value, c, starting_position);
@@ -152,7 +180,6 @@ token::Token Lexer::LexingSubmethods::lex_hex_float(Lexer& l, char& c, std::stri
     //Suffix handling
     if(c == 'f' || c == 'F' || c == 'l' || c == 'L'){
         l.advance_input(token_value, c);
-        return create_token(token::TokenType::FloatLiteral, token_value, starting_position, l.current_pos);
     }
     return create_token(token::TokenType::FloatLiteral, token_value, starting_position, l.current_pos);
 }
@@ -195,7 +222,7 @@ token::Token Lexer::LexingSubmethods::lex_numeric_literals(Lexer& l){
                 return create_token(token::TokenType::IntegerLiteral, token_value, starting_position, l.current_pos);
             }else{
                 //Hex floating point
-                return Lexer::LexingSubmethods::lex_hex_float(l,c,token_value, starting_position);
+                return Lexer::LexingSubmethods::lex_hex_fractional(l,c,token_value, starting_position);
             }
         }else{
             //Octal integer or decimal float
@@ -215,7 +242,7 @@ token::Token Lexer::LexingSubmethods::lex_numeric_literals(Lexer& l){
                 return create_token(token::TokenType::IntegerLiteral, token_value, starting_position, l.current_pos);
             }else{
                 //Decimal float with a leading 0
-                return Lexer::LexingSubmethods::lex_decimal_float(l,c,token_value, starting_position);
+                return Lexer::LexingSubmethods::lex_decimal_fractional(l,c,token_value, starting_position);
             }
         }
     }
@@ -227,7 +254,7 @@ token::Token Lexer::LexingSubmethods::lex_numeric_literals(Lexer& l){
         return create_token(token::TokenType::IntegerLiteral, token_value, starting_position, l.current_pos);
     }else{
         //Decimal floating point
-        return Lexer::LexingSubmethods::lex_decimal_float(l,c,token_value, starting_position);
+        return Lexer::LexingSubmethods::lex_decimal_fractional(l,c,token_value, starting_position);
     }
 }
 

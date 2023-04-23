@@ -53,7 +53,8 @@ struct Expr : public AST{
 
 struct Constant : public Expr{
     std::string literal;
-    Constant(std::string literal) : literal(literal) {}
+    std::string type;
+    Constant(token::Token tok);
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
