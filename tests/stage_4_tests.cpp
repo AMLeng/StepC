@@ -2,6 +2,7 @@
 #include "lexer.h"
 #include "lexer_error.h"
 #include "parse_error.h"
+#include "sem_error.h"
 #include "parse.h"
 #include <iostream>
 #include <sstream>
@@ -220,6 +221,47 @@ TEST_CASE("parse_decimal_lu"){
     auto c = ast::Constant(t);
     REQUIRE(c.type == "unsigned long int");
     REQUIRE(c.literal == "2532");
+}
+TEST_CASE("parse_dec_int"){
+    auto ss = std::stringstream("25");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "int");
+    REQUIRE(c.literal == "25");
+}
+
+//Weirder parsing cases where we need to promote
+//THESE CAN BE TARGET DEPENDENT!!!!!!!!
+TEST_CASE("parse_unsigned_hex_int_target_dependent"){
+    auto ss = std::stringstream("0xAFFFFFFF");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "unsigned int");
+    REQUIRE(c.literal == "2952790015");
+}
+TEST_CASE("parse_too_large_dec_int_target_dependent"){
+    auto ss = std::stringstream("2952790015");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "long int");
+    REQUIRE(c.literal == "2952790015");
+}
+TEST_CASE("parse_unsigned_hex_long_target_dependent"){
+    auto ss = std::stringstream("01177777777777777777777");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "unsigned long int");
+    REQUIRE(c.literal == "11529215046068469759");
+}
+TEST_CASE("parse_too_large_dec_target_dependent"){
+    auto ss = std::stringstream("49517601571415210995964968959");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    REQUIRE_THROWS_AS(ast::Constant(t),sem_error::TypeError);
 }
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)

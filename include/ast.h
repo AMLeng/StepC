@@ -18,6 +18,7 @@ class Constant;
 class UnaryOp;
 
 typedef std::string Type;
+//Implemented in ast_sem.cpp and ast_codegen.cpp
 
 struct AST{
     virtual void pretty_print(int depth) = 0;
@@ -54,6 +55,7 @@ struct Expr : public AST{
 struct Constant : public Expr{
     std::string literal;
     std::string type;
+    token::Token tok;
     Constant(token::Token tok);
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;

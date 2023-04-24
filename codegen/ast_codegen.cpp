@@ -1,7 +1,26 @@
 #include "ast.h"
 #include <cassert>
-#include <cctype>
+#include <string>
+#include <limits>
 namespace ast{
+namespace{
+std::string float_to_hex(const std::string& literal_value){
+    return literal_value; //To fix later
+}
+std::string compute_ir_type(const std::string& c_type){
+    int bits = 0;
+    if(c_type.find("short") != std::string::npos){
+        bits = std::numeric_limits<unsigned short>::digits;
+    }else if(c_type.find("long") == std::string::npos){
+        bits = std::numeric_limits<unsigned int>::digits;
+    }else if(c_type.find("long long") == std::string::npos){
+        bits = std::numeric_limits<unsigned long>::digits;
+    }else{
+        bits = std::numeric_limits<unsigned long long>::digits;
+    }
+    return "i" + std::to_string(bits);
+}
+} //namespace
 void AST::print_whitespace(int depth, std::ostream& output){
     for(int i=0; i<depth; i++){
         output << "  ";
@@ -51,50 +70,6 @@ std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context:
     return nullptr;
 }
 
-Constant::Constant(token::Token tok){
-    literal = tok.value;
-    switch(tok.type){
-        case token::TokenType::IntegerLiteral:
-            while(!std::isxdigit(literal.back())){
-                auto c = literal.back();
-                literal.pop_back();
-                if(c == 'u' || c == 'U'){
-                    type = "unsigned " + type;
-                    continue;
-                }
-                if(c == 'l' || c == 'L'){
-                    type = type + "long ";
-                    continue;
-                }
-                //Unreachable
-                std::cout<<"This should be unreachable"<<std::endl;
-                assert(false);
-            }
-            type = type + "int";
-            break;
-        case token::TokenType::FloatLiteral:
-            switch(literal.back()){
-                case 'l':
-                case 'L':
-                    literal.pop_back();
-                    type = "long double";
-                    break;
-                case 'f':
-                case 'F':
-                    literal.pop_back();
-                    type = "float";
-                    break;
-                default:
-                    type = "double";
-                    assert(std::isdigit(literal.back()));
-
-            }
-            break;
-        default:
-            std::cout<<"This should be unreachable"<<std::endl;
-            assert(false);
-    }
-}
 
 void Constant::pretty_print(int depth){
     AST::print_whitespace(depth);
@@ -102,7 +77,15 @@ void Constant::pretty_print(int depth){
 }
 
 std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::Context& c){
-    return std::make_unique<value::Value>(literal);
+    switch(tok.type){
+        case token::TokenType::IntegerLiteral:
+            return std::make_unique<value::Value>(literal);
+        case token::TokenType::IntegerLiteral:
+            return std::make_unique<value::Value>(float_to_hex(literal));
+         default:
+            std::cout<<"This should be unreachable"<<std::endl;
+            assert(false);
+    }
 }
 
 void UnaryOp::pretty_print(int depth){
@@ -168,4 +151,5 @@ std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::C
             assert(false);
     }
 }
+
 } //namespace ast
