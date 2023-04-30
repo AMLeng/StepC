@@ -102,6 +102,10 @@ void UnaryOp::pretty_print(int depth){
 std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Context& c){
     auto inner_exp_register = arg->codegen(output, c);
     switch(tok.type){
+        case token::TokenType::Plus:
+            AST::print_whitespace(c.current_depth, output);
+            output << c.new_temp()<<" = add i32 0, " <<inner_exp_register->get_value() <<std::endl;
+            return std::make_unique<value::Value>(c.prev_temp(0));
         case token::TokenType::Minus:
             AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = sub i32 0, " <<inner_exp_register->get_value() <<std::endl;

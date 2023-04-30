@@ -160,6 +160,7 @@ UnaryOp::UnaryOp(token::Token op, std::unique_ptr<Expr> exp) :
     Expr(op), arg(std::move(exp)) {
     //Typechecking
     switch(op.type){
+        case token::TokenType::Plus:
         case token::TokenType::Minus:
             if(!type::is_arith(this->arg->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",this->arg->tok);

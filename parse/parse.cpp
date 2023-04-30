@@ -63,6 +63,7 @@ namespace{
         auto op_token = l.get_token();
         if(!matches_type(op_token,
             token::TokenType::Minus,
+            token::TokenType::Plus,
             token::TokenType::BitwiseNot,
             token::TokenType::Not)){
             throw parse_error::ParseError("Not valid unary operator",op_token);
@@ -90,6 +91,7 @@ namespace{
         }
         if(matches_type(expr_start,
             token::TokenType::Minus,
+            token::TokenType::Plus,
             token::TokenType::BitwiseNot,
             token::TokenType::Not)){
             expr_ptr =  parse_unary_op(l);

@@ -258,6 +258,16 @@ TEST_CASE("parse_dec_int"){
     REQUIRE(c.literal == "25");
 }
 
+TEST_CASE("parse_unary_plus"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 4+(+3);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+
 //Weirder parsing cases where we need to promote
 //THESE CAN BE TARGET DEPENDENT!!!!!!!!
 TEST_CASE("parse_unsigned_hex_int_target_dependent"){
