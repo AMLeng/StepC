@@ -31,3 +31,5 @@ In stage 3 and beyond, StepC can be essentially tested with Nora Sandler's test 
 * Stage 2: Add unary operators and some basic context/value classes to keep track of SSA registers. This is the last stage where "step_c.out" cannot take a file argument.
 
 * Stage 3: Add binary operators, parentheses for grouping, and operator precedence (essentially using [Pratt parsing](https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html)), added code to automatically call llc and g++ to create an executable. (We don't call opt beforehand, but one could do so to create more optimized code). 
+
+* Stage 4: New stage (not one of Nora Sandler's stages). Add in floating point constants (treating doubles and long doubles the same--higher precision long doubles are all target dependent), and started keeping track of types in parser/codegen.

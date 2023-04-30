@@ -56,7 +56,7 @@ struct Constant : public Expr{
     std::string literal;
     std::string type;
     token::Token tok;
-    Constant(token::Token tok);
+    Constant(const token::Token& tok);
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };

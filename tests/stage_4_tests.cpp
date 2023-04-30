@@ -137,50 +137,77 @@ R"(0x28.fpf)");
 //End lexer unit tests
 
 //Parser tests, type checking
-TEST_CASE("parse_hex_float_l"){
+TEST_CASE("parse_float_dec"){
     auto ss = std::stringstream(
-R"(0x28f.5p5l)");
-    lexer::Lexer l(ss);
-    auto t = l.get_token();
-    auto c = ast::Constant(t);
-    REQUIRE(c.type == "long double");
-    REQUIRE(c.literal == "0x28f.5p5");
-}
-TEST_CASE("parse_hex_float_L"){
-    auto ss = std::stringstream(
-R"(0x28f.5p5L)");
-    lexer::Lexer l(ss);
-    auto t = l.get_token();
-    auto c = ast::Constant(t);
-    REQUIRE(c.type == "long double");
-    REQUIRE(c.literal == "0x28f.5p5");
-}
-TEST_CASE("parse_hex_float_f"){
-    auto ss = std::stringstream(
-R"(0x28f.5p5f)");
+R"(1.1f)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type == "float");
-    REQUIRE(c.literal == "0x28f.5p5");
+    REQUIRE(c.literal == "0X3FF19999A0000000");
 }
-TEST_CASE("parse_hex_float_F"){
+TEST_CASE("parse_double_dec"){
     auto ss = std::stringstream(
-R"(0x28f.5p5F)");
-    lexer::Lexer l(ss);
-    auto t = l.get_token();
-    auto c = ast::Constant(t);
-    REQUIRE(c.type == "float");
-    REQUIRE(c.literal == "0x28f.5p5");
-}
-TEST_CASE("parse_hex_float"){
-    auto ss = std::stringstream(
-R"(0x28f.5p5)");
+R"(1.1)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type == "double");
-    REQUIRE(c.literal == "0x28f.5p5");
+    REQUIRE(c.literal == "0X3FF199999999999A");
+}
+TEST_CASE("parse_hex_float"){
+    auto ss = std::stringstream(
+R"(0x1.1999999999999999Ap-64f)");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "float");
+    REQUIRE(c.literal == "0X3BF19999A0000000");
+}
+TEST_CASE("parse_hex_float_normal"){
+    auto ss = std::stringstream(
+R"(0x1.19999Ap-64f)");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "float");
+    REQUIRE(c.literal == "0X3BF19999A0000000");
+}
+TEST_CASE("parse_hex_float_barely_subnormal"){
+    auto ss = std::stringstream(
+R"(0x1.19999Ap-127F)");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "float");
+    REQUIRE(c.literal == "0X3801999980000000");
+}
+TEST_CASE("parse_hex_float_subnormal_2"){
+    auto ss = std::stringstream(
+R"(0x1.19999Ap-129f)");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "float");
+    REQUIRE(c.literal == "0X37E1999A00000000");
+}
+TEST_CASE("parse_hex_double"){
+    auto ss = std::stringstream(
+R"(0x1.1999999999999999Ap-64)");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "double");
+    REQUIRE(c.literal == "0X3BF199999999999A");
+}
+TEST_CASE("parse_hex_long_double"){
+    auto ss = std::stringstream(
+R"(0x1.19999999999999999Ap-64l)");
+    lexer::Lexer l(ss);
+    auto t = l.get_token();
+    auto c = ast::Constant(t);
+    REQUIRE(c.type == "long double");
+    REQUIRE(c.literal == "0X3BF199999999999A");
 }
 TEST_CASE("parse_decimal_U"){
     auto ss = std::stringstream("2532U");

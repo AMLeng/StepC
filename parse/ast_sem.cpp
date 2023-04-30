@@ -1,8 +1,12 @@
 #include "ast.h"
-#include <cassert>
 #include <cctype>
+#include <cassert>
 #include <limits>
 #include "sem_error.h"
+#include <iomanip>
+#include <string>
+#include <cstring>
+#include <sstream>
 namespace ast{
 namespace{
 void correct_int_type(std::string& original_type, std::string& original_value, token::Token tok){
@@ -58,9 +62,55 @@ void correct_int_type(std::string& original_type, std::string& original_value, t
     }
     throw sem_error::TypeError("Not valid integer literal",tok);
 }
+
+std::string float_to_hex(const std::string& literal_value, const std::string& type){
+    //For now we "cheat" in two ways
+    //First, we use the C library functions
+    //Second, we make long doubles the same as doubles
+    //Together, this lets us avoid implementing arbitrary precision floats
+    //And avoids dealing with target-dependent long doubles
+    //Since llvm IR for long doubles is not target independent
+    std::stringstream stream;
+    double value = std::stod(literal_value);
+    std::uint64_t num = 0;
+    static_assert(sizeof(value) == 8);
+    static_assert(std::numeric_limits<double>::is_iec559);
+    std::memcpy(&num, &value, 8);
+    if(type == "float"){
+        std::uint64_t exp = 0;
+        std::memcpy(&exp, &value, 8);
+        //Clear out exponent from num
+        num <<= 12; 
+        num >>= 12;
+        //And clear significand from exp
+        exp >>= 52; 
+        int denormal_precision_loss = 0x381 - exp; //0x380 is equivalent to all 0s for a float
+        if(denormal_precision_loss < 0){
+            denormal_precision_loss = 0;
+        }
+        exp <<= 52; 
+        //Remove precision from num to make it as precise as a float
+        unsigned int sig_figs_lost = (52-23 + denormal_precision_loss);
+        std::uint64_t bits_lost = (num << (64-sig_figs_lost)) >> (64 - sig_figs_lost);
+        std::uint64_t rounding_mask = 1 << (sig_figs_lost - 1);
+        num >>= sig_figs_lost;
+        if((bits_lost & rounding_mask) != 0){
+            if((bits_lost & (~rounding_mask)) != 0
+                || ((num & 1u) == 1)
+                ){
+                //Either above 1/2 ULP, or we round to even
+                num++;
+            }
+        }
+        num <<= sig_figs_lost;
+        num += exp;
+    }
+    stream << std::showbase << std::hex << std::uppercase << num;
+    return stream.str();
+}
 } //namespace
 
-Constant::Constant(token::Token tok){
+Constant::Constant(const token::Token& tok) : tok(tok){
     literal = tok.value;
     switch(tok.type){
         case token::TokenType::IntegerLiteral:
@@ -76,8 +126,7 @@ Constant::Constant(token::Token tok){
                     continue;
                 }
                 //Unreachable
-                std::cout<<"This should be unreachable"<<std::endl;
-                assert(false);
+                assert(false && "This should be unreachable");
             }
             type = type + "int";
             correct_int_type(type, literal, tok);
@@ -99,10 +148,10 @@ Constant::Constant(token::Token tok){
                     assert(std::isdigit(literal.back()));
 
             }
+            literal = float_to_hex(literal, type);
             break;
         default:
-            std::cout<<"This should be unreachable"<<std::endl;
-            assert(false);
+            assert(false && "This should be unreachable");
     }
 }
 } //namespace ast

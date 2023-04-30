@@ -1,22 +1,27 @@
 #include "ast.h"
-#include <cassert>
-#include <string>
+#include "sem_error.h"
 #include <limits>
+#include <string>
+#include <cassert>
 namespace ast{
 namespace{
-std::string float_to_hex(const std::string& literal_value){
-    return literal_value; //To fix later
-}
-std::string compute_ir_type(const std::string& c_type){
+std::string ir_int_type(std::string c_type){
     int bits = 0;
-    if(c_type.find("short") != std::string::npos){
+    auto start_pos = c_type.find("unsigned ");
+    if(start_pos != std::string::npos){
+        c_type.erase(start_pos, 9); //Length of "unsigned "
+    }
+    if(c_type == "short"){
         bits = std::numeric_limits<unsigned short>::digits;
-    }else if(c_type.find("long") == std::string::npos){
+    }else if(c_type == "int"){
         bits = std::numeric_limits<unsigned int>::digits;
-    }else if(c_type.find("long long") == std::string::npos){
+    }else if(c_type == "long int"){
         bits = std::numeric_limits<unsigned long>::digits;
-    }else{
+    }else if(c_type == "long long int"){
         bits = std::numeric_limits<unsigned long long>::digits;
+    }
+    if(bits == 0){
+        assert(false && "Unknown C integer type");
     }
     return "i" + std::to_string(bits);
 }
@@ -66,7 +71,8 @@ void ReturnStmt::pretty_print(int depth){
 std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context::Context& c){
     auto return_value = return_expr->codegen(output, c);
     AST::print_whitespace(c.current_depth, output);
-    output << "ret i32 " + return_value->get_value() << std::endl;
+    //Since right now we only return from main
+    output << "ret "+ir_int_type("int")+" "+ return_value->get_value() << std::endl;
     return nullptr;
 }
 
@@ -77,15 +83,7 @@ void Constant::pretty_print(int depth){
 }
 
 std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::Context& c){
-    switch(tok.type){
-        case token::TokenType::IntegerLiteral:
-            return std::make_unique<value::Value>(literal);
-        case token::TokenType::IntegerLiteral:
-            return std::make_unique<value::Value>(float_to_hex(literal));
-         default:
-            std::cout<<"This should be unreachable"<<std::endl;
-            assert(false);
-    }
+    return std::make_unique<value::Value>(this->literal);
 }
 
 void UnaryOp::pretty_print(int depth){
@@ -112,8 +110,7 @@ std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Co
             output << c.new_temp()<<" = zext i1 "<< c.prev_temp(1) <<" to i32"<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         default:
-            std::cout<<"This should be unreachable"<<std::endl;
-            assert(false);
+            assert(false && "This should be unreachable");
     }
 }
 
@@ -147,8 +144,7 @@ std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::C
             output << c.new_temp()<<" = sdiv i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         default:
-            std::cout<<"This should be unreachable"<<std::endl;
-            assert(false);
+            assert(false && "This should be unreachable");
     }
 }
 
