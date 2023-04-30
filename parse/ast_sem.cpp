@@ -2,6 +2,7 @@
 #include <cctype>
 #include <cassert>
 #include <limits>
+#include "type.h"
 #include "sem_error.h"
 #include <iomanip>
 #include <string>
@@ -9,7 +10,8 @@
 #include <sstream>
 namespace ast{
 namespace{
-void correct_int_type(std::string& original_type, std::string& original_value, token::Token tok){
+void correct_literal_int_type(std::string& original_type, std::string& original_value, token::Token tok){
+    assert(type::is_int(original_type));
     bool consider_signed = (original_type.find("unsigned") == std::string::npos);
     bool is_dec = (original_value.at(0) != '0');
     unsigned long long int int_value = -1;
@@ -60,7 +62,6 @@ void correct_int_type(std::string& original_type, std::string& original_value, t
             return;
         }
     }
-    throw sem_error::TypeError("Not valid integer literal",tok);
 }
 
 std::string float_to_hex(const std::string& literal_value, const std::string& type){
@@ -110,7 +111,7 @@ std::string float_to_hex(const std::string& literal_value, const std::string& ty
 }
 } //namespace
 
-Constant::Constant(const token::Token& tok) : tok(tok){
+Constant::Constant(const token::Token& tok) : Expr(tok){
     literal = tok.value;
     switch(tok.type){
         case token::TokenType::IntegerLiteral:
@@ -129,7 +130,7 @@ Constant::Constant(const token::Token& tok) : tok(tok){
                 assert(false && "This should be unreachable");
             }
             type = type + "int";
-            correct_int_type(type, literal, tok);
+            correct_literal_int_type(type, literal, tok);
             break;
         case token::TokenType::FloatLiteral:
             switch(literal.back()){
@@ -152,6 +153,47 @@ Constant::Constant(const token::Token& tok) : tok(tok){
             break;
         default:
             assert(false && "This should be unreachable");
+    }
+}
+
+UnaryOp::UnaryOp(token::Token op, std::unique_ptr<Expr> exp) : 
+    Expr(op), arg(std::move(exp)) {
+    //Typechecking
+    assert((exp != nullptr) && "No unary operad");
+    switch(op.type){
+        case token::TokenType::Minus:
+            if(!type::is_arith(exp->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            break;
+        case token::TokenType::Not:
+            if(!type::is_scalar(exp->type)){
+                throw sem_error::TypeError("Operand of scalar type required",tok);
+            }
+            break;
+        case token::TokenType::BitwiseNot:
+            if(!type::is_int(exp->type)){
+                throw sem_error::TypeError("Operand of integer type required", tok);
+            }
+            break;
+        default:
+            assert(false && "Unknown unary operator type");
+    }
+}
+BinaryOp::BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
+    Expr(op), left(std::move(left)), right(std::move(right)) {
+    assert((left != nullptr) && "No binary left operad");
+    assert((right != nullptr) && "No binary right operad");
+    switch(op.type){
+        case token::TokenType::Plus:
+        case token::TokenType::Minus:
+        case token::TokenType::Mult:
+        case token::TokenType::Div:
+            if(!type::is_arith(left->type) || !type::is_arith(right->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+        default:
+            assert(false && "Unknown binary operator type");
     }
 }
 } //namespace ast

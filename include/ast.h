@@ -50,12 +50,13 @@ struct ReturnStmt : public AST{
 };
 
 struct Expr : public AST{
+    std::string type;
+    token::Token tok;
+    Expr(token::Token tok) : tok(tok){}
 };
 
 struct Constant : public Expr{
     std::string literal;
-    std::string type;
-    token::Token tok;
     Constant(const token::Token& tok);
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
@@ -63,9 +64,7 @@ struct Constant : public Expr{
 
 struct UnaryOp : public Expr{
     std::unique_ptr<Expr> arg;
-    token::TokenType op;
-    UnaryOp(token::TokenType op_name, std::unique_ptr<Expr> exp) : 
-        Expr(), op(op_name), arg(std::move(exp)) {}
+    UnaryOp(token::Token op, std::unique_ptr<Expr> exp);
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
@@ -73,9 +72,7 @@ struct UnaryOp : public Expr{
 struct BinaryOp : public Expr{
     std::unique_ptr<Expr> left;
     std::unique_ptr<Expr> right;
-    token::TokenType op;
-    BinaryOp(token::TokenType op_name, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
-        Expr(), op(op_name), left(std::move(left)), right(std::move(right)) {}
+    BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right);
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };

@@ -5,6 +5,13 @@
 #include <cassert>
 namespace ast{
 namespace{
+std::string ir_float_type(const std::string& c_type){
+    if(c_type == "long double"){
+        return "double";
+    }else{
+        return c_type;
+    }
+}
 std::string ir_int_type(std::string c_type){
     int bits = 0;
     auto start_pos = c_type.find("unsigned ");
@@ -88,13 +95,13 @@ std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::C
 
 void UnaryOp::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"UNARY OP "<<token::string_name(op)<<" ON EXPR"<<std::endl;
+    std::cout<<"UNARY OP "<<token::string_name(tok.type)<<" ON EXPR"<<std::endl;
     arg->pretty_print(depth+1);
 }
 
 std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Context& c){
     auto inner_exp_register = arg->codegen(output, c);
-    switch(op){
+    switch(tok.type){
         case token::TokenType::Minus:
             AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = sub i32 0, " <<inner_exp_register->get_value() <<std::endl;
@@ -110,13 +117,13 @@ std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Co
             output << c.new_temp()<<" = zext i1 "<< c.prev_temp(1) <<" to i32"<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         default:
-            assert(false && "This should be unreachable");
+            assert(false && "Operator Not Implemented");
     }
 }
 
 void BinaryOp::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"BINARY OP "<<token::string_name(op)<<" WITH LEFT ARG"<<std::endl;
+    std::cout<<"BINARY OP "<<token::string_name(tok.type)<<" WITH LEFT ARG"<<std::endl;
     left->pretty_print(depth+1);
     AST::print_whitespace(depth);
     std::cout<<"AND RIGHT ARG"<<std::endl;
@@ -126,7 +133,7 @@ void BinaryOp::pretty_print(int depth){
 std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::Context& c){
     auto left_register = left->codegen(output, c);
     auto right_register = right->codegen(output, c);
-    switch(op){
+    switch(tok.type){
         case token::TokenType::Minus:
             AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = sub i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;

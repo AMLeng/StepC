@@ -10,7 +10,7 @@ project(IncrementalC
 )
 
 add_library(lex lex/lexer.cpp)
-add_library(parse parse/parse.cpp parse/ast_sem.cpp)
+add_library(parse parse/parse.cpp parse/ast_sem.cpp parse/type.cpp)
 add_library(codegen codegen/ast_codegen.cpp)
 
 add_executable(stage_1_tests tests/stage_1_tests.cpp)

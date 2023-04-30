@@ -68,7 +68,7 @@ namespace{
             throw parse_error::ParseError("Not valid unary operator",op_token);
         }
         auto expr = parse_expr(l, unary_op_binding_power);
-        return std::make_unique<ast::UnaryOp>(op_token.type,std::move(expr));
+        return std::make_unique<ast::UnaryOp>(op_token,std::move(expr));
     }
 
     std::unique_ptr<ast::BinaryOp> parse_binary_op(lexer::Lexer& l, std::unique_ptr<ast::Expr> left, int min_bind_power){
@@ -77,7 +77,7 @@ namespace{
             throw parse_error::ParseError("Not valid binary operator",op_token);
         }
         auto right = parse_expr(l, min_bind_power);
-        return std::make_unique<ast::BinaryOp>(op_token.type,std::move(left),std::move(right));
+        return std::make_unique<ast::BinaryOp>(op_token,std::move(left),std::move(right));
     }
 
     std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
