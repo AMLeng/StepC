@@ -1,9 +1,11 @@
 #ifndef _TYPE_
 #define _TYPE_
 #include <string>
+#include <utility>
 namespace type{
 //Converting
 std::string integer_promotions(const std::string& type);
+std::string usual_arithmetic_conversions(std::string type1, std::string type2);
 
 //Checking
 bool is_signed_int(const std::string& type);

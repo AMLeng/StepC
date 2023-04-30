@@ -159,22 +159,24 @@ Constant::Constant(const token::Token& tok) : Expr(tok){
 UnaryOp::UnaryOp(token::Token op, std::unique_ptr<Expr> exp) : 
     Expr(op), arg(std::move(exp)) {
     //Typechecking
-    assert((exp != nullptr) && "No unary operad");
     switch(op.type){
         case token::TokenType::Minus:
-            if(!type::is_arith(exp->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",this->arg->tok);
             }
+            this->type = type::integer_promotions(this->arg->type);
             break;
         case token::TokenType::Not:
-            if(!type::is_scalar(exp->type)){
-                throw sem_error::TypeError("Operand of scalar type required",tok);
+            if(!type::is_scalar(this->arg->type)){
+                throw sem_error::TypeError("Operand of scalar type required",this->arg->tok);
             }
+            this->type = type::integer_promotions(this->arg->type);
             break;
         case token::TokenType::BitwiseNot:
-            if(!type::is_int(exp->type)){
-                throw sem_error::TypeError("Operand of integer type required", tok);
+            if(!type::is_int(this->arg->type)){
+                throw sem_error::TypeError("Operand of integer type required", this->arg->tok);
             }
+            this->type = type::integer_promotions(this->arg->type);
             break;
         default:
             assert(false && "Unknown unary operator type");
@@ -182,16 +184,16 @@ UnaryOp::UnaryOp(token::Token op, std::unique_ptr<Expr> exp) :
 }
 BinaryOp::BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
     Expr(op), left(std::move(left)), right(std::move(right)) {
-    assert((left != nullptr) && "No binary left operad");
-    assert((right != nullptr) && "No binary right operad");
     switch(op.type){
         case token::TokenType::Plus:
         case token::TokenType::Minus:
         case token::TokenType::Mult:
         case token::TokenType::Div:
-            if(!type::is_arith(left->type) || !type::is_arith(right->type)){
+            if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",tok);
             }
+            this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            break;
         default:
             assert(false && "Unknown binary operator type");
     }
