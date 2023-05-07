@@ -18,7 +18,6 @@ class Expr;
 class Constant;
 class UnaryOp;
 
-typedef std::string Type;
 //Implemented in ast_sem.cpp and ast_codegen.cpp
 
 struct AST{
@@ -36,9 +35,10 @@ struct Program : public AST{
 
 struct FunctionDef : public AST{
     std::string name;
-    Type return_type;
+    type::BasicType return_type;
     std::unique_ptr<ReturnStmt> function_body;
-    FunctionDef(std::string name, Type ret_type, std::unique_ptr<ReturnStmt> ret) : name(name), return_type(ret_type), function_body(std::move(ret)) {}
+    FunctionDef(std::string name, type::BasicType ret_type, std::unique_ptr<ReturnStmt> ret) : 
+        name(name), return_type(ret_type), function_body(std::move(ret)) {}
     void pretty_print(int depth);
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };

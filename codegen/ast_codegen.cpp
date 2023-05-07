@@ -51,7 +51,7 @@ std::unique_ptr<value::Value> codegen_convert(type::BasicType target_type, std::
         return convert_command(t, s);
     }, target_type, val->get_type());
 
-    AST::print_whitespace(c.current_depth, output);
+    AST::print_whitespace(c.depth(), output);
     output << c.new_temp()<<" = " << command <<" " << type::ir_type(val->get_type()) <<" ";
     output << val->get_value() << " to " << type::ir_type(target_type) << std::endl;
     return std::make_unique<value::Value>(c.prev_temp(0), target_type);
@@ -76,7 +76,7 @@ std::unique_ptr<value::Value> Program::codegen(std::ostream& output, context::Co
 
 void FunctionDef::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<< return_type<< " FUNCTION "<<name <<":"<<std::endl;
+    std::cout<< type::to_string(return_type) << " FUNCTION "<<name <<":"<<std::endl;
     AST::print_whitespace(depth+1);
     std::cout<< "PARAMS: ()" << std::endl;
     AST::print_whitespace(depth+1);
@@ -85,15 +85,17 @@ void FunctionDef::pretty_print(int depth){
 }
 
 std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context::Context& c){
-    assert(return_type == "int");
-    AST::print_whitespace(c.current_depth, output);
-    output << "define i32 @" + name+"(){"<<std::endl;
-    c.current_depth++;
+    assert(return_type == type::make_basic(type::IType::Int));
+    AST::print_whitespace(c.depth(), output);
+    output << "define "<<type::ir_type(return_type)<<" @" + name+"(){"<<std::endl;
+    c.enter_function(return_type);
     function_body->codegen(output, c);
-    c.current_depth--;
-    AST::print_whitespace(c.current_depth, output);
+    c.exit_function();
+    AST::print_whitespace(c.depth(), output);
     output << "}"<<std::endl;
-    return std::make_unique<value::Value>("@"+name, type::from_str("i32"));
+    //Ultimately upgrade to full function signature type
+    //Once we add function arguments
+    return std::make_unique<value::Value>("@"+name, return_type); 
 }
 
 void ReturnStmt::pretty_print(int depth){
@@ -103,7 +105,7 @@ void ReturnStmt::pretty_print(int depth){
 }
 std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context::Context& c){
     auto return_value = return_expr->codegen(output, c);
-    AST::print_whitespace(c.current_depth, output);
+    AST::print_whitespace(c.depth(), output);
     //Since right now we only return from main
     output << "ret "+type::ir_type(type::from_str("int"))+" "+ return_value->get_value() << std::endl;
     return nullptr;
@@ -134,20 +136,20 @@ std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Co
             return codegen_convert(this->type, std::move(operand), output, c);
         case token::TokenType::Minus:
             operand =  codegen_convert(this->type, std::move(operand), output, c);
-            AST::print_whitespace(c.current_depth, output);
+            AST::print_whitespace(c.depth(), output);
             output << c.new_temp()<<" = sub "<<t<<" 0, " <<operand->get_value() <<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::BitwiseNot:
             operand =  codegen_convert(this->type, std::move(operand), output, c);
-            AST::print_whitespace(c.current_depth, output);
+            AST::print_whitespace(c.depth(), output);
             output << c.new_temp()<<" = xor "<<t<<" -1, " <<operand->get_value() <<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::Not:
             assert(t == "i32");
-            AST::print_whitespace(c.current_depth, output);
+            AST::print_whitespace(c.depth(), output);
             output << c.new_temp()<<" = icmp eq "<<type::ir_type(operand->get_type());
             output <<" 0, " <<operand->get_value() <<std::endl;
-            AST::print_whitespace(c.current_depth, output);
+            AST::print_whitespace(c.depth(), output);
             output << c.new_temp()<<" = zext i1 "<< c.prev_temp(1) <<" to "<<t<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0), this->type);
         default:
@@ -167,22 +169,23 @@ void BinaryOp::pretty_print(int depth){
 std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::Context& c){
     auto left_register = left->codegen(output, c);
     auto right_register = right->codegen(output, c);
+    std::string t = type::ir_type(this->type);
     switch(tok.type){
         case token::TokenType::Minus:
-            AST::print_whitespace(c.current_depth, output);
-            output << c.new_temp()<<" = sub i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
+            AST::print_whitespace(c.depth(), output);
+            output << c.new_temp()<<" = sub "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::Plus:
-            AST::print_whitespace(c.current_depth, output);
-            output << c.new_temp()<<" = add i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
+            AST::print_whitespace(c.depth(), output);
+            output << c.new_temp()<<" = add "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::Mult:
-            AST::print_whitespace(c.current_depth, output);
-            output << c.new_temp()<<" = mul i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
+            AST::print_whitespace(c.depth(), output);
+            output << c.new_temp()<<" = mul "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::Div:
-            AST::print_whitespace(c.current_depth, output);
-            output << c.new_temp()<<" = sdiv i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
+            AST::print_whitespace(c.depth(), output);
+            output << c.new_temp()<<" = sdiv "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0), this->type);
         default:
             assert(false && "Unknown binary op during codegen");

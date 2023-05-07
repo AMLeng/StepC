@@ -1,4 +1,5 @@
 #include "parse.h"
+#include "type.h"
 #include "parse_error.h"
 #include <iostream>
 #include <cassert>
@@ -149,7 +150,7 @@ namespace{
         auto function_body = parse_return_stmt(l);
 
         check_token_type(l.get_token(), token::TokenType::RBrace);
-        return std::make_unique<ast::FunctionDef>(name.value, ret_type.value, std::move(function_body));
+        return std::make_unique<ast::FunctionDef>(name.value, type::from_str(ret_type.value), std::move(function_body));
     }
 }//namespace
 
