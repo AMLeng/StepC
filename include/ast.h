@@ -4,6 +4,7 @@
 #include "context.h"
 #include "value.h"
 #include "token.h"
+#include "type.h"
 #ifndef _AST_
 #define _AST_
 namespace ast{
@@ -50,7 +51,7 @@ struct ReturnStmt : public AST{
 };
 
 struct Expr : public AST{
-    std::string type;
+    type::BasicType type;
     token::Token tok;
     Expr(token::Token tok) : tok(tok){}
 };

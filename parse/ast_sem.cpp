@@ -10,74 +10,48 @@
 #include <sstream>
 namespace ast{
 namespace{
-void correct_literal_int_type(std::string& original_type, std::string& original_value, token::Token tok){
+void finish_literal_int_parse(type::BasicType& original_type, std::string& original_value, token::Token tok){
     assert(type::is_int(original_type));
-    bool consider_signed = (original_type.find("unsigned") == std::string::npos);
-    bool is_dec = (original_value.at(0) != '0');
-    unsigned long long int int_value = -1;
+    type::IType int_type = std::get<type::IType>(original_type);
+
+    //Consider unsigned if either originally unsigned or is not decimal literal
+    bool consider_unsigned = type::is_unsigned_int(original_type) || (original_value.at(0) == '0');
+    unsigned long long int value = -1;
     try{
-        int_value = std::stoull(original_value, nullptr, 0);
+        value = std::stoull(original_value, nullptr, 0);
     }catch(const std::out_of_range& e){
         throw sem_error::TypeError("Integer literal too large for unsigned long long",tok);
     }
-    assert(int_value >= 0);
-    original_value = std::to_string(int_value);
-    if(original_type.find("long") == std::string::npos){
-        if(consider_signed){
-            if(int_value <= std::numeric_limits<int>::max()){
-                original_type = "int";
-                return;
-            }
-        }
-        if(!consider_signed || !is_dec){
-            if(int_value <= std::numeric_limits<unsigned int>::max()){
-                original_type = "unsigned int";
-                return;
-            }
-        }
-    }
-    if(original_type.find("long long") == std::string::npos){
-        if(consider_signed){
-            if(int_value <= std::numeric_limits<long int>::max()){
-                original_type = "long int";
-                return;
-            }
-        }
-        if(!consider_signed || !is_dec){
-            if(int_value <= std::numeric_limits<unsigned long int>::max()){
-                original_type = "unsigned long int";
-                return;
-            }
-        }
-    }
-    if(consider_signed){
-        if(int_value <= std::numeric_limits<long long int>::max()){
-            original_type = "long long int";
+    assert(value >= 0);
+    original_value = std::to_string(value);
+    do{
+        if(type::can_represent(int_type, value)){
+            original_type = type::make_basic(int_type);
             return;
         }
-    }
-    if(!consider_signed || !is_dec){
-        if(int_value <= std::numeric_limits<unsigned long long int>::max()){
-            original_type = "unsigned long long int";
+        if(consider_unsigned && type::can_represent(type::to_unsigned(int_type),value)){
+            original_type = type::make_basic(type::to_unsigned(int_type));
             return;
         }
-    }
+    }while(type::promote_one_rank(int_type));
+    throw sem_error::TypeError("Unsigned long long required to hold signed integer literal",tok);
 }
 
-std::string float_to_hex(const std::string& literal_value, const std::string& type){
+std::string float_to_hex(const std::string& literal_value, type::BasicType type){
     //For now we "cheat" in two ways
     //First, we use the C library functions
     //Second, we make long doubles the same as doubles
     //Together, this lets us avoid implementing arbitrary precision floats
     //And avoids dealing with target-dependent long doubles
     //Since llvm IR for long doubles is not target independent
+    assert(type::is_float(type));
     std::stringstream stream;
     double value = std::stod(literal_value);
     std::uint64_t num = 0;
     static_assert(sizeof(value) == 8);
     static_assert(std::numeric_limits<double>::is_iec559);
     std::memcpy(&num, &value, 8);
-    if(type == "float"){
+    if(std::get<type::FType>(type) == type::FType::Float){
         std::uint64_t exp = 0;
         std::memcpy(&exp, &value, 8);
         //Clear out exponent from num
@@ -113,46 +87,48 @@ std::string float_to_hex(const std::string& literal_value, const std::string& ty
 
 Constant::Constant(const token::Token& tok) : Expr(tok){
     literal = tok.value;
+    std::string type_str = "";
     switch(tok.type){
         case token::TokenType::IntegerLiteral:
             while(!std::isxdigit(literal.back())){
                 auto c = literal.back();
                 literal.pop_back();
                 if(c == 'u' || c == 'U'){
-                    type = "unsigned " + type;
+                    type_str = "unsigned " + type_str;
                     continue;
                 }
                 if(c == 'l' || c == 'L'){
-                    type = type + "long ";
+                    type_str = type_str + "long ";
                     continue;
                 }
                 //Unreachable
                 assert(false && "This should be unreachable");
             }
-            type = type + "int";
-            correct_literal_int_type(type, literal, tok);
+            type_str = type_str + "int";
+            type = type::from_str(type_str);
+            finish_literal_int_parse(type, literal, tok);
             break;
         case token::TokenType::FloatLiteral:
             switch(literal.back()){
                 case 'l':
                 case 'L':
                     literal.pop_back();
-                    type = "long double";
+                    type = type::from_str("long double");
                     break;
                 case 'f':
                 case 'F':
                     literal.pop_back();
-                    type = "float";
+                    type = type::from_str("float");
                     break;
                 default:
-                    type = "double";
+                    type = type::from_str("double");
                     assert(std::isdigit(literal.back()));
 
             }
             literal = float_to_hex(literal, type);
             break;
         default:
-            assert(false && "This should be unreachable");
+            assert(false && "Unknown literal type");
     }
 }
 

@@ -1,6 +1,8 @@
 #ifndef _TOKEN_
 #define _TOKEN_
 #include "location.h"
+#include <string>
+#include <ostream>
 namespace token{
 enum class TokenType{
     LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,
@@ -20,7 +22,7 @@ struct Token{
     }
 };
 
-static std::string string_name(TokenType type){
+inline std::string string_name(TokenType type){
     switch(type){
         case TokenType:: LBrace:
             return "left brace '{'";
@@ -60,13 +62,17 @@ static std::string string_name(TokenType type){
             return "comment";
         case TokenType:: END:
             return "end of input stream";
-        default:
-            //Annotation or g++ complains
-            __builtin_unreachable();
-            assert(false);
-            return "unknown type";
     }
+    //Annotation or g++ complains
+    __builtin_unreachable();
+    assert(false);
 }
-
 }//namespace token
+
+namespace std{
+inline ostream& operator<<(ostream& out, token::TokenType type){
+    out << token::string_name(type);
+    return out;
+}
+}
 #endif

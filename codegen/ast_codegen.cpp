@@ -86,7 +86,7 @@ std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context:
 
 void Constant::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"CONSTANT "<<literal<<" of type "<<type<<std::endl;
+    std::cout<<"CONSTANT "<<literal<<" of type "<< to_string(type) <<std::endl;
 }
 
 std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::Context& c){
@@ -95,7 +95,7 @@ std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::C
 
 void UnaryOp::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"UNARY OP "<<token::string_name(tok.type)<<" ON EXPR"<<std::endl;
+    std::cout<<"UNARY OP "<< tok.type <<" ON EXPR"<<std::endl;
     arg->pretty_print(depth+1);
 }
 
@@ -127,7 +127,7 @@ std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Co
 
 void BinaryOp::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"BINARY OP "<<token::string_name(tok.type)<<" WITH LEFT ARG"<<std::endl;
+    std::cout<<"BINARY OP "<< tok.type <<" WITH LEFT ARG"<<std::endl;
     left->pretty_print(depth+1);
     AST::print_whitespace(depth);
     std::cout<<"AND RIGHT ARG"<<std::endl;
@@ -155,7 +155,7 @@ std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::C
             output << c.new_temp()<<" = sdiv i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0));
         default:
-            assert(false && "This should be unreachable");
+            assert(false && "Unknown binary op during codegen");
     }
 }
 
