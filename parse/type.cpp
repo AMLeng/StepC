@@ -161,7 +161,10 @@ BasicType from_str(const std::string& type){
 }
 
 //Converting
-BasicType integer_promotions(BasicType type){
+BasicType integer_promotions(const BasicType& type){
+    if(!std::holds_alternative<IType>(type)){
+        return type;
+    }
     if(conversion_rank.at(std::get<IType>(type)) > conversion_rank.at(IType::Int)){
         return type;
     }
@@ -185,8 +188,8 @@ BasicType usual_arithmetic_conversions(BasicType type1, BasicType type2){
     if(type1 == f || type2 == f){
         return f;
     }
-    type1 = integer_promotions(type1);
-    type2 = integer_promotions(type2);
+    type1 = integer_promotions(std::get<IType>(type1));
+    type2 = integer_promotions(std::get<IType>(type2));
     if(type1 == type2){
         return type1;
     }
@@ -194,6 +197,7 @@ BasicType usual_arithmetic_conversions(BasicType type1, BasicType type2){
     bool signed2 = is_signed_int(type2);
     int r1 = conversion_rank.at(std::get<IType>(type1));
     int r2 = conversion_rank.at(std::get<IType>(type2));
+
     if(signed1 == signed2){
         if(r1<r2){
             return type2;

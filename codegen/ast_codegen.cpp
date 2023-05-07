@@ -105,9 +105,10 @@ void ReturnStmt::pretty_print(int depth){
 }
 std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context::Context& c){
     auto return_value = return_expr->codegen(output, c);
+    return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
+
     AST::print_whitespace(c.depth(), output);
-    //Since right now we only return from main
-    output << "ret "+type::ir_type(type::from_str("int"))+" "+ return_value->get_value() << std::endl;
+    output << "ret "+type::ir_type(c.return_type())+" "+ return_value->get_value() << std::endl;
     return nullptr;
 }
 

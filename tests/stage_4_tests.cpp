@@ -438,6 +438,44 @@ TEST_CASE("parse_too_large_dec_target_dependent"){
     REQUIRE_THROWS_AS(ast::Constant(t),sem_error::TypeError);
 }
 
+//Full program parses
+TEST_CASE("parse double"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 3.0;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse not double"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return !3.1375;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse minus float"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return -3.4f;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse bitwisenot ullong unspecified behavior"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return ~1ull;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 #ifdef STAGE_4
 

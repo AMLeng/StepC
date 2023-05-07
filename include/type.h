@@ -26,7 +26,7 @@ BasicType from_str(const std::string& type);
 
 //Converting
 BasicType usual_arithmetic_conversions(BasicType type1, BasicType type2);
-BasicType integer_promotions(BasicType type);
+BasicType integer_promotions(const BasicType& type);
 
 //I or F specific conversions
 IType to_unsigned(IType type); 

@@ -30,6 +30,10 @@ public:
     int depth() const{
         return current_depth;
     }
+    type::BasicType return_type(){
+        assert(ret_type);
+        return *ret_type;
+    }
 };
 } //namespace context
 #endif
