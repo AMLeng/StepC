@@ -1,38 +1,9 @@
 #include "ast.h"
 #include "sem_error.h"
-#include <limits>
+#include "type.h"
 #include <string>
 #include <cassert>
 namespace ast{
-namespace{
-std::string ir_float_type(const std::string& c_type){
-    if(c_type == "long double"){
-        return "double";
-    }else{
-        return c_type;
-    }
-}
-std::string ir_int_type(std::string c_type){
-    int bits = 0;
-    auto start_pos = c_type.find("unsigned ");
-    if(start_pos != std::string::npos){
-        c_type.erase(start_pos, 9); //Length of "unsigned "
-    }
-    if(c_type == "short"){
-        bits = std::numeric_limits<unsigned short>::digits;
-    }else if(c_type == "int"){
-        bits = std::numeric_limits<unsigned int>::digits;
-    }else if(c_type == "long int"){
-        bits = std::numeric_limits<unsigned long>::digits;
-    }else if(c_type == "long long int"){
-        bits = std::numeric_limits<unsigned long long>::digits;
-    }
-    if(bits == 0){
-        assert(false && "Unknown C integer type");
-    }
-    return "i" + std::to_string(bits);
-}
-} //namespace
 void AST::print_whitespace(int depth, std::ostream& output){
     for(int i=0; i<depth; i++){
         output << "  ";
@@ -79,7 +50,7 @@ std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context:
     auto return_value = return_expr->codegen(output, c);
     AST::print_whitespace(c.current_depth, output);
     //Since right now we only return from main
-    output << "ret "+ir_int_type("int")+" "+ return_value->get_value() << std::endl;
+    output << "ret "+type::ir_type(type::from_str("int"))+" "+ return_value->get_value() << std::endl;
     return nullptr;
 }
 

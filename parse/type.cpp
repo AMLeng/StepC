@@ -2,6 +2,7 @@
 #include <cassert>
 #include <map>
 #include <climits>
+#include <limits>
 namespace type{
 
 namespace{
@@ -56,6 +57,47 @@ unsigned long long max_value(BasicType type){
 
 bool can_represent(IType target, IType source){
     return can_represent(target, max_value(source));
+}
+
+std::string ir_type(FType type){
+    switch(type){
+        case FType::Float:
+            return "float";
+        case FType::LDouble:
+//We cheat here since other long doubles are target dependent
+//And the standard doesn't require long double to be distinct
+        case FType::Double:
+            return "double"; 
+    }
+    __builtin_unreachable();
+    assert(false);
+}
+std::string ir_type(IType type){
+    int bits = 0;
+    switch(type){
+        case IType::SChar:
+        case IType::Char:
+        case IType::UChar:
+            bits = std::numeric_limits<unsigned short>::digits;
+            break;
+        case IType::Short:
+        case IType::UShort:
+            bits = std::numeric_limits<unsigned short int>::digits;
+            break;
+        case IType::Int:
+        case IType::UInt:
+            bits = std::numeric_limits<unsigned int>::digits;
+            break;
+        case IType::Long:
+        case IType::ULong:
+            bits = std::numeric_limits<unsigned long>::digits;
+            break;
+        case IType::LLong:
+        case IType::ULLong:
+            bits = std::numeric_limits<unsigned long long>::digits;
+            break;
+    }
+    return "i" + std::to_string(bits);
 }
 
 }//namespace
@@ -327,5 +369,8 @@ std::string to_string(FType type){
 
 std::string to_string(BasicType type){
     return std::visit([](auto t){return to_string(t);},type);
+}
+std::string ir_type(BasicType type){
+    return std::visit([](auto t){return ir_type(t);},type);
 }
 }//namespace type

@@ -47,6 +47,7 @@ bool is_scalar(BasicType type);
 
 //Printing
 std::string to_string(BasicType type);
+std::string ir_type(BasicType type);
 
 }
 
