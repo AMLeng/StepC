@@ -24,5 +24,5 @@ class UnknownError : public ParseError{
             : ParseError(what_arg, tok) {}
 };
 
-} //namespace lexer_error
+} //namespace parse_error
 #endif

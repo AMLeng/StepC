@@ -1,4 +1,5 @@
 #include "parse.h"
+#include "type.h"
 #include "parse_error.h"
 #include <iostream>
 #include <cassert>
@@ -30,10 +31,6 @@ namespace{
         return tok.type == t || matches_type(tok, types...);
     }
 
-    bool is_literal(const token::Token& tok){
-        return matches_type(tok,token::TokenType::IntegerLiteral);
-    }
-
     bool matches_keyword(const token::Token& tok){
         assert(tok.type == token::TokenType::Keyword);
         return false;
@@ -55,22 +52,25 @@ namespace{
     //Definitions for parsing methods
     std::unique_ptr<ast::Constant> parse_constant(lexer::Lexer& l){
         auto constant_value = l.get_token();
-        if(!is_literal(constant_value)){
+        if(!matches_type(constant_value, 
+            token::TokenType::IntegerLiteral, 
+            token::TokenType::FloatLiteral)){
             throw parse_error::ParseError("Expected literal",constant_value);
         }
-        return std::make_unique<ast::Constant>(constant_value.value);
+        return std::make_unique<ast::Constant>(constant_value);
     }
     
     std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::Lexer& l){
         auto op_token = l.get_token();
         if(!matches_type(op_token,
             token::TokenType::Minus,
+            token::TokenType::Plus,
             token::TokenType::BitwiseNot,
             token::TokenType::Not)){
             throw parse_error::ParseError("Not valid unary operator",op_token);
         }
         auto expr = parse_expr(l, unary_op_binding_power);
-        return std::make_unique<ast::UnaryOp>(op_token.type,std::move(expr));
+        return std::make_unique<ast::UnaryOp>(op_token,std::move(expr));
     }
 
     std::unique_ptr<ast::BinaryOp> parse_binary_op(lexer::Lexer& l, std::unique_ptr<ast::Expr> left, int min_bind_power){
@@ -79,17 +79,20 @@ namespace{
             throw parse_error::ParseError("Not valid binary operator",op_token);
         }
         auto right = parse_expr(l, min_bind_power);
-        return std::make_unique<ast::BinaryOp>(op_token.type,std::move(left),std::move(right));
+        return std::make_unique<ast::BinaryOp>(op_token,std::move(left),std::move(right));
     }
 
     std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
         auto expr_start = l.peek_token();
         std::unique_ptr<ast::Expr> expr_ptr = nullptr;
-        if(is_literal(expr_start)){
+        if(matches_type(expr_start, 
+            token::TokenType::IntegerLiteral, 
+            token::TokenType::FloatLiteral)){
             expr_ptr =  parse_constant(l);
         }
         if(matches_type(expr_start,
             token::TokenType::Minus,
+            token::TokenType::Plus,
             token::TokenType::BitwiseNot,
             token::TokenType::Not)){
             expr_ptr =  parse_unary_op(l);
@@ -147,7 +150,7 @@ namespace{
         auto function_body = parse_return_stmt(l);
 
         check_token_type(l.get_token(), token::TokenType::RBrace);
-        return std::make_unique<ast::FunctionDef>(name.value, ret_type.value, std::move(function_body));
+        return std::make_unique<ast::FunctionDef>(name.value, type::from_str(ret_type.value), std::move(function_body));
     }
 }//namespace
 

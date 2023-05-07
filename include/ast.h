@@ -4,6 +4,7 @@
 #include "context.h"
 #include "value.h"
 #include "token.h"
+#include "type.h"
 #ifndef _AST_
 #define _AST_
 namespace ast{
@@ -17,7 +18,7 @@ class Expr;
 class Constant;
 class UnaryOp;
 
-typedef std::string Type;
+//Implemented in ast_sem.cpp and ast_codegen.cpp
 
 struct AST{
     virtual void pretty_print(int depth) = 0;
@@ -34,9 +35,10 @@ struct Program : public AST{
 
 struct FunctionDef : public AST{
     std::string name;
-    Type return_type;
+    type::BasicType return_type;
     std::unique_ptr<ReturnStmt> function_body;
-    FunctionDef(std::string name, Type ret_type, std::unique_ptr<ReturnStmt> ret) : name(name), return_type(ret_type), function_body(std::move(ret)) {}
+    FunctionDef(std::string name, type::BasicType ret_type, std::unique_ptr<ReturnStmt> ret) : 
+        name(name), return_type(ret_type), function_body(std::move(ret)) {}
     void pretty_print(int depth);
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
@@ -49,20 +51,21 @@ struct ReturnStmt : public AST{
 };
 
 struct Expr : public AST{
+    type::BasicType type;
+    token::Token tok;
+    Expr(token::Token tok) : tok(tok){}
 };
 
 struct Constant : public Expr{
     std::string literal;
-    Constant(std::string literal) : literal(literal) {}
+    Constant(const token::Token& tok);
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
 
 struct UnaryOp : public Expr{
     std::unique_ptr<Expr> arg;
-    token::TokenType op;
-    UnaryOp(token::TokenType op_name, std::unique_ptr<Expr> exp) : 
-        Expr(), op(op_name), arg(std::move(exp)) {}
+    UnaryOp(token::Token op, std::unique_ptr<Expr> exp);
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
@@ -70,9 +73,7 @@ struct UnaryOp : public Expr{
 struct BinaryOp : public Expr{
     std::unique_ptr<Expr> left;
     std::unique_ptr<Expr> right;
-    token::TokenType op;
-    BinaryOp(token::TokenType op_name, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
-        Expr(), op(op_name), left(std::move(left)), right(std::move(right)) {}
+    BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right);
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
