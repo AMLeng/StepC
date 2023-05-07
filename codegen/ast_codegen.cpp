@@ -5,6 +5,13 @@
 #include <cassert>
 namespace ast{
 
+template <class... Ts>
+struct overloaded : Ts...{
+    using Ts::operator()...;
+};
+
+template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
+
 namespace{
 std::string convert_command(type::IType target, type::IType source){
     if(type::can_represent(target, source)){
@@ -131,14 +138,21 @@ void UnaryOp::pretty_print(int depth){
 std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Context& c){
     auto operand = arg->codegen(output, c);
     std::string t = type::ir_type(this->type);
+    std::string command = "";
     switch(tok.type){
         //Can't factor out since behavior for Not is not just one operation
         case token::TokenType::Plus:
             return codegen_convert(this->type, std::move(operand), output, c);
         case token::TokenType::Minus:
             operand =  codegen_convert(this->type, std::move(operand), output, c);
+            //sub or fsub
+            command = std::visit(overloaded{
+                [](type::IType){return "sub";},
+                [](type::FType){return "fsub";},
+                }, operand->get_type());
+            
             AST::print_whitespace(c.depth(), output);
-            output << c.new_temp()<<" = sub "<<t<<" 0, " <<operand->get_value() <<std::endl;
+            output << c.new_temp()<<" = "<<command<<" "<<t<<" 0, " <<operand->get_value() <<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::BitwiseNot:
             operand =  codegen_convert(this->type, std::move(operand), output, c);
@@ -147,9 +161,19 @@ std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Co
             return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::Not:
             assert(t == "i32");
+            //icmp or fcmp
+            command = std::visit(overloaded{
+                [](type::IType){return "icmp eq";},
+                [](type::FType){return "fcmp oeq";},
+                }, operand->get_type());
+
             AST::print_whitespace(c.depth(), output);
-            output << c.new_temp()<<" = icmp eq "<<type::ir_type(operand->get_type());
-            output <<" 0, " <<operand->get_value() <<std::endl;
+            output << c.new_temp()<<" = "<<command<<" "<<type::ir_type(operand->get_type());
+            output << std::visit(overloaded{
+                [](type::IType){return " 0, ";},
+                [](type::FType){return " 0.0, ";},
+                }, operand->get_type()) << operand->get_value() <<std::endl;
+
             AST::print_whitespace(c.depth(), output);
             output << c.new_temp()<<" = zext i1 "<< c.prev_temp(1) <<" to "<<t<<std::endl;
             return std::make_unique<value::Value>(c.prev_temp(0), this->type);
@@ -168,29 +192,45 @@ void BinaryOp::pretty_print(int depth){
 }
 
 std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::Context& c){
-    auto left_register = left->codegen(output, c);
-    auto right_register = right->codegen(output, c);
+    auto left_register = this->left->codegen(output, c);
+    auto right_register = this->right->codegen(output, c);
+    left_register = codegen_convert(this->type, std::move(left_register), output, c);
+    right_register = codegen_convert(this->type, std::move(right_register), output, c);
     std::string t = type::ir_type(this->type);
+    std::string command = "";
     switch(tok.type){
         case token::TokenType::Minus:
-            AST::print_whitespace(c.depth(), output);
-            output << c.new_temp()<<" = sub "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0),this->type);
+            command = std::visit(overloaded{
+                [](type::IType){return "sub";},
+                [](type::FType){return "fsub";},
+                }, this->type);
+            break;
         case token::TokenType::Plus:
-            AST::print_whitespace(c.depth(), output);
-            output << c.new_temp()<<" = add "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0),this->type);
+            command = std::visit(overloaded{
+                [](type::IType){return "add";},
+                [](type::FType){return "fadd";},
+                }, this->type);
+            break;
         case token::TokenType::Mult:
-            AST::print_whitespace(c.depth(), output);
-            output << c.new_temp()<<" = mul "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0),this->type);
+            command = std::visit(overloaded{
+                [](type::IType){return "mul";},
+                [](type::FType){return "fmul";},
+                }, this->type);
+            break;
         case token::TokenType::Div:
-            AST::print_whitespace(c.depth(), output);
-            output << c.new_temp()<<" = sdiv "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0), this->type);
+            command = std::visit(overloaded{
+                [](type::IType t){
+                    if(type::is_signed_int(t)){return "sdiv";}
+                    else{return "udiv";}},
+                [](type::FType){return "fdiv";},
+                }, this->type);
+            break;
         default:
             assert(false && "Unknown binary op during codegen");
     }
+    AST::print_whitespace(c.depth(), output);
+    output << c.new_temp()<<" = "<<command<<" "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
+    return std::make_unique<value::Value>(c.prev_temp(0),this->type);
 }
 
 } //namespace ast

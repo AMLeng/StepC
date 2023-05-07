@@ -80,7 +80,7 @@ std::string float_to_hex(const std::string& literal_value, type::BasicType type)
         num <<= sig_figs_lost;
         num += exp;
     }
-    stream << std::showbase << std::hex << std::uppercase << num;
+    stream << "0x" << std::hex << std::uppercase<<num;
     return stream.str();
 }
 } //namespace
@@ -147,7 +147,7 @@ UnaryOp::UnaryOp(token::Token op, std::unique_ptr<Expr> exp) :
             if(!type::is_scalar(this->arg->type)){
                 throw sem_error::TypeError("Operand of scalar type required",this->arg->tok);
             }
-            this->type = type::integer_promotions(this->arg->type);
+            this->type = type::from_str("int");
             break;
         case token::TokenType::BitwiseNot:
             if(!type::is_int(this->arg->type)){
