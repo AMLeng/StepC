@@ -8,6 +8,8 @@
 #include <iostream>
 #include <sstream>
 #include <utility>
+#include <vector>
+#include <string>
 
 
 //Lexer unit tests
@@ -136,6 +138,140 @@ R"(0x28.fpf)");
     REQUIRE_THROWS_AS(l.get_token(), lexer_error::InvalidLiteral);
 }
 //End lexer unit tests
+
+//Type conversion/promotion tests
+TEST_CASE("promote_char_to_int"){
+    auto i = type::from_str("int");
+    auto c = type::from_str("char");
+    REQUIRE(i == type::integer_promotions(c));
+}
+
+TEST_CASE("promote_schar_to_int"){
+    auto i = type::from_str("int");
+    auto c = type::from_str("signed char");
+    REQUIRE(i == type::integer_promotions(c));
+}
+TEST_CASE("promote_ushort_to_int"){
+    auto i = type::from_str("int");
+    auto s = type::from_str("unsigned short int");
+    REQUIRE(i == type::integer_promotions(s));
+}
+TEST_CASE("promote_uint_to_uint"){
+    auto i = type::from_str("unsigned int");
+    auto s = type::from_str("unsigned int");
+    REQUIRE(i == type::integer_promotions(s));
+}
+//Test the arithmetic conversions for the types we've implemented
+TEST_CASE("usual_arith char char"){
+    auto a = type::from_str("char");
+    auto b = type::from_str("char");
+    auto result = type::from_str("int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith char double"){
+    auto a = type::from_str("char");
+    auto b = type::from_str("double");
+    auto result = type::from_str("double");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith char long"){
+    auto a = type::from_str("char");
+    auto b = type::from_str("long int");
+    auto result = type::from_str("long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith long short"){
+    auto a = type::from_str("long int");
+    auto b = type::from_str("short int");
+    auto result = type::from_str("long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith short ulong"){
+    auto a = type::from_str("short int");
+    auto b = type::from_str("unsigned long int");
+    auto result = type::from_str("unsigned long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith ushort long"){
+    auto a = type::from_str("unsigned short int");
+    auto b = type::from_str("long int");
+    auto result = type::from_str("long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith ull ld"){
+    auto a = type::from_str("unsigned long long int");
+    auto b = type::from_str("long double");
+    auto result = type::from_str("long double");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith d ll"){
+    auto a = type::from_str("double");
+    auto b = type::from_str("long long int");
+    auto result = type::from_str("double");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith ull f"){
+    auto a = type::from_str("unsigned long long int");
+    auto b = type::from_str("float");
+    auto result = type::from_str("float");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith us s"){
+    auto a = type::from_str("unsigned short int");
+    auto b = type::from_str("short int");
+    auto result = type::from_str("int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith us l"){
+    auto a = type::from_str("unsigned short int");
+    auto b = type::from_str("long int");
+    auto result = type::from_str("long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith l ll"){
+    auto a = type::from_str("long int");
+    auto b = type::from_str("long long int");
+    auto result = type::from_str("long long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith ull l"){
+    auto a = type::from_str("unsigned long long int");
+    auto b = type::from_str("long int");
+    auto result = type::from_str("unsigned long long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith s ul"){
+    auto a = type::from_str("short int");
+    auto b = type::from_str("unsigned long int");
+    auto result = type::from_str("unsigned long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith ui ll"){
+    auto a = type::from_str("unsigned int");
+    auto b = type::from_str("long long int");
+    auto result = type::from_str("long long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith l ui"){
+    auto a = type::from_str("long int");
+    auto b = type::from_str("unsigned int");
+    auto result = type::from_str("long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith ll ul"){
+    auto a = type::from_str("long long int");
+    auto b = type::from_str("unsigned long int");
+    auto result = type::from_str("unsigned long long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+TEST_CASE("usual_arith ul ll"){
+    auto a = type::from_str("unsigned long int");
+    auto b = type::from_str("long long int");
+    auto result = type::from_str("unsigned long long int");
+    REQUIRE(result == type::usual_arithmetic_conversions(a,b));
+}
+
+//End type conversion tests
 
 //Parser tests, type checking
 TEST_CASE("parse_float_dec"){
