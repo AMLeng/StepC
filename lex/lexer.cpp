@@ -8,8 +8,15 @@
 namespace lexer{
 namespace{
 bool is_keyword(const std::string& word){
-    return word == "int"
-        || word == "return";
+    return word == "return"
+        || word == "char"
+        || word == "short"
+        || word == "int"
+        || word == "long"
+        || word == "float"
+        || word == "double"
+        || word == "signed"
+        || word == "unsigned";
 }
 
 token::Token create_token(token::TokenType type, std::string value, std::pair<int, int> tok_start, std::pair<int, int> tok_end){
@@ -28,6 +35,7 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {'+',token::TokenType::Plus},
     {'*',token::TokenType::Mult},
     {'/',token::TokenType::Div},
+    {'=',token::TokenType::Assign},
 }};
 
 } //namespace
