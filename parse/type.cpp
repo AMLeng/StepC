@@ -55,9 +55,6 @@ unsigned long long max_value(BasicType type){
 }
 
 
-bool can_represent(IType target, IType source){
-    return can_represent(target, max_value(source));
-}
 
 std::string ir_type(FType type){
     switch(type){
@@ -111,6 +108,22 @@ BasicType make_basic(FType type){
 
 bool can_represent(IType type, unsigned long long  value){
     return value <= max_value(type);
+}
+bool can_represent(IType target, IType source){
+    return can_represent(target, max_value(source));
+}
+bool can_represent(FType target, FType source){
+    switch(target){
+        case FType::LDouble:
+            return true;
+        case FType::Double:
+            //Since LDouble and Double are the same for us
+            return true;
+        case FType::Float:
+            return (target == FType::Float);
+    }
+    __builtin_unreachable();
+    assert(false);
 }
 
 IType to_unsigned(IType t){

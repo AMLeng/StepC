@@ -4,6 +4,61 @@
 #include <string>
 #include <cassert>
 namespace ast{
+
+namespace{
+std::string convert_command(type::IType target, type::IType source){
+    if(type::can_represent(target, source)){
+        if(type::is_signed_int(type::make_basic(target))){
+            return "sext";
+        }else{
+            return "zext";
+        }
+    }else{
+        return "trunc";
+    }
+}
+std::string convert_command(type::IType target, type::FType source){
+    if(type::is_signed_int(type::make_basic(target))){
+        //IF IT CAN'T FIT, POTENTIAL SOURCE OF Undefined Behavior!!!!!!!!!
+        return "fptosi";
+    }else{
+        //IF IT CAN'T FIT, POTENTIAL SOURCE OF UB!!!!!!!!!
+        return "fptoui";
+    }
+}
+
+std::string convert_command(type::FType target, type::IType source){
+    if(type::is_signed_int(type::make_basic(source))){
+        return "sitofp";
+    }else{
+        return "uitofp";
+    }
+}
+std::string convert_command(type::FType target, type::FType source){
+    if(type::can_represent(target, source)){
+        return "fpext";
+    }else{
+        return "fptrunc";
+    }
+}
+
+std::unique_ptr<value::Value> codegen_convert(type::BasicType target_type, std::unique_ptr<value::Value> val, 
+        std::ostream& output, context::Context& c){
+    if(type::ir_type(target_type) == type::ir_type(val->get_type())){
+        return std::move(val);
+    }
+    std::string command = std::visit([](auto t, auto s){
+        return convert_command(t, s);
+    }, target_type, val->get_type());
+
+    AST::print_whitespace(c.current_depth, output);
+    output << c.new_temp()<<" = " << command <<" " << type::ir_type(val->get_type()) <<" ";
+    output << val->get_value() << " to " << type::ir_type(target_type) << std::endl;
+    return std::make_unique<value::Value>(c.prev_temp(0), target_type);
+}
+} //namespace
+
+
 void AST::print_whitespace(int depth, std::ostream& output){
     for(int i=0; i<depth; i++){
         output << "  ";
@@ -38,7 +93,7 @@ std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context
     c.current_depth--;
     AST::print_whitespace(c.current_depth, output);
     output << "}"<<std::endl;
-    return std::make_unique<value::Value>("@"+name);
+    return std::make_unique<value::Value>("@"+name, type::from_str("i32"));
 }
 
 void ReturnStmt::pretty_print(int depth){
@@ -61,7 +116,7 @@ void Constant::pretty_print(int depth){
 }
 
 std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::Context& c){
-    return std::make_unique<value::Value>(this->literal);
+    return std::make_unique<value::Value>(this->literal, this->type);
 }
 
 void UnaryOp::pretty_print(int depth){
@@ -71,26 +126,30 @@ void UnaryOp::pretty_print(int depth){
 }
 
 std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Context& c){
-    auto inner_exp_register = arg->codegen(output, c);
+    auto operand = arg->codegen(output, c);
+    std::string t = type::ir_type(this->type);
     switch(tok.type){
+        //Can't factor out since behavior for Not is not just one operation
         case token::TokenType::Plus:
-            AST::print_whitespace(c.current_depth, output);
-            output << c.new_temp()<<" = add i32 0, " <<inner_exp_register->get_value() <<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0));
+            return codegen_convert(this->type, std::move(operand), output, c);
         case token::TokenType::Minus:
+            operand =  codegen_convert(this->type, std::move(operand), output, c);
             AST::print_whitespace(c.current_depth, output);
-            output << c.new_temp()<<" = sub i32 0, " <<inner_exp_register->get_value() <<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0));
+            output << c.new_temp()<<" = sub "<<t<<" 0, " <<operand->get_value() <<std::endl;
+            return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::BitwiseNot:
+            operand =  codegen_convert(this->type, std::move(operand), output, c);
             AST::print_whitespace(c.current_depth, output);
-            output << c.new_temp()<<" = xor i32 -1, " <<inner_exp_register->get_value() <<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0));
+            output << c.new_temp()<<" = xor "<<t<<" -1, " <<operand->get_value() <<std::endl;
+            return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::Not:
+            assert(t == "i32");
             AST::print_whitespace(c.current_depth, output);
-            output << c.new_temp()<<" = icmp eq i32 0, " <<inner_exp_register->get_value() <<std::endl;
+            output << c.new_temp()<<" = icmp eq "<<type::ir_type(operand->get_type());
+            output <<" 0, " <<operand->get_value() <<std::endl;
             AST::print_whitespace(c.current_depth, output);
-            output << c.new_temp()<<" = zext i1 "<< c.prev_temp(1) <<" to i32"<<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0));
+            output << c.new_temp()<<" = zext i1 "<< c.prev_temp(1) <<" to "<<t<<std::endl;
+            return std::make_unique<value::Value>(c.prev_temp(0), this->type);
         default:
             assert(false && "Operator Not Implemented");
     }
@@ -112,19 +171,19 @@ std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::C
         case token::TokenType::Minus:
             AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = sub i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0));
+            return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::Plus:
             AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = add i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0));
+            return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::Mult:
             AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = mul i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0));
+            return std::make_unique<value::Value>(c.prev_temp(0),this->type);
         case token::TokenType::Div:
             AST::print_whitespace(c.current_depth, output);
             output << c.new_temp()<<" = sdiv i32 " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-            return std::make_unique<value::Value>(c.prev_temp(0));
+            return std::make_unique<value::Value>(c.prev_temp(0), this->type);
         default:
             assert(false && "Unknown binary op during codegen");
     }

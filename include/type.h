@@ -37,6 +37,8 @@ bool promote_one_rank(FType& type);
 
 //Checking
 bool can_represent(IType type, unsigned long long int value);
+bool can_represent(IType target, IType source);
+bool can_represent(FType target, FType source);
 bool is_signed_int(BasicType type);
 bool is_unsigned_int(BasicType type);
 bool is_float(BasicType type);
