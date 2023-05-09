@@ -1,4 +1,5 @@
 #include "type.h"
+#include "sem_error.h"
 #include <cassert>
 #include <map>
 #include <climits>
@@ -22,6 +23,36 @@ const std::map<std::string,IType> int_types = {{
 }};
 const std::map<std::string,FType> float_types = {{
     {"float", FType::Float}, {"double", FType::Double}, {"long double", FType::LDouble},
+}};
+const std::map<std::multiset<std::string>, std::string> multiset_to_type = {{
+    {{"char"},"char"},
+    {{"signed", "char"}, "signed char"},
+    {{"unsigned", "char"}, "unsigned char"},
+    {{"short", "int"}, "short int"},
+    {{"signed", "short"}, "short int"},
+    {{"short"},"short int"},
+    {{"signed", "short", "int"}, "short int"},
+    {{"unsigned", "short"}, "unsigned short int"},
+    {{"unsigned", "short", "int"}, "unsigned short int"},
+    {{"int"},"int"},
+    {{"signed"},"int"},
+    {{"signed", "int"},"int"},
+    {{"unsigned"},"unsigned int"},
+    {{"unsigned", "int"},"unsigned int"},
+    {{"long"},"long int"},
+    {{"signed", "long"},"long int"},
+    {{"int", "long"},"long int"},
+    {{"signed", "int", "long"},"long int"},
+    {{"unsigned", "long"},"unsigned long int"},
+    {{"long", "long"},"long long int"},
+    {{"signed", "long", "long"},"long long int"},
+    {{"long", "int", "long"},"long long int"},
+    {{"signed", "long", "int", "long"},"long long int"},
+    {{"unsigned", "long", "int", "long"},"unsigned long long int"},
+    {{"unsigned", "long", "long"},"unsigned long long int"},
+    {{"float"},"float"},
+    {{"double"},"double"},
+    {{"long", "double"},"long double"},
 }};
 
 unsigned long long max_value(BasicType type){
@@ -158,6 +189,17 @@ BasicType from_str(const std::string& type){
         return make_basic(float_types.at(type));
     }
     assert(false && "Unknown basic type name");
+}
+
+BasicType from_str_multiset(const std::multiset<std::string>& keywords){
+    std::string type = "";
+    try{
+        type = multiset_to_type.at(keywords);
+    }catch(std::out_of_range& e){
+        assert(false && "Failed to convert list of keywords into valid type");
+        //throw sem_error::TypeError("Failed to convert list of keywords into valid type");
+    }
+    return from_str(type);
 }
 
 //Converting

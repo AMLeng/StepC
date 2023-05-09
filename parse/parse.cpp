@@ -6,6 +6,12 @@
 #include <string_view>
 #include <map>
 namespace parse{
+template <class... Ts>
+struct overloaded : Ts...{
+    using Ts::operator()...;
+};
+
+template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 
 namespace{
     //Declarations
@@ -132,6 +138,43 @@ namespace{
         check_token_type(semicolon, token::TokenType::Semicolon);
         return std::make_unique<ast::ReturnStmt>(std::move(ret_value));
     }
+    std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
+        auto keyword_list = std::multiset<std::string>{};
+        while(l.peek_token().type == token::TokenType::Keyword){
+            keyword_list.insert(l.get_token().value);
+        }
+        assert(keyword_list.size() > 0 && "Parsing decl that did not start with a keyword");
+        auto t = type::from_str_multiset(keyword_list);
+        auto var_name = l.get_token();
+        check_token_type(var_name, token::TokenType::Identifier);
+        auto next_tok = l.get_token();
+        if(matches_type(next_tok, token::TokenType::Semicolon)){
+            return std::make_unique<ast::VarDecl>(var_name.value, t);
+        }
+        assert(false && "Have not yet implemented declarations with assignment");
+        /*check_token_type(next_tok, token::TokenType::Assign);
+        next_tok = l.get_token();
+        if(!matches_type(constant_value, 
+            token::TokenType::IntegerLiteral, 
+            token::TokenType::FloatLiteral,
+            token::TokenType::Ident)){
+            throw parse_error::ParseError("Expected literal or identifier for assignment",constant_value);
+        }*/
+    }
+
+    std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
+        auto next_token = l.peek_token();
+        if(next_token.type == token::TokenType::Keyword && matches_keyword(next_token, "return")){
+            return parse_return_stmt(l);
+        }
+        if(next_token.type == token::TokenType::Keyword || next_token.type == token::TokenType::Identifier){
+            return parse_var_decl(l);
+        }
+        auto expr = parse_expr(l);
+        auto semicolon = l.get_token();
+        check_token_type(semicolon, token::TokenType::Semicolon);
+        return std::move(expr);
+    }
 
     std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l){
         auto ret_type = l.get_token();
@@ -147,7 +190,10 @@ namespace{
         check_token_type(l.get_token(), token::TokenType::RParen);
         check_token_type(l.get_token(), token::TokenType::LBrace);
 
-        auto function_body = parse_return_stmt(l);
+        auto function_body = std::vector<std::unique_ptr<ast::Stmt>>{};
+        while(l.peek_token().type != token::TokenType::RBrace){
+            function_body.push_back(parse_stmt(l));
+        }
 
         check_token_type(l.get_token(), token::TokenType::RBrace);
         return std::make_unique<ast::FunctionDef>(name.value, type::from_str(ret_type.value), std::move(function_body));

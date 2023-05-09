@@ -49,7 +49,7 @@ void Lexer::ignore_space(){
         }else{
             this->current_pos.second++;
         }
-        input_stream.ignore(1);
+        currently_parsing.back().push_back(input_stream.get());
         next_char = input_stream.peek();
     }
 }
@@ -63,7 +63,7 @@ void Lexer::advance_input(std::string& already_read, char& next_to_see){
         this->current_pos.second++;
     }
     already_read.push_back(next_to_see);
-    input_stream.ignore(1);
+    currently_parsing.back().push_back(input_stream.get());
     next_to_see = input_stream.peek();
 }
 

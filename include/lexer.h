@@ -6,6 +6,7 @@
 #include <cassert>
 #include <string>
 #include <exception>
+#include <vector>
 #include "token.h"
 
 namespace lexer{
@@ -18,6 +19,7 @@ class Lexer{
         //Confusingly, "current" comes after "next"
         //Since "current" is where the lexer is reading from
         //And "next" is the next token the user will see, which the lexer has already fully read
+        std::vector<std::string> currently_parsing;
 
         token::Token read_token_from_stream();
         //Reads the next token to next_token, unless it produces an error
@@ -31,7 +33,8 @@ class Lexer{
         Lexer operator=(const Lexer& l) = delete; 
 
     public:
-        Lexer(std::istream& input) : input_stream(input), lexer_error(nullptr), current_pos(std::make_pair(1,1)) {
+        Lexer(std::istream& input) 
+            : input_stream(input), lexer_error(nullptr), current_pos(std::make_pair(1,1)), currently_parsing({""}){
             try{
                 next_token = read_token_from_stream();
             }
@@ -40,7 +43,6 @@ class Lexer{
                 lexer_error = std::current_exception();
             }
         }
-
         token::Token peek_token() const{
             if(lexer_error){
                 std::rethrow_exception(lexer_error);

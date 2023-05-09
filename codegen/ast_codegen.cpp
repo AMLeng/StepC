@@ -88,7 +88,9 @@ void FunctionDef::pretty_print(int depth){
     std::cout<< "PARAMS: ()" << std::endl;
     AST::print_whitespace(depth+1);
     std::cout<< "BODY: " << std::endl;
-    function_body -> pretty_print(depth+2);
+    for(const auto& stmt : function_body){
+        stmt -> pretty_print(depth+2);
+    }
 }
 
 std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context::Context& c){
@@ -96,7 +98,9 @@ std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context
     AST::print_whitespace(c.depth(), output);
     output << "define "<<type::ir_type(return_type)<<" @" + name+"(){"<<std::endl;
     c.enter_function(return_type);
-    function_body->codegen(output, c);
+    for(const auto& stmt : function_body){
+        stmt->codegen(output, c);
+    }
     c.exit_function();
     AST::print_whitespace(c.depth(), output);
     output << "}"<<std::endl;
@@ -120,9 +124,18 @@ std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context:
 }
 
 
+void VarDecl::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<<"VARIABLE DECL "<<name<<" of type "<< type::to_string(type) <<std::endl;
+}
+std::unique_ptr<value::Value> VarDecl::codegen(std::ostream& output, context::Context& c){
+    //do nothing for now
+    return nullptr;
+}
+
 void Constant::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"CONSTANT "<<literal<<" of type "<< to_string(type) <<std::endl;
+    std::cout<<"CONSTANT "<<literal<<" of type "<< type::to_string(type) <<std::endl;
 }
 
 std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::Context& c){
