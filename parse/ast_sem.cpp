@@ -85,6 +85,10 @@ std::string float_to_hex(const std::string& literal_value, type::BasicType type)
 }
 } //namespace
 
+AST::~AST(){}
+Decl::~Decl(){}
+Stmt::~Stmt(){}
+Expr::~Expr(){}
 Constant::Constant(const token::Token& tok) : Expr(tok){
     literal = tok.value;
     std::string type_str = "";

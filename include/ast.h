@@ -24,6 +24,7 @@ struct AST{
     virtual void pretty_print(int depth) = 0;
     static void print_whitespace(int depth, std::ostream& output = std::cout);
     virtual std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) = 0;
+    virtual ~AST() = 0;
 };
 
 struct Program : public AST{
@@ -35,13 +36,17 @@ struct Program : public AST{
 
 struct Stmt : public AST{
     //Statements are things that can appear in the body of a function
+    virtual ~Stmt() = 0;
 };
+
 struct Decl : public AST{
     //Declarations are things that can appear at global scope,
     //And which require altering the symbol table
     const std::string name;
     Decl(std::string name) : name(name) {}
+    virtual ~Decl() = 0;
 };
+
 struct VarDecl : public Decl, public Stmt{
     const type::BasicType type;
     //Type qualifiers and storage class specifiers to be implemented later
@@ -72,6 +77,7 @@ struct Expr : public Stmt{
     type::BasicType type;
     token::Token tok;
     Expr(token::Token tok) : tok(tok){}
+    virtual ~Expr() = 0;
 };
 
 struct Constant : public Expr{

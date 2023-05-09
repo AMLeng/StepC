@@ -77,30 +77,66 @@ R"(signed short a = 3.5;)");
 //Parser tests
 //Type deduction tests
 
-TEST_CASE("parse shorts"){
+TEST_CASE("parse short 1"){
     auto ss = std::stringstream(
 R"(signed short)");
     lexer::Lexer l(ss);
-
+    auto keywords = std::multiset<std::string>();
+    while(l.peek_token().type == token::TokenType::Keyword){
+        keywords.insert(l.get_token().value);
+    }
+    REQUIRE(type::from_str_multiset(keywords) == type::from_str("short int"));
 }
 TEST_CASE("parse unsigned long long"){
     auto ss = std::stringstream(
 R"(long unsigned long int)");
     lexer::Lexer l(ss);
+    auto keywords = std::multiset<std::string>();
+    while(l.peek_token().type == token::TokenType::Keyword){
+        keywords.insert(l.get_token().value);
+    }
+    REQUIRE(type::from_str_multiset(keywords) == type::from_str("unsigned long long int"));
 
 }
 TEST_CASE("parse unsigned long long 2"){
     auto ss = std::stringstream(
 R"(unsigned long long)");
     lexer::Lexer l(ss);
+    auto keywords = std::multiset<std::string>();
+    while(l.peek_token().type == token::TokenType::Keyword){
+        keywords.insert(l.get_token().value);
+    }
+    REQUIRE(type::from_str_multiset(keywords) == type::from_str("unsigned long long int"));
 
 }
-TEST_CASE("parse short"){
+TEST_CASE("parse short 2"){
     auto ss = std::stringstream(
 R"(int short)");
     lexer::Lexer l(ss);
-
+    auto keywords = std::multiset<std::string>();
+    while(l.peek_token().type == token::TokenType::Keyword){
+        keywords.insert(l.get_token().value);
+    }
+    REQUIRE(type::from_str_multiset(keywords) == type::from_str("short int"));
 }
+TEST_CASE("parse var decl"){
+    auto ss = std::stringstream(
+R"(long int a;})");
+    lexer::Lexer l(ss);
+    auto a = parse::parse_var_decl(l);
+    //a->pretty_print(0);
+}
+TEST_CASE("parse multiple stmt"){
+    auto ss = std::stringstream(
+R"(
+    return 0;
+    long unsigned a;
+)");
+    lexer::Lexer l(ss);
+    auto ret = parse::parse_stmt(l);
+    auto decl = parse::parse_stmt(l);
+}
+
 TEST_CASE("parse error program with decl"){
     auto ss = std::stringstream(
 R"(int main(){
@@ -111,27 +147,18 @@ R"(int main(){
     REQUIRE_THROWS_AS(parse::construct_ast(l),sem_error::TypeError);
     //program_pointer->pretty_print(0);
 }
-/*TEST_CASE("parse program with decl"){
+
+TEST_CASE("parse full program"){
     auto ss = std::stringstream(
 R"(int main(){
     long unsigned a;
-    return 0;
+    3 + 4;
+    return 12.3;
 })");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
     //program_pointer->pretty_print(0);
-}*/
-
-/*TEST_CASE("parse full program"){
-    auto ss = std::stringstream(
-R"(int main(){
-    long unsigned a = 5;
-    return a;
-})");
-    lexer::Lexer l(ss);
-    auto program_pointer = parse::construct_ast(l);
-    //program_pointer->pretty_print(0);
-}*/
+}
 /*TEST_CASE("parse_error_stage_two"){
     auto ss = std::stringstream(
 R"(int main(){
