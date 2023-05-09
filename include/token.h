@@ -2,6 +2,7 @@
 #define _TOKEN_
 #include "location.h"
 #include <string>
+#include <sstream>
 #include <ostream>
 namespace token{
 enum class TokenType{
@@ -16,9 +17,33 @@ struct Token{
     TokenType type;
     std::string value;
     location::Location loc;
+    std::string sourceline;
     static Token make_end_token(std::pair<int, int> position){
         location::Location loc = {position.first, position.second, position.first, position.second};
-        return Token{TokenType::END, "", loc};
+        return Token{TokenType::END, "", loc, ""};
+    }
+    std::string to_string() const{
+        auto ss = std::stringstream{};
+        ss<< "token: " << value << std::endl;
+        ss<<"At line " <<loc.start_line <<" and column "<<loc.start_col <<std::endl;
+        if(loc.start_line == loc.end_line){
+            auto line = std::to_string(loc.start_line);
+            ss << line <<" |";
+            ss<<sourceline<<std::endl;
+
+            for(int i=0; i<line.size(); i++){
+                ss << " ";
+            }
+            ss << " |";
+            for(int i=1; i<loc.start_col; i++){
+                ss << " ";
+            }
+            for(int i=loc.start_col; i<loc.end_col; i++){
+                ss << "^";
+            }
+            ss<<std::endl;
+        }
+        return ss.str();
     }
 };
 
@@ -52,6 +77,8 @@ inline std::string string_name(TokenType type){
             return "multiplication";
         case TokenType::Div:
             return "division";
+        case TokenType::Assign:
+            return "assignment operator";
         case TokenType:: Keyword:
             return "keyword";
         case TokenType:: Identifier:

@@ -101,6 +101,26 @@ R"(int short)");
     lexer::Lexer l(ss);
 
 }
+TEST_CASE("parse error program with decl"){
+    auto ss = std::stringstream(
+R"(int main(){
+    long char a;
+    return 5;
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l),sem_error::TypeError);
+    //program_pointer->pretty_print(0);
+}
+/*TEST_CASE("parse program with decl"){
+    auto ss = std::stringstream(
+R"(int main(){
+    long unsigned a;
+    return 0;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}*/
 
 /*TEST_CASE("parse full program"){
     auto ss = std::stringstream(

@@ -1,6 +1,7 @@
 #include "parse.h"
 #include "type.h"
 #include "parse_error.h"
+#include "sem_error.h"
 #include <iostream>
 #include <cassert>
 #include <string_view>
@@ -140,19 +141,26 @@ namespace{
     }
     std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
         auto keyword_list = std::multiset<std::string>{};
+        auto first_keyword = l.peek_token();
         while(l.peek_token().type == token::TokenType::Keyword){
             keyword_list.insert(l.get_token().value);
         }
         assert(keyword_list.size() > 0 && "Parsing decl that did not start with a keyword");
-        auto t = type::from_str_multiset(keyword_list);
+        type::BasicType t;
+        try{
+            t = type::from_str_multiset(keyword_list);
+        }catch(std::runtime_error& e){
+            throw sem_error::TypeError(e.what(), first_keyword);
+        }
         auto var_name = l.get_token();
         check_token_type(var_name, token::TokenType::Identifier);
         auto next_tok = l.get_token();
         if(matches_type(next_tok, token::TokenType::Semicolon)){
             return std::make_unique<ast::VarDecl>(var_name.value, t);
         }
+        check_token_type(next_tok, token::TokenType::Assign);
         assert(false && "Have not yet implemented declarations with assignment");
-        /*check_token_type(next_tok, token::TokenType::Assign);
+        /*
         next_tok = l.get_token();
         if(!matches_type(constant_value, 
             token::TokenType::IntegerLiteral, 

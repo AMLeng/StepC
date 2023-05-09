@@ -196,8 +196,7 @@ BasicType from_str_multiset(const std::multiset<std::string>& keywords){
     try{
         type = multiset_to_type.at(keywords);
     }catch(std::out_of_range& e){
-        assert(false && "Failed to convert list of keywords into valid type");
-        //throw sem_error::TypeError("Failed to convert list of keywords into valid type");
+        throw std::runtime_error("Failed to convert list of keywords into valid type");
     }
     return from_str(type);
 }
