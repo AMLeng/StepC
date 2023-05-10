@@ -66,31 +66,9 @@ std::unique_ptr<value::Value> codegen_convert(type::BasicType target_type, std::
 } //namespace
 
 
-void AST::print_whitespace(int depth, std::ostream& output){
-    for(int i=0; i<depth; i++){
-        output << "  ";
-    }
-}
-
-void Program::pretty_print(int depth){
-    main_method->pretty_print(depth);
-}
-
 std::unique_ptr<value::Value> Program::codegen(std::ostream& output, context::Context& c){
     main_method->codegen(output, c);
     return nullptr;
-}
-
-void FunctionDef::pretty_print(int depth){
-    AST::print_whitespace(depth);
-    std::cout<< type::to_string(return_type) << " FUNCTION "<<name <<":"<<std::endl;
-    AST::print_whitespace(depth+1);
-    std::cout<< "PARAMS: ()" << std::endl;
-    AST::print_whitespace(depth+1);
-    std::cout<< "BODY: " << std::endl;
-    for(const auto& stmt : function_body){
-        stmt -> pretty_print(depth+2);
-    }
 }
 
 std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context::Context& c){
@@ -109,11 +87,6 @@ std::unique_ptr<value::Value> FunctionDef::codegen(std::ostream& output, context
     return std::make_unique<value::Value>("@"+name, return_type); 
 }
 
-void ReturnStmt::pretty_print(int depth){
-    AST::print_whitespace(depth);
-    std::cout<< "RETURN:"<<std::endl;
-    return_expr->pretty_print(depth+1);
-}
 std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context::Context& c){
     auto return_value = return_expr->codegen(output, c);
     return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
@@ -123,47 +96,22 @@ std::unique_ptr<value::Value> ReturnStmt::codegen(std::ostream& output, context:
     return nullptr;
 }
 
-void Variable::pretty_print(int depth){
-    AST::print_whitespace(depth);
-    std::cout<<"VARIABLE \""<<variable_name<<"\""<<std::endl;
-}
 std::unique_ptr<value::Value> Variable::codegen(std::ostream& output, context::Context& c){
     //do nothing for now
     return nullptr;
-}
-void Assign::pretty_print(int depth){
-    left->pretty_print(depth);
-    AST::print_whitespace(depth+ 1);
-    std::cout<<" ASSIGNED TO "<<std::endl;
-    right->pretty_print(depth +2);
 }
 std::unique_ptr<value::Value> Assign::codegen(std::ostream& output, context::Context& c){
     //do nothing for now
     return nullptr;
 }
 
-void VarDecl::pretty_print(int depth){
-    AST::print_whitespace(depth);
-    std::cout<<"VARIABLE DECL "<<name<<" of type "<< type::to_string(type) <<std::endl;
-}
 std::unique_ptr<value::Value> VarDecl::codegen(std::ostream& output, context::Context& c){
     //do nothing for now
     return nullptr;
 }
 
-void Constant::pretty_print(int depth){
-    AST::print_whitespace(depth);
-    std::cout<<"CONSTANT "<<literal<<" of type "<< type::to_string(type) <<std::endl;
-}
-
 std::unique_ptr<value::Value> Constant::codegen(std::ostream& output, context::Context& c){
     return std::make_unique<value::Value>(this->literal, this->type);
-}
-
-void UnaryOp::pretty_print(int depth){
-    AST::print_whitespace(depth);
-    std::cout<<"UNARY OP "<< tok.type <<" ON EXPR"<<std::endl;
-    arg->pretty_print(depth+1);
 }
 
 std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Context& c){
@@ -213,14 +161,6 @@ std::unique_ptr<value::Value> UnaryOp::codegen(std::ostream& output, context::Co
     }
 }
 
-void BinaryOp::pretty_print(int depth){
-    AST::print_whitespace(depth);
-    std::cout<<"BINARY OP "<< tok.type <<" WITH LEFT ARG"<<std::endl;
-    left->pretty_print(depth+1);
-    AST::print_whitespace(depth);
-    std::cout<<"AND RIGHT ARG"<<std::endl;
-    right->pretty_print(depth+1);
-}
 
 std::unique_ptr<value::Value> BinaryOp::codegen(std::ostream& output, context::Context& c){
     auto left_register = this->left->codegen(output, c);

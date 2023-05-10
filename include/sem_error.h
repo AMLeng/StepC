@@ -21,6 +21,11 @@ class TypeError : public SemError{
         TypeError(std::string_view what_arg,token::Token tok)
             : SemError(what_arg, tok) {}
 };
+class STError : public SemError{
+    public:
+        STError(std::string_view what_arg,token::Token tok)
+            : SemError(what_arg, tok) {}
+};
 
 class UnknownError : public SemError{
     public:

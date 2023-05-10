@@ -1,13 +1,13 @@
 #include "ast.h"
-#include <cctype>
-#include <cassert>
-#include <limits>
 #include "type.h"
 #include "sem_error.h"
 #include <iomanip>
 #include <string>
 #include <cstring>
 #include <sstream>
+#include <cctype>
+#include <cassert>
+#include <limits>
 namespace ast{
 namespace{
 void finish_literal_int_parse(type::BasicType& original_type, std::string& original_value, token::Token tok){
@@ -135,50 +135,6 @@ Constant::Constant(const token::Token& tok) : Expr(tok){
             break;
         default:
             assert(false && "Unknown literal type");
-    }
-}
-
-UnaryOp::UnaryOp(token::Token op, std::unique_ptr<Expr> exp) : 
-    Expr(op), arg(std::move(exp)) {
-    //Typechecking
-    switch(op.type){
-        case token::TokenType::Plus:
-        case token::TokenType::Minus:
-            if(!type::is_arith(this->arg->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",this->arg->tok);
-            }
-            this->type = type::integer_promotions(this->arg->type);
-            break;
-        case token::TokenType::Not:
-            if(!type::is_scalar(this->arg->type)){
-                throw sem_error::TypeError("Operand of scalar type required",this->arg->tok);
-            }
-            this->type = type::from_str("int");
-            break;
-        case token::TokenType::BitwiseNot:
-            if(!type::is_int(this->arg->type)){
-                throw sem_error::TypeError("Operand of integer type required", this->arg->tok);
-            }
-            this->type = type::integer_promotions(this->arg->type);
-            break;
-        default:
-            assert(false && "Unknown unary operator type");
-    }
-}
-BinaryOp::BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
-    Expr(op), left(std::move(left)), right(std::move(right)) {
-    switch(op.type){
-        case token::TokenType::Plus:
-        case token::TokenType::Minus:
-        case token::TokenType::Mult:
-        case token::TokenType::Div:
-            if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
-            }
-            this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
-            break;
-        default:
-            assert(false && "Unknown binary operator type");
     }
 }
 } //namespace ast

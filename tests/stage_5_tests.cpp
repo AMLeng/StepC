@@ -190,6 +190,26 @@ R"(int main(){
     auto program_pointer = parse::construct_ast(l);
     //program_pointer->pretty_print(0);
 }
+TEST_CASE("variable redef"){
+    auto ss = std::stringstream(
+R"(int main(){
+    long unsigned a = 4;
+    int a = (a + 2)*0.5;
+    return ~b;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
+TEST_CASE("undefined variable"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return ~b;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here

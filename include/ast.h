@@ -1,3 +1,5 @@
+#ifndef _AST_
+#define _AST_
 #include<memory>
 #include<optional>
 #include<string>
@@ -7,8 +9,7 @@
 #include "value.h"
 #include "token.h"
 #include "type.h"
-#ifndef _AST_
-#define _AST_
+#include "symbol.h"
 namespace ast{
 
 //Forward declare node types
@@ -23,8 +24,9 @@ struct Assign;
 //Implemented in ast_sem.cpp and ast_codegen.cpp
 
 struct AST{
-    virtual void pretty_print(int depth) = 0;
     static void print_whitespace(int depth, std::ostream& output = std::cout);
+    virtual void analyze(symbol::STable* st) = 0;
+    virtual void pretty_print(int depth) = 0;
     virtual std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) = 0;
     virtual ~AST() = 0;
 };
@@ -32,8 +34,13 @@ struct AST{
 struct Program : public AST{
     std::unique_ptr<FunctionDef> main_method;
     Program(std::unique_ptr<FunctionDef> main) : main_method(std::move(main)) {}
+    void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    void analyze(){
+        auto global_st = symbol::STable();
+        this->analyze(&global_st);
+    }
 };
 
 struct Stmt : public AST{
@@ -45,7 +52,8 @@ struct Decl : public AST{
     //Declarations are things that can appear at global scope,
     //And which require altering the symbol table
     const std::string name;
-    Decl(std::string name) : name(name) {}
+    const token::Token tok;
+    Decl(token::Token tok) : tok(tok), name(tok.value) {}
     virtual ~Decl() = 0;
 };
 
@@ -53,8 +61,9 @@ struct VarDecl : public Decl, public Stmt{
     const type::BasicType type;
     std::optional<std::unique_ptr<Assign>> assignment;
     //Type qualifiers and storage class specifiers to be implemented later
-    VarDecl(std::string name, type::BasicType type,std::optional<std::unique_ptr<Assign>> assignment = std::nullopt) 
-        : Decl(name), type(type), assignment(std::move(assignment)) {}
+    VarDecl(token::Token tok, type::BasicType type,std::optional<std::unique_ptr<Assign>> assignment = std::nullopt) 
+        : Decl(tok), type(type), assignment(std::move(assignment)) {}
+    void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
@@ -65,6 +74,7 @@ struct FunctionDef : public AST{
     std::vector<std::unique_ptr<Stmt>> function_body;
     FunctionDef(std::string name, type::BasicType ret_type, std::vector<std::unique_ptr<Stmt>> body) : 
         name(name), return_type(ret_type), function_body(std::move(body)) {}
+    void analyze(symbol::STable*) override;
     void pretty_print(int depth);
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
@@ -72,6 +82,7 @@ struct FunctionDef : public AST{
 struct ReturnStmt : public Stmt{
     std::unique_ptr<Expr> return_expr;
     ReturnStmt(std::unique_ptr<Expr> ret_expr) : return_expr(std::move(ret_expr)) {}
+    void analyze(symbol::STable*) override;
     void pretty_print(int depth);
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
@@ -91,6 +102,7 @@ struct LValue : public Expr{
 struct Variable : public LValue{
     std::string variable_name;
     Variable(token::Token tok) : LValue(tok), variable_name(tok.value) {}
+    void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
@@ -98,6 +110,7 @@ struct Variable : public LValue{
 struct Assign : public Expr{
     std::unique_ptr<LValue> left;
     std::unique_ptr<Expr> right;
+    void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
     Assign(token::Token tok, std::unique_ptr<LValue> left, std::unique_ptr<Expr> right) : Expr(tok), left(std::move(left)), right(std::move(right)) {}
@@ -106,13 +119,16 @@ struct Assign : public Expr{
 struct Constant : public Expr{
     std::string literal;
     Constant(const token::Token& tok);
+    void analyze(symbol::STable*) override {}
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
 
 struct UnaryOp : public Expr{
     std::unique_ptr<Expr> arg;
-    UnaryOp(token::Token op, std::unique_ptr<Expr> exp);
+    UnaryOp(token::Token op, std::unique_ptr<Expr> exp) : 
+        Expr(op), arg(std::move(exp)) {}
+    void analyze(symbol::STable* st) override;
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
@@ -120,7 +136,9 @@ struct UnaryOp : public Expr{
 struct BinaryOp : public Expr{
     std::unique_ptr<Expr> left;
     std::unique_ptr<Expr> right;
-    BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right);
+    BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
+        Expr(op), left(std::move(left)), right(std::move(right)) { }
+    void analyze(symbol::STable* st) override;
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };
