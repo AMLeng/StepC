@@ -1,4 +1,5 @@
 #include<memory>
+#include<optional>
 #include<string>
 #include<iostream>
 #include<vector>
@@ -17,6 +18,7 @@ struct ReturnStmt;
 struct Expr;
 struct Constant;
 struct UnaryOp;
+struct Assign;
 
 //Implemented in ast_sem.cpp and ast_codegen.cpp
 
@@ -49,8 +51,10 @@ struct Decl : public AST{
 
 struct VarDecl : public Decl, public Stmt{
     const type::BasicType type;
+    std::optional<std::unique_ptr<Assign>> assignment;
     //Type qualifiers and storage class specifiers to be implemented later
-    VarDecl(std::string name, type::BasicType type) : Decl(name), type(type) {}
+    VarDecl(std::string name, type::BasicType type,std::optional<std::unique_ptr<Assign>> assignment = std::nullopt) 
+        : Decl(name), type(type), assignment(std::move(assignment)) {}
     void pretty_print(int depth) override;
     std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
 };

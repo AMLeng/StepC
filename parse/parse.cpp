@@ -179,15 +179,11 @@ std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
         return std::make_unique<ast::VarDecl>(var_name.value, t);
     }
     check_token_type(next_tok, token::TokenType::Assign);
-    assert(false && "Have not yet implemented declarations with assignment");
-    /*
-       next_tok = l.get_token();
-       if(!matches_type(constant_value, 
-       token::TokenType::IntegerLiteral, 
-       token::TokenType::FloatLiteral,
-       token::TokenType::Ident)){
-       throw parse_error::ParseError("Expected literal or identifier for assignment",constant_value);
-       }*/
+    std::unique_ptr<ast::LValue> var = std::make_unique<ast::Variable>(var_name);
+    auto assign_value = parse_expr(l);
+    auto assign = std::make_unique<ast::Assign>(next_tok, std::move(var), std::move(assign_value));
+    check_token_type(l.get_token(), token::TokenType::Semicolon);
+    return std::make_unique<ast::VarDecl>(var_name.value, t, std::move(assign));
 }
 
 std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){

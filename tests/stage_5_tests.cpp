@@ -177,17 +177,19 @@ R"(
 })");
     lexer::Lexer l(ss);
     auto assign_ptr = parse::parse_assign(l);
-    assign_ptr->pretty_print(0);
+    //assign_ptr->pretty_print(0);
 }
-/*TEST_CASE("parse_error_stage_two"){
+TEST_CASE("parse full program 3"){
     auto ss = std::stringstream(
 R"(int main(){
-    return --3-;
+    long unsigned a = 4;
+    int b = (a + 2)*0.5;
+    return ~b;
 })");
     lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
-}*/
-
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here
