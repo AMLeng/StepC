@@ -86,6 +86,22 @@ std::unique_ptr<ast::BinaryOp> parse_binary_op(lexer::Lexer& l, std::unique_ptr<
     auto right = parse_expr(l, min_bind_power);
     return std::make_unique<ast::BinaryOp>(op_token,std::move(left),std::move(right));
 }
+std::unique_ptr<ast::Variable> parse_variable(lexer::Lexer& l){
+    auto var_tok = l.get_token();
+    check_token_type(var_tok, token::TokenType::Identifier);
+    return std::make_unique<ast::Variable>(var_tok);
+}
+std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l){
+    //Right now variables are the only implemented lvalue
+    return parse_variable(l);
+}
+std::unique_ptr<ast::Assign> parse_assign(lexer::Lexer& l){
+    auto left = parse_lvalue(l);
+    auto equal_sign = l.get_token();
+    check_token_type(equal_sign, token::TokenType::Assign);
+    auto right = parse_expr(l);
+    return std::make_unique<ast::Assign>(equal_sign, std::move(left), std::move(right));
+}
 
 std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     auto expr_start = l.peek_token();
@@ -93,6 +109,7 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     if(matches_type(expr_start, 
                 token::TokenType::IntegerLiteral, 
                 token::TokenType::FloatLiteral)){
+        assert(expr_ptr == nullptr && "Already parsed expression");
         expr_ptr =  parse_constant(l);
     }
     if(matches_type(expr_start,
@@ -100,9 +117,14 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
                 token::TokenType::Plus,
                 token::TokenType::BitwiseNot,
                 token::TokenType::Not)){
+        assert(expr_ptr == nullptr && "Already parsed expression");
         expr_ptr =  parse_unary_op(l);
     }
+    if(matches_type(expr_start,token::TokenType::Identifier)){
+        expr_ptr = parse_variable(l);
+    }
     if(matches_type(expr_start,token::TokenType::LParen)){
+        assert(expr_ptr == nullptr && "Already parsed expression");
         l.get_token();
         expr_ptr = parse_expr(l);
         check_token_type(l.get_token(), token::TokenType::RParen);

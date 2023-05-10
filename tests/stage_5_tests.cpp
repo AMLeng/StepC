@@ -148,7 +148,7 @@ R"(int main(){
     //program_pointer->pretty_print(0);
 }
 
-TEST_CASE("parse full program"){
+TEST_CASE("parse full program 1"){
     auto ss = std::stringstream(
 R"(int main(){
     long unsigned a;
@@ -158,6 +158,26 @@ R"(int main(){
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
     //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse full program 2"){
+    auto ss = std::stringstream(
+R"(int main(){
+    long unsigned a;
+    3 + 4;
+    return a + 3;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse assignment"){
+    auto ss = std::stringstream(
+R"(
+    b = (3 + a)*2;
+})");
+    lexer::Lexer l(ss);
+    auto assign_ptr = parse::parse_assign(l);
+    assign_ptr->pretty_print(0);
 }
 /*TEST_CASE("parse_error_stage_two"){
     auto ss = std::stringstream(

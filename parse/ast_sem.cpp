@@ -89,6 +89,8 @@ AST::~AST(){}
 Decl::~Decl(){}
 Stmt::~Stmt(){}
 Expr::~Expr(){}
+LValue::~LValue(){}
+
 Constant::Constant(const token::Token& tok) : Expr(tok){
     literal = tok.value;
     std::string type_str = "";

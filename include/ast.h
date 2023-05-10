@@ -79,6 +79,25 @@ struct Expr : public Stmt{
     Expr(token::Token tok) : tok(tok){}
     virtual ~Expr() = 0;
 };
+struct LValue : public Expr{
+    LValue(token::Token tok) : Expr(tok){}
+    virtual ~LValue() = 0;
+};
+
+struct Variable : public LValue{
+    std::string variable_name;
+    Variable(token::Token tok) : LValue(tok), variable_name(tok.value) {}
+    void pretty_print(int depth) override;
+    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+};
+
+struct Assign : public Expr{
+    std::unique_ptr<LValue> left;
+    std::unique_ptr<Expr> right;
+    void pretty_print(int depth) override;
+    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    Assign(token::Token tok, std::unique_ptr<LValue> left, std::unique_ptr<Expr> right) : Expr(tok), left(std::move(left)), right(std::move(right)) {}
+};
 
 struct Constant : public Expr{
     std::string literal;
