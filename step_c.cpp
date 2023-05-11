@@ -20,13 +20,12 @@ int main(int argc, char* argv[]){
     try{
         program_ast = parse::construct_ast(l);
     }catch(std::exception& e){
-        std::cout<<std::endl<<"error compiling program "<<file_name<<std::endl;
+        std::cout<<std::endl<<"Error compiling program "<<file_name<<std::endl;
         std::cout<<e.what()<<std::endl;
         return 1;
     }
     auto global_context = context::Context();
 
-    //program_ast->codegen(std::cout, global_context);
     if(file_name.substr(file_name.size() - 2, file_name.size()) != ".c"){
         std::cout << "unknown file extension "<<file_name<<std::endl;
         return 1;
@@ -38,10 +37,16 @@ int main(int argc, char* argv[]){
     auto rm_assembly = "rm "+program_name+".s";
 
     auto llvm_output = std::ofstream(program_name +".ll");
-    program_ast->analyze();
+    try{
+        program_ast->analyze();
+    }catch(std::exception& e){
+        std::cout<<std::endl<<"Error compiling program "<<file_name<<std::endl;
+        std::cout<<e.what()<<std::endl;
+        return 1;
+    }
     program_ast->codegen(llvm_output, global_context); //Should output program_name .ll
     system(llc_command.c_str()); //Should output program_name .s
-    //system(rm_llvm_ir.c_str()); 
+    system(rm_llvm_ir.c_str()); 
     system(gpp_command.c_str()); //Should output executable program_name
-    //system(rm_assembly.c_str());
+    system(rm_assembly.c_str());
 }
