@@ -38,9 +38,10 @@ int main(int argc, char* argv[]){
     auto rm_assembly = "rm "+program_name+".s";
 
     auto llvm_output = std::ofstream(program_name +".ll");
+    program_ast->analyze();
     program_ast->codegen(llvm_output, global_context); //Should output program_name .ll
     system(llc_command.c_str()); //Should output program_name .s
-    system(rm_llvm_ir.c_str()); 
+    //system(rm_llvm_ir.c_str()); 
     system(gpp_command.c_str()); //Should output executable program_name
-    system(rm_assembly.c_str());
+    //system(rm_assembly.c_str());
 }

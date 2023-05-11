@@ -174,10 +174,18 @@ TEST_CASE("parse assignment"){
     auto ss = std::stringstream(
 R"(
     b = (3 + a)*2;
+)");
+    lexer::Lexer l(ss);
+    auto assign_ptr = parse::parse_assign(parse::parse_lvalue(l),l);
+    //assign_ptr->pretty_print(0);
+}
+TEST_CASE("parse assignment in program"){
+    auto ss = std::stringstream(
+R"(int main(){
+    b = (3 + a)*2;
 })");
     lexer::Lexer l(ss);
-    auto assign_ptr = parse::parse_assign(l);
-    //assign_ptr->pretty_print(0);
+    auto program_pointer = parse::construct_ast(l);
 }
 TEST_CASE("parse full program 3"){
     auto ss = std::stringstream(
@@ -185,6 +193,17 @@ R"(int main(){
     long unsigned a = 4;
     int b = (a + 2)*0.5;
     return ~b;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("multiple assign"){
+    auto ss = std::stringstream(
+R"(int main(){
+    long unsigned a = 4;
+    int b = a = 3;
+    return b;
 })");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);

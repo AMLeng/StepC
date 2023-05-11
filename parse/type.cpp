@@ -8,6 +8,7 @@ namespace type{
 
 namespace{
 const std::map<IType,int> conversion_rank = {{
+    {IType::Bool, 0},
     {IType::Char, 1},{IType::SChar, 1}, {IType::UChar, 1},
     {IType::Short, 2},{IType::UShort, 2},
     {IType::Int, 3},{IType::UInt, 3},
@@ -15,6 +16,7 @@ const std::map<IType,int> conversion_rank = {{
     {IType::LLong, 5},{IType::ULLong, 5},
 }};
 const std::map<std::string,IType> int_types = {{
+    {"_Bool", IType::Bool},
     {"char", IType::Char},{"signed char", IType::SChar}, {"unsigned char", IType::UChar},
     {"short int", IType::Short},{"unsigned short int", IType::UShort},
     {"int", IType::Int},{"unsigned int", IType::UInt},
@@ -25,6 +27,7 @@ const std::map<std::string,FType> float_types = {{
     {"float", FType::Float}, {"double", FType::Double}, {"long double", FType::LDouble},
 }};
 const std::map<std::multiset<std::string>, std::string> multiset_to_type = {{
+    {{"_Bool"},"_Bool"},
     {{"char"},"char"},
     {{"signed", "char"}, "signed char"},
     {{"unsigned", "char"}, "unsigned char"},
@@ -58,6 +61,8 @@ const std::map<std::multiset<std::string>, std::string> multiset_to_type = {{
 unsigned long long max_value(BasicType type){
     assert(std::holds_alternative<IType>(type) && "Can't take max value of non integer type");
     switch(std::get<IType>(type)){
+        case IType::Bool:
+            return 1ull;
         case IType::SChar:
             return SCHAR_MAX;
         case IType::Char:
@@ -103,10 +108,13 @@ std::string ir_type(FType type){
 std::string ir_type(IType type){
     int bits = 0;
     switch(type){
+        case IType::Bool:
+            bits = 1;
+            break;
         case IType::SChar:
         case IType::Char:
         case IType::UChar:
-            bits = std::numeric_limits<unsigned short>::digits;
+            bits = std::numeric_limits<unsigned char>::digits;
             break;
         case IType::Short:
         case IType::UShort:
@@ -159,6 +167,8 @@ bool can_represent(FType target, FType source){
 
 IType to_unsigned(IType t){
     switch(t){
+        case IType::Bool:
+            return IType::Bool;
         case IType::SChar:
         case IType::Char:
         case IType::UChar:
@@ -270,6 +280,9 @@ BasicType usual_arithmetic_conversions(BasicType type1, BasicType type2){
 bool promote_one_rank(IType& type){
     IType ret_val;
     switch(type){
+        case IType::Bool:
+            ret_val = IType::UChar;
+            break;
         case IType::Char: //Char is signed by default
         case IType::SChar:
             ret_val = IType::Short;
@@ -337,6 +350,7 @@ bool is_signed_int(BasicType type){
         case IType::Long:
         case IType::LLong:
             return true;
+        case IType::Bool:
         case IType::UChar:
         case IType::UShort:
         case IType::UInt:
@@ -349,27 +363,7 @@ bool is_signed_int(BasicType type){
     assert(false);
 }
 bool is_unsigned_int(BasicType type){
-    if(!std::holds_alternative<IType>(type)){
-        return false;
-    }
-    switch(std::get<IType>(type)){
-        case IType::SChar:
-        case IType::Char:
-        case IType::Short:
-        case IType::Int:
-        case IType::Long:
-        case IType::LLong:
-            return false;
-        case IType::UChar:
-        case IType::UShort:
-        case IType::UInt:
-        case IType::ULong:
-        case IType::ULLong:
-            return true;
-    }
-    //Annotation or g++ complains
-    __builtin_unreachable();
-    assert(false);
+    return !is_signed_int(type);
 }
 bool is_float(BasicType type){
     return std::holds_alternative<FType>(type);
@@ -386,6 +380,8 @@ bool is_scalar(BasicType type){
 
 std::string to_string(IType type){
     switch(type){
+        case IType::Bool:
+            return "_Bool";
         case IType::SChar:
             return "signed char";
         case IType::Char:

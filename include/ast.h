@@ -27,8 +27,8 @@ struct AST{
     static void print_whitespace(int depth, std::ostream& output = std::cout);
     virtual void analyze(symbol::STable* st) = 0;
     virtual void pretty_print(int depth) = 0;
-    virtual std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) = 0;
     virtual ~AST() = 0;
+    virtual value::Value* codegen(std::ostream& output, context::Context& c) = 0;
 };
 
 struct Program : public AST{
@@ -36,7 +36,7 @@ struct Program : public AST{
     Program(std::unique_ptr<FunctionDef> main) : main_method(std::move(main)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
     void analyze(){
         auto global_st = symbol::STable();
         this->analyze(&global_st);
@@ -65,7 +65,7 @@ struct VarDecl : public Decl, public Stmt{
         : Decl(tok), type(type), assignment(std::move(assignment)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 
 struct FunctionDef : public AST{
@@ -76,7 +76,7 @@ struct FunctionDef : public AST{
         name(name), return_type(ret_type), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
-    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 
 struct ReturnStmt : public Stmt{
@@ -84,7 +84,7 @@ struct ReturnStmt : public Stmt{
     ReturnStmt(std::unique_ptr<Expr> ret_expr) : return_expr(std::move(ret_expr)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
-    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 
 
@@ -104,7 +104,7 @@ struct Variable : public LValue{
     Variable(token::Token tok) : LValue(tok), variable_name(tok.value) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 
 struct Assign : public Expr{
@@ -112,7 +112,7 @@ struct Assign : public Expr{
     std::unique_ptr<Expr> right;
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
     Assign(token::Token tok, std::unique_ptr<LValue> left, std::unique_ptr<Expr> right) : Expr(tok), left(std::move(left)), right(std::move(right)) {}
 };
 
@@ -121,7 +121,7 @@ struct Constant : public Expr{
     Constant(const token::Token& tok);
     void analyze(symbol::STable*) override {}
     void pretty_print(int depth) override;
-    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 
 struct UnaryOp : public Expr{
@@ -130,7 +130,7 @@ struct UnaryOp : public Expr{
         Expr(op), arg(std::move(exp)) {}
     void analyze(symbol::STable* st) override;
     void pretty_print(int depth) override;
-    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 
 struct BinaryOp : public Expr{
@@ -140,7 +140,7 @@ struct BinaryOp : public Expr{
         Expr(op), left(std::move(left)), right(std::move(right)) { }
     void analyze(symbol::STable* st) override;
     void pretty_print(int depth) override;
-    std::unique_ptr<value::Value> codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 
 } //namespace ast

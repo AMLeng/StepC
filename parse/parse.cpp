@@ -95,12 +95,11 @@ std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l){
     //Right now variables are the only implemented lvalue
     return parse_variable(l);
 }
-std::unique_ptr<ast::Assign> parse_assign(lexer::Lexer& l){
-    auto left = parse_lvalue(l);
+std::unique_ptr<ast::Assign> parse_assign(std::unique_ptr<ast::LValue> var, lexer::Lexer& l){
     auto equal_sign = l.get_token();
     check_token_type(equal_sign, token::TokenType::Assign);
     auto right = parse_expr(l);
-    return std::make_unique<ast::Assign>(equal_sign, std::move(left), std::move(right));
+    return std::make_unique<ast::Assign>(equal_sign, std::move(var), std::move(right));
 }
 
 std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
@@ -121,7 +120,13 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
         expr_ptr =  parse_unary_op(l);
     }
     if(matches_type(expr_start,token::TokenType::Identifier)){
-        expr_ptr = parse_variable(l);
+        auto lvalue = parse_lvalue(l);
+        auto maybe_assign = l.peek_token();
+        if(matches_type(maybe_assign,token::TokenType::Assign)){
+            expr_ptr = parse_assign(std::move(lvalue), l);
+        }else{
+            expr_ptr = std::move(lvalue);
+        }
     }
     if(matches_type(expr_start,token::TokenType::LParen)){
         assert(expr_ptr == nullptr && "Already parsed expression");
@@ -165,7 +170,9 @@ std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
     while(l.peek_token().type == token::TokenType::Keyword){
         keyword_list.insert(l.get_token().value);
     }
-    assert(keyword_list.size() > 0 && "Parsing decl that did not start with a keyword");
+    if(keyword_list.size() == 0){
+        throw parse_error::ParseError("Parsing decl that did not start with a keyword", first_keyword);
+    }
     type::BasicType t;
     try{
         t = type::from_str_multiset(keyword_list);
@@ -174,14 +181,14 @@ std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
     }
     auto var_name = l.get_token();
     check_token_type(var_name, token::TokenType::Identifier);
-    auto next_tok = l.get_token();
+    auto next_tok = l.peek_token();
     if(matches_type(next_tok, token::TokenType::Semicolon)){
+        check_token_type(l.get_token(), token::TokenType::Semicolon);
         return std::make_unique<ast::VarDecl>(var_name, t);
     }
     check_token_type(next_tok, token::TokenType::Assign);
     std::unique_ptr<ast::LValue> var = std::make_unique<ast::Variable>(var_name);
-    auto assign_value = parse_expr(l);
-    auto assign = std::make_unique<ast::Assign>(next_tok, std::move(var), std::move(assign_value));
+    auto assign = parse_assign(std::move(var),l);
     check_token_type(l.get_token(), token::TokenType::Semicolon);
     return std::make_unique<ast::VarDecl>(var_name, t, std::move(assign));
 }
@@ -191,9 +198,10 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     if(next_token.type == token::TokenType::Keyword && matches_keyword(next_token, "return")){
         return parse_return_stmt(l);
     }
-    if(next_token.type == token::TokenType::Keyword || next_token.type == token::TokenType::Identifier){
+    if(next_token.type == token::TokenType::Keyword){
         return parse_var_decl(l);
     }
+    //If is a typedef name will also parse var decl, but that's for later
     auto expr = parse_expr(l);
     auto semicolon = l.get_token();
     check_token_type(semicolon, token::TokenType::Semicolon);

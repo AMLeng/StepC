@@ -16,7 +16,8 @@ bool is_keyword(const std::string& word){
         || word == "float"
         || word == "double"
         || word == "signed"
-        || word == "unsigned";
+        || word == "unsigned"
+        || word == "_Bool";
 }
 
 token::Token create_token(token::TokenType type, std::string value, std::pair<int, int> tok_start, std::pair<int, int> tok_end, const std::string& source){
@@ -86,7 +87,7 @@ token::Token Lexer::LexingSubmethods::lex_keyword_ident(Lexer& l){
     std::pair<int, int> starting_position = l.current_pos;
     char c = l.input_stream.peek();
     std::string token_value = "";
-    assert(std::isalpha(c));
+    assert(std::isalpha(c) || c == '_');
     do{
         l.advance_input(token_value, c);
     }while(std::isalpha(c) || std::isdigit(c) || c == '_');
@@ -107,7 +108,7 @@ token::Token Lexer::read_token_from_stream(){
     if(c== EOF){
         return token::Token::make_end_token(current_pos);
     }
-    if(std::isalpha(c)){
+    if(std::isalpha(c) || c == '_'){
         return Lexer::LexingSubmethods::lex_keyword_ident(*this);
     }
     //Handle ints and floats that start with a digit

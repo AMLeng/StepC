@@ -13,7 +13,7 @@ enum class IType {
     Short, UShort, 
     Int, UInt, 
     Long, ULong, 
-    LLong, ULLong
+    LLong, ULLong, Bool
 };
 enum class FType {
     Float, Double, LDouble

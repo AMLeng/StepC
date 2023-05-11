@@ -13,7 +13,7 @@ std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l);
 std::unique_ptr<ast::Variable> parse_variable(lexer::Lexer& l);
 std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l);
-std::unique_ptr<ast::Assign> parse_assign(lexer::Lexer& l);
+std::unique_ptr<ast::Assign> parse_assign(std::unique_ptr<ast::LValue> var, lexer::Lexer& l);
 std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l);
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l);
