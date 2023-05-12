@@ -33,3 +33,5 @@ In stage 3 and beyond, StepC will generate an executable, and can be tested with
 * Stage 3: Add binary operators, parentheses for grouping, and operator precedence (essentially using [Pratt parsing](https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html)), added code to automatically call llc and g++ to create an executable. (We don't call opt beforehand, but one could do so to create more optimized code). 
 
 * Stage 4: New stage (not one of Nora Sandler's stages). Add in floating point constants (treating doubles and long doubles the same--higher precision long doubles are all target dependent), and started keeping track of types. Implemented most integer and floating point type conversions, including the "integer promotions" and "usual arithmetic conversions", as well as type conversions in codegen. Implemented type checking for previously implemented operations.
+
+* Stage 5: Added local variables. Refactored error reporting to include the full line of source code containing the error. Separated out semantic analysis step. Added symbol table.

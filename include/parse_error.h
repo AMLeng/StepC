@@ -9,9 +9,7 @@ class ParseError : public std::exception{
         std::string error_str;
     public:
         ParseError(std::string_view what_arg, const token::Token& tok){
-            error_str = ("Parse error on token " + tok.value + 
-            " at line "+std::to_string(tok.loc.start_line)+" and column "+std::to_string(tok.loc.start_col)
-            +": ").append(what_arg);
+            error_str = ("Parse error on " + tok.to_string()).append(what_arg);
         }
         const char* what() const noexcept override{
             return error_str.c_str();
