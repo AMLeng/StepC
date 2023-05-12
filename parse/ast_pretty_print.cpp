@@ -30,15 +30,18 @@ void ReturnStmt::pretty_print(int depth){
 }
 void Variable::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"VARIABLE \""<<variable_name<<"\""<<std::endl;
+    std::cout<<"VARIABLE \""<<variable_name<<"\" OF TYPE "<<type::to_string(type)<<std::endl;
 }
 void VarDecl::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"VARIABLE DECL "<<name<<" of type "<< type::to_string(type) <<std::endl;
+    std::cout<<"VARIABLE DECL \""<<name<<"\" OF TYPE "<< type::to_string(type) <<std::endl;
+    if(this->assignment.has_value()){
+        this->assignment.value()->pretty_print(depth+1);
+    }
 }
 void Constant::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<<"CONSTANT "<<literal<<" of type "<< type::to_string(type) <<std::endl;
+    std::cout<<"CONSTANT "<<literal<<" OF TYPE "<< type::to_string(type) <<std::endl;
 }
 void UnaryOp::pretty_print(int depth){
     AST::print_whitespace(depth);

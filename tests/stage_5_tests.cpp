@@ -240,6 +240,18 @@ R"(int main(){
     auto program_pointer = parse::construct_ast(l);
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
 }
+TEST_CASE("parse as bool"){
+    auto ss = std::stringstream(
+R"(
+    _Bool b = 2;
+)");
+    lexer::Lexer l(ss);
+    auto decl = parse::parse_var_decl(l);
+    REQUIRE(decl->type == type::from_str("_Bool"));
+    auto global_st = symbol::STable();
+    decl->analyze(&global_st);
+    REQUIRE(decl->assignment.value()->left->type == type::from_str("_Bool"));
+}
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here

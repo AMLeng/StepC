@@ -20,6 +20,7 @@ enum class FType {
 };
 typedef std::variant<IType, FType> BasicType;
 
+
 BasicType make_basic(IType type);
 BasicType make_basic(FType type);
 
@@ -56,7 +57,6 @@ bool is_scalar(BasicType type);
 //Printing
 std::string to_string(BasicType type);
 std::string ir_type(BasicType type);
-
 } //namespace type
 
 #endif

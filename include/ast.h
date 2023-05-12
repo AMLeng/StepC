@@ -58,6 +58,7 @@ struct Decl : public AST{
 };
 
 struct VarDecl : public Decl, public Stmt{
+    bool analyzed = false;
     const type::BasicType type;
     std::optional<std::unique_ptr<BinaryOp>> assignment;
     //Type qualifiers and storage class specifiers to be implemented later
@@ -90,6 +91,7 @@ struct ReturnStmt : public Stmt{
 
 struct Expr : public Stmt{
     type::BasicType type;
+    bool analyzed = false;
     token::Token tok;
     Expr(token::Token tok) : tok(tok){}
     virtual ~Expr() = 0;
@@ -110,7 +112,7 @@ struct Variable : public LValue{
 struct Constant : public Expr{
     std::string literal;
     Constant(const token::Token& tok);
-    void analyze(symbol::STable*) override {}
+    void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) override;
 };

@@ -4,20 +4,28 @@
 namespace ast{
 
 void VarDecl::analyze(symbol::STable* st) {
+    this->analyzed = true;
     //Add symbol to symbol table, check that not already present
     try{
         st->add_symbol(this->name,this->type);
     }catch(std::runtime_error& e){
         throw sem_error::STError(e.what(),this->tok);
     }
+    //If we have a declaration attached
+    if(this->assignment.has_value()){
+        this->assignment.value()->analyze(st);
+    }
 }
 void Variable::analyze(symbol::STable* st) {
+    this->analyzed = true;
     //Check that the variable name actually exists in a symbol table
     if(!st->has_symbol(this->variable_name)){
         throw sem_error::STError("Variable not found in symbol table",this->tok);
     }
+    this->type=st->symbol_type(this->variable_name);
 }
 void UnaryOp::analyze(symbol::STable* st) {
+    this->analyzed = true;
     this->arg->analyze(st);
     //Typechecking
     switch(this->tok.type){
@@ -45,6 +53,7 @@ void UnaryOp::analyze(symbol::STable* st) {
     }
 }
 void BinaryOp::analyze(symbol::STable* st){
+    this->analyzed = true;
     this->left->analyze(st);
     this->right->analyze(st);
     switch(this->tok.type){
@@ -72,6 +81,9 @@ void BinaryOp::analyze(symbol::STable* st){
     }
 }
 //Methods that just recurse
+void Constant::analyze(symbol::STable* st){
+    this->analyzed = true;
+}
 void ReturnStmt::analyze(symbol::STable* st){
     return_expr->analyze(st);
 }
@@ -80,6 +92,13 @@ void Program::analyze(symbol::STable* st) {
     main_method->analyze(main_table);
 }
 void FunctionDef::analyze(symbol::STable* st) {
+    if(this->name == "main"){
+        if(function_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body.back().get())){
+            auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
+            std::unique_ptr<Expr> ret_expr = std::make_unique<Constant>(fake_token);
+            function_body.push_back(std::make_unique<ReturnStmt>(std::move(ret_expr)));
+        }
+    }
     for(auto& stmt : function_body){
         stmt->analyze(st);
     }

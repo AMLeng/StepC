@@ -15,7 +15,7 @@ template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 namespace{
 std::string convert_command(type::IType target, type::IType source){
     if(type::can_represent(target, source)){
-        if(type::is_signed_int(type::make_basic(target))){
+        if(type::is_signed_int(type::make_basic(source))){
             return "sext";
         }else{
             return "zext";
@@ -53,8 +53,8 @@ value::Value* codegen_convert(type::BasicType target_type, value::Value* val,
         std::ostream& output, context::Context& c){
     if(target_type == type::from_str("_Bool")){
         std::string command = std::visit(overloaded{
-                [](type::IType){return "icmp eq";},
-                [](type::FType){return "fcmp oeq";},
+                [](type::IType){return "icmp ne";},
+                [](type::FType){return "fcmp une";},
                 }, val->get_type());
 
         AST::print_whitespace(c.depth(), output);
@@ -114,15 +114,19 @@ value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c){
 }
 
 value::Value* Variable::codegen(std::ostream& output, context::Context& c){
+    assert(this->analyzed && "This AST node has not had analysis run on it");
     auto var_value = c.get_value(variable_name);
     auto new_tmp = c.new_temp(var_value->get_type());
+    AST::print_whitespace(c.depth(), output);
     output << new_tmp->get_value()<<" = load "<<type::ir_type(new_tmp->get_type());
     output << ", " <<type::ir_type(var_value->get_type())<<"* "<<var_value->get_value()<<std::endl;
     return new_tmp;
 }
 
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c){
+    assert(this->analyzed && "This AST node has not had analysis run on it");
     auto variable = c.add_local(name, type);
+    AST::print_whitespace(c.depth(), output);
     output << variable->get_value() <<" = alloca "<<type::ir_type(variable->get_type()) <<std::endl;
     if(this->assignment.has_value()){
         this->assignment.value()->codegen(output, c);
@@ -131,10 +135,12 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c){
 }
 
 value::Value* Constant::codegen(std::ostream& output, context::Context& c){
+    assert(this->analyzed && "This AST node has not had analysis run on it");
     return c.add_literal(this->literal, this->type);
 }
 
 value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c){
+    assert(this->analyzed && "This AST node has not had analysis run on it");
     auto operand = arg->codegen(output, c);
     std::string t = type::ir_type(this->type);
     std::string command = "";
@@ -190,6 +196,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c){
 
 
 value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c){
+    assert(this->analyzed && "This AST node has not had analysis run on it");
     auto right_register = this->right->codegen(output, c);
     //Operators that return an lvalue
     if(token::matches_type(tok, token::TokenType::Assign)){
@@ -199,6 +206,7 @@ value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c){
         right_register = codegen_convert(this->type, std::move(right_register), output, c);
         switch(tok.type){
             case token::TokenType::Assign:
+                AST::print_whitespace(c.depth(), output);
                 output << "store "<<type::ir_type(right_register->get_type())<<" "<<right_register->get_value();
                 output<<", "<<type::ir_type(this->type)<<"* "<<var_value->get_value()<<std::endl;
                 break;
