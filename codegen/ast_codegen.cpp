@@ -114,16 +114,19 @@ value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c){
 }
 
 value::Value* Variable::codegen(std::ostream& output, context::Context& c){
-    //do nothing for now
-    return nullptr;
-}
-value::Value* Assign::codegen(std::ostream& output, context::Context& c){
-    //do nothing for now
-    return nullptr;
+    auto var_value = c.get_value(variable_name);
+    auto new_tmp = c.new_temp(var_value->get_type());
+    output << new_tmp->get_value()<<" = load "<<type::ir_type(new_tmp->get_type());
+    output << ", " <<type::ir_type(var_value->get_type())<<"* "<<var_value->get_value()<<std::endl;
+    return new_tmp;
 }
 
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c){
-    //do nothing for now
+    auto variable = c.add_local(name, type);
+    output << variable->get_value() <<" = alloca "<<type::ir_type(variable->get_type()) <<std::endl;
+    if(this->assignment.has_value()){
+        this->assignment.value()->codegen(output, c);
+    }
     return nullptr;
 }
 
@@ -187,32 +190,55 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c){
 
 
 value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c){
-    auto left_register = this->left->codegen(output, c);
     auto right_register = this->right->codegen(output, c);
-    left_register = codegen_convert(this->type, std::move(left_register), output, c);
-    right_register = codegen_convert(this->type, std::move(right_register), output, c);
+    //Operators that return an lvalue
+    if(token::matches_type(tok, token::TokenType::Assign)){
+        auto variable = dynamic_cast<ast::Variable*>(this->left.get());
+        assert(variable && "Other lvalues not yet implemented");
+        auto var_value = c.get_value(variable->variable_name);
+        right_register = codegen_convert(this->type, std::move(right_register), output, c);
+        switch(tok.type){
+            case token::TokenType::Assign:
+                output << "store "<<type::ir_type(right_register->get_type())<<" "<<right_register->get_value();
+                output<<", "<<type::ir_type(this->type)<<"* "<<var_value->get_value()<<std::endl;
+                break;
+            default:
+                assert(false && "Unknown binary assignment op during codegen");
+        }
+        return right_register;
+    }
+    //Operators that return an rvalue
+    auto left_register = this->left->codegen(output, c);
     std::string t = type::ir_type(this->type);
     std::string command = "";
     switch(tok.type){
         case token::TokenType::Minus:
+            left_register = codegen_convert(this->type, std::move(left_register), output, c);
+            right_register = codegen_convert(this->type, std::move(right_register), output, c);
             command = std::visit(overloaded{
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
                 }, this->type);
             break;
         case token::TokenType::Plus:
+            left_register = codegen_convert(this->type, std::move(left_register), output, c);
+            right_register = codegen_convert(this->type, std::move(right_register), output, c);
             command = std::visit(overloaded{
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
                 }, this->type);
             break;
         case token::TokenType::Mult:
+            left_register = codegen_convert(this->type, std::move(left_register), output, c);
+            right_register = codegen_convert(this->type, std::move(right_register), output, c);
             command = std::visit(overloaded{
                 [](type::IType){return "mul";},
                 [](type::FType){return "fmul";},
                 }, this->type);
             break;
         case token::TokenType::Div:
+            left_register = codegen_convert(this->type, std::move(left_register), output, c);
+            right_register = codegen_convert(this->type, std::move(right_register), output, c);
             command = std::visit(overloaded{
                 [](type::IType t){
                     if(type::is_signed_int(t)){return "sdiv";}

@@ -176,7 +176,7 @@ R"(
     b = (3 + a)*2;
 )");
     lexer::Lexer l(ss);
-    auto assign_ptr = parse::parse_assign(parse::parse_lvalue(l),l);
+    auto assign_ptr = parse::parse_binary_op(l,parse::parse_lvalue(l),0);
     //assign_ptr->pretty_print(0);
 }
 TEST_CASE("parse assignment in program"){
@@ -228,6 +228,17 @@ R"(int main(){
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
+TEST_CASE("bad_lvalue"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int b;
+    ~b = 3;
+    return b;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
 }
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)

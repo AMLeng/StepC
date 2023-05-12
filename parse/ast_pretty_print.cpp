@@ -32,12 +32,6 @@ void Variable::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<<"VARIABLE \""<<variable_name<<"\""<<std::endl;
 }
-void Assign::pretty_print(int depth){
-    left->pretty_print(depth);
-    AST::print_whitespace(depth+ 1);
-    std::cout<<" ASSIGNED TO "<<std::endl;
-    right->pretty_print(depth +2);
-}
 void VarDecl::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<<"VARIABLE DECL "<<name<<" of type "<< type::to_string(type) <<std::endl;

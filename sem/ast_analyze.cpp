@@ -48,6 +48,16 @@ void BinaryOp::analyze(symbol::STable* st){
     this->left->analyze(st);
     this->right->analyze(st);
     switch(this->tok.type){
+        case token::TokenType::Assign:
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+            }
+            }
+            //All basic types are interconvertable, modulo some potential for UB
+            this->type = this->left->type;
+            break;
         case token::TokenType::Plus:
         case token::TokenType::Minus:
         case token::TokenType::Mult:
@@ -73,9 +83,5 @@ void FunctionDef::analyze(symbol::STable* st) {
     for(auto& stmt : function_body){
         stmt->analyze(st);
     }
-}
-void Assign::analyze(symbol::STable* st) {
-    left->analyze(st);
-    right->analyze(st);
 }
 } //namespace ast

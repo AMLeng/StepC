@@ -19,7 +19,7 @@ struct ReturnStmt;
 struct Expr;
 struct Constant;
 struct UnaryOp;
-struct Assign;
+struct BinaryOp;
 
 //Implemented in ast_sem.cpp and ast_codegen.cpp
 
@@ -59,9 +59,9 @@ struct Decl : public AST{
 
 struct VarDecl : public Decl, public Stmt{
     const type::BasicType type;
-    std::optional<std::unique_ptr<Assign>> assignment;
+    std::optional<std::unique_ptr<BinaryOp>> assignment;
     //Type qualifiers and storage class specifiers to be implemented later
-    VarDecl(token::Token tok, type::BasicType type,std::optional<std::unique_ptr<Assign>> assignment = std::nullopt) 
+    VarDecl(token::Token tok, type::BasicType type,std::optional<std::unique_ptr<BinaryOp>> assignment = std::nullopt) 
         : Decl(tok), type(type), assignment(std::move(assignment)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
@@ -105,15 +105,6 @@ struct Variable : public LValue{
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) override;
-};
-
-struct Assign : public Expr{
-    std::unique_ptr<LValue> left;
-    std::unique_ptr<Expr> right;
-    void analyze(symbol::STable*) override;
-    void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
-    Assign(token::Token tok, std::unique_ptr<LValue> left, std::unique_ptr<Expr> right) : Expr(tok), left(std::move(left)), right(std::move(right)) {}
 };
 
 struct Constant : public Expr{

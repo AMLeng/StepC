@@ -94,6 +94,25 @@ inline std::string string_name(TokenType type){
     __builtin_unreachable();
     assert(false);
 }
+//Definitions for helper methods
+inline bool matches_type(const token::Token& tok){
+    return false;
+}
+
+template <typename... TokTypes>
+bool matches_type(const token::Token& tok, token::TokenType t, TokTypes... types){
+    return tok.type == t || matches_type(tok, types...);
+}
+
+inline bool matches_keyword(const token::Token& tok){
+    assert(tok.type == token::TokenType::Keyword);
+    return false;
+}
+
+template<typename... Ts>
+bool matches_keyword(const token::Token& tok, std::string_view keyword, Ts... ts){
+    return tok.value == keyword || matches_keyword(tok, ts...);
+}
 }//namespace token
 
 namespace std{
