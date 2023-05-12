@@ -26,6 +26,11 @@ void FunctionDef::pretty_print(int depth){
     function_body->pretty_print(depth + 1);
 }
 
+void NullStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "NULL"<<std::endl;
+}
+
 void IfStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<< "IF COND:"<<std::endl;

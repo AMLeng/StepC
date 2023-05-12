@@ -47,6 +47,12 @@ struct Stmt : public AST{
     //Statements are things that can appear in the body of a function
     virtual ~Stmt() = 0;
 };
+struct NullStmt : public Stmt{
+    NullStmt(){}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
+};
 
 struct Decl : public AST{
     //Declarations are things that can appear at global scope,

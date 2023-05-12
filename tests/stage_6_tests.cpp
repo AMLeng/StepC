@@ -10,7 +10,17 @@
 #include <utility>
 
 
-//Lexer unit tests
+TEST_CASE("empty expression stmt"){
+    auto ss = std::stringstream(
+R"(int main(){
+    long int a;
+    ;;
+    return 5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
 TEST_CASE("parse multiple scope"){
     auto ss = std::stringstream(
 R"(int main(){

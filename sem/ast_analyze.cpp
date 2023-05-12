@@ -81,6 +81,8 @@ void BinaryOp::analyze(symbol::STable* st){
     }
 }
 //Methods that just recurse
+void NullStmt::analyze(symbol::STable* st){
+}
 void Constant::analyze(symbol::STable* st){
     this->analyzed = true;
 }

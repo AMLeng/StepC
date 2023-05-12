@@ -175,6 +175,10 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     if(next_token.type == token::TokenType::LBrace){
         return parse_compound_stmt(l);
     }
+    if(next_token.type == token::TokenType::Semicolon){
+        l.get_token();
+        return std::make_unique<ast::NullStmt>();
+    }
     //If is a typedef name will also parse var decl, but that's for later
     auto expr = parse_expr(l);
     auto semicolon = l.get_token();

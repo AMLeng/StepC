@@ -86,6 +86,10 @@ value::Value* Program::codegen(std::ostream& output, context::Context& c){
     main_method->codegen(output, c);
     return nullptr;
 }
+value::Value* NullStmt::codegen(std::ostream& output, context::Context& c){
+    //Do nothing
+    return nullptr;
+}
 
 value::Value* IfStmt::codegen(std::ostream& output, context::Context& c){
     //To add
