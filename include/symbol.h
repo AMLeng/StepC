@@ -25,10 +25,25 @@ public:
         sym_map.emplace(name,type);
     }
     bool has_symbol(std::string name){
-        return sym_map.find(name) != sym_map.end();
+        STable* to_search = this;
+        while(to_search != nullptr){
+            if(to_search->sym_map.find(name) != to_search->sym_map.end()){
+                return true;
+            }
+            to_search = to_search->parent;
+        }
+        return false;
     }
     type::BasicType symbol_type(std::string name){
-        return sym_map.at(name);
+        STable* to_search = this;
+        while(to_search != nullptr){
+            if(to_search->sym_map.find(name) != to_search->sym_map.end()){
+                return to_search->sym_map.at(name);
+            }
+            to_search = to_search->parent;
+        }
+        throw std::runtime_error("Symbol "+name+" not found in symbol table");
+        __builtin_unreachable();
     }
 };
 }//namespace symbol

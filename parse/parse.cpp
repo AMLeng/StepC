@@ -168,11 +168,23 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     if(next_token.type == token::TokenType::Keyword){
         return parse_var_decl(l);
     }
+    if(next_token.type == token::TokenType::LBrace){
+        return parse_compound_stmt(l);
+    }
     //If is a typedef name will also parse var decl, but that's for later
     auto expr = parse_expr(l);
     auto semicolon = l.get_token();
     check_token_type(semicolon, token::TokenType::Semicolon);
     return std::move(expr);
+}
+std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l){
+    auto stmt_body = std::vector<std::unique_ptr<ast::Stmt>>{};
+    check_token_type(l.get_token(), token::TokenType::LBrace);
+    while(l.peek_token().type != token::TokenType::RBrace){
+        stmt_body.push_back(parse_stmt(l));
+    }
+    check_token_type(l.get_token(), token::TokenType::RBrace);
+    return std::make_unique<ast::CompoundStmt>(std::move(stmt_body));
 }
 
 std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l){
@@ -187,14 +199,10 @@ std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l){
 
     check_token_type(l.get_token(), token::TokenType::LParen);
     check_token_type(l.get_token(), token::TokenType::RParen);
-    check_token_type(l.get_token(), token::TokenType::LBrace);
+    check_token_type(l.peek_token(), token::TokenType::LBrace);
 
-    auto function_body = std::vector<std::unique_ptr<ast::Stmt>>{};
-    while(l.peek_token().type != token::TokenType::RBrace){
-        function_body.push_back(parse_stmt(l));
-    }
+    auto function_body = parse_compound_stmt(l);
 
-    check_token_type(l.get_token(), token::TokenType::RBrace);
     return std::make_unique<ast::FunctionDef>(name.value, type::from_str(ret_type.value), std::move(function_body));
 }
 

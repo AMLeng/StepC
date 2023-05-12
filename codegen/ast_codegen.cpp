@@ -87,14 +87,20 @@ value::Value* Program::codegen(std::ostream& output, context::Context& c){
     return nullptr;
 }
 
+value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c){
+    c.enter_scope();
+    for(const auto& stmt : stmt_body){
+        stmt->codegen(output, c);
+    }
+    c.exit_scope();
+    return nullptr;
+}
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c){
     assert(return_type == type::make_basic(type::IType::Int));
     AST::print_whitespace(c.depth(), output);
     output << "define "<<type::ir_type(return_type)<<" @" + name+"(){"<<std::endl;
     c.enter_function(return_type);
-    for(const auto& stmt : function_body){
-        stmt->codegen(output, c);
-    }
+    function_body->codegen(output, c);
     c.exit_function();
     AST::print_whitespace(c.depth(), output);
     output << "}"<<std::endl;

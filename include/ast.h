@@ -68,12 +68,19 @@ struct VarDecl : public Decl, public Stmt{
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
+struct CompoundStmt : public Stmt{
+    std::vector<std::unique_ptr<Stmt>> stmt_body;
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    CompoundStmt(std::vector<std::unique_ptr<Stmt>> stmt_body) : stmt_body(std::move(stmt_body)) {}
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
+};
 
 struct FunctionDef : public AST{
     std::string name;
     type::BasicType return_type;
-    std::vector<std::unique_ptr<Stmt>> function_body;
-    FunctionDef(std::string name, type::BasicType ret_type, std::vector<std::unique_ptr<Stmt>> body) : 
+    std::unique_ptr<CompoundStmt> function_body;
+    FunctionDef(std::string name, type::BasicType ret_type, std::unique_ptr<CompoundStmt> body) : 
         name(name), return_type(ret_type), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);

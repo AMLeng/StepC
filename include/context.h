@@ -30,6 +30,8 @@ class Context{
     std::unique_ptr<type::BasicType> ret_type;
     const std::unique_ptr<Scope> global_scope;
     Scope* current_scope;
+    int total_locals;
+    int instructions;
 public:
     Context();
     value::Value* prev_temp(int i) const;
@@ -39,6 +41,8 @@ public:
     value::Value* add_local(std::string name, type::BasicType type);
     bool has_symbol(std::string name) const;
     value::Value* get_value(std::string name) const;
+    void enter_scope();
+    void exit_scope();
     void enter_function(type::BasicType t);
     void exit_function();
     int depth() const;

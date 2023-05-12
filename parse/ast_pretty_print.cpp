@@ -10,6 +10,11 @@ void AST::print_whitespace(int depth, std::ostream& output){
 void Program::pretty_print(int depth){
     main_method->pretty_print(depth);
 }
+void CompoundStmt::pretty_print(int depth){
+    for(const auto& stmt : stmt_body){
+        stmt -> pretty_print(depth+1);
+    }
+}
 
 void FunctionDef::pretty_print(int depth){
     AST::print_whitespace(depth);
@@ -18,9 +23,7 @@ void FunctionDef::pretty_print(int depth){
     std::cout<< "PARAMS: ()" << std::endl;
     AST::print_whitespace(depth+1);
     std::cout<< "BODY: " << std::endl;
-    for(const auto& stmt : function_body){
-        stmt -> pretty_print(depth+2);
-    }
+    function_body->pretty_print(depth + 1);
 }
 
 void ReturnStmt::pretty_print(int depth){

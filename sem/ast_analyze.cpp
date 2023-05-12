@@ -91,16 +91,20 @@ void Program::analyze(symbol::STable* st) {
     auto main_table = st->new_child();
     main_method->analyze(main_table);
 }
+void CompoundStmt::analyze(symbol::STable* st){
+    auto stmt_table = st->new_child();
+    for(auto& stmt : stmt_body){
+        stmt->analyze(stmt_table);
+    }
+}
 void FunctionDef::analyze(symbol::STable* st) {
     if(this->name == "main"){
-        if(function_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body.back().get())){
+        if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
             auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
             std::unique_ptr<Expr> ret_expr = std::make_unique<Constant>(fake_token);
-            function_body.push_back(std::make_unique<ReturnStmt>(std::move(ret_expr)));
+            function_body->stmt_body.push_back(std::make_unique<ReturnStmt>(std::move(ret_expr)));
         }
     }
-    for(auto& stmt : function_body){
-        stmt->analyze(st);
-    }
+    function_body->analyze(st);
 }
 } //namespace ast
