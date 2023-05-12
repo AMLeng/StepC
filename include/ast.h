@@ -43,7 +43,11 @@ struct Program : public AST{
     }
 };
 
-struct Stmt : public AST{
+struct BlockItem : public AST{
+    //Block items can appear in compound statements
+    virtual ~BlockItem() = 0;
+};
+struct Stmt : public BlockItem{
     //Statements are things that can appear in the body of a function
     virtual ~Stmt() = 0;
 };
@@ -63,7 +67,7 @@ struct Decl : public AST{
     virtual ~Decl() = 0;
 };
 
-struct VarDecl : public Decl, public Stmt{
+struct VarDecl : public Decl, public BlockItem{
     bool analyzed = false;
     const type::BasicType type;
     std::optional<std::unique_ptr<BinaryOp>> assignment;
@@ -85,10 +89,10 @@ struct IfStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 struct CompoundStmt : public Stmt{
-    std::vector<std::unique_ptr<Stmt>> stmt_body;
+    std::vector<std::unique_ptr<BlockItem>> stmt_body;
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    CompoundStmt(std::vector<std::unique_ptr<Stmt>> stmt_body) : stmt_body(std::move(stmt_body)) {}
+    CompoundStmt(std::vector<std::unique_ptr<BlockItem>> stmt_body) : stmt_body(std::move(stmt_body)) {}
     value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 

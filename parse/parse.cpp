@@ -161,6 +161,14 @@ std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
     return std::make_unique<ast::VarDecl>(var_name, t, std::move(assign));
 }
 
+std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
+    auto next_token = l.peek_token();
+    if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, 
+        "return", "if")){
+        return parse_var_decl(l);
+    }
+    return parse_stmt(l);
+}
 std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     auto next_token = l.peek_token();
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "return")){
@@ -168,9 +176,6 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     }
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "if")){
         return parse_if_stmt(l);
-    }
-    if(next_token.type == token::TokenType::Keyword){
-        return parse_var_decl(l);
     }
     if(next_token.type == token::TokenType::LBrace){
         return parse_compound_stmt(l);
@@ -203,10 +208,10 @@ std::unique_ptr<ast::IfStmt> parse_if_stmt(lexer::Lexer& l){
     return std::make_unique<ast::IfStmt>(std::move(if_condition), std::move(if_body), std::move(else_body));
 }
 std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l){
-    auto stmt_body = std::vector<std::unique_ptr<ast::Stmt>>{};
+    auto stmt_body = std::vector<std::unique_ptr<ast::BlockItem>>{};
     check_token_type(l.get_token(), token::TokenType::LBrace);
     while(l.peek_token().type != token::TokenType::RBrace){
-        stmt_body.push_back(parse_stmt(l));
+        stmt_body.push_back(parse_block_item(l));
     }
     check_token_type(l.get_token(), token::TokenType::RBrace);
     return std::make_unique<ast::CompoundStmt>(std::move(stmt_body));

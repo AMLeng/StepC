@@ -134,7 +134,7 @@ R"(
 )");
     lexer::Lexer l(ss);
     auto ret = parse::parse_stmt(l);
-    auto decl = parse::parse_stmt(l);
+    auto decl = parse::parse_block_item(l);
 }
 
 TEST_CASE("parse error program with decl"){

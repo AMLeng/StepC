@@ -75,6 +75,17 @@ R"(int main(){
     REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
     //program_pointer->pretty_print(0);
 }
+TEST_CASE("declaration not a statement"){
+    auto ss = std::stringstream(
+R"(int main(){
+    if(1)
+        int a = 3;
+    return a;
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+    //program_pointer->pretty_print(0);
+}
 
 TEST_CASE("parse if"){
     auto ss = std::stringstream(
