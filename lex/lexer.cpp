@@ -9,6 +9,8 @@ namespace lexer{
 namespace{
 bool is_keyword(const std::string& word){
     return word == "return"
+        || word == "if"
+        || word == "else"
         || word == "char"
         || word == "short"
         || word == "int"

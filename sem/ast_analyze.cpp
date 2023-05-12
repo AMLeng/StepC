@@ -84,6 +84,13 @@ void BinaryOp::analyze(symbol::STable* st){
 void Constant::analyze(symbol::STable* st){
     this->analyzed = true;
 }
+void IfStmt::analyze(symbol::STable* st){
+    this->if_condition->analyze(st);
+    this->if_body->analyze(st);
+    if(this->else_body.has_value()){
+        this->else_body.value()->analyze(st);
+    }
+}
 void ReturnStmt::analyze(symbol::STable* st){
     return_expr->analyze(st);
 }

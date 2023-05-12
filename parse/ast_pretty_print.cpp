@@ -26,6 +26,18 @@ void FunctionDef::pretty_print(int depth){
     function_body->pretty_print(depth + 1);
 }
 
+void IfStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "IF COND:"<<std::endl;
+    if_condition->pretty_print(depth+1);
+    std::cout<< "IF BODY:"<<std::endl;
+    if_body->pretty_print(depth+1);
+    if(this->else_body.has_value()){
+        AST::print_whitespace(depth);
+        std::cout<< "ELSE:"<<std::endl;
+        else_body.value()->pretty_print(depth+1);
+    }
+}
 void ReturnStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<< "RETURN:"<<std::endl;

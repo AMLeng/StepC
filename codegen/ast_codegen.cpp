@@ -87,6 +87,10 @@ value::Value* Program::codegen(std::ostream& output, context::Context& c){
     return nullptr;
 }
 
+value::Value* IfStmt::codegen(std::ostream& output, context::Context& c){
+    //To add
+    return nullptr;
+}
 value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c){
     c.enter_scope();
     for(const auto& stmt : stmt_body){

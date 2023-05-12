@@ -136,6 +136,7 @@ std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
     while(l.peek_token().type == token::TokenType::Keyword){
         keyword_list.insert(l.get_token().value);
     }
+    check_token_type(l.peek_token(), token::TokenType::Identifier);
     if(keyword_list.size() == 0){
         throw parse_error::ParseError("Parsing decl that did not start with a keyword", first_keyword);
     }
@@ -165,6 +166,9 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "return")){
         return parse_return_stmt(l);
     }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "if")){
+        return parse_if_stmt(l);
+    }
     if(next_token.type == token::TokenType::Keyword){
         return parse_var_decl(l);
     }
@@ -176,6 +180,23 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     auto semicolon = l.get_token();
     check_token_type(semicolon, token::TokenType::Semicolon);
     return std::move(expr);
+}
+std::unique_ptr<ast::IfStmt> parse_if_stmt(lexer::Lexer& l){
+    auto if_keyword = l.get_token();
+    if(!token::matches_keyword(if_keyword, "if")){
+        throw parse_error::ParseError("Expected keyword \"if\"", if_keyword);
+    }
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    auto if_condition = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    auto if_body = parse_stmt(l);
+    auto maybe_else= l.peek_token();
+    if(maybe_else.type != token::TokenType::Keyword || !token::matches_keyword(maybe_else, "else")){
+        return std::make_unique<ast::IfStmt>(std::move(if_condition), std::move(if_body));
+    }
+    check_token_type(l.get_token(), token::TokenType::Keyword);
+    auto else_body = parse_stmt(l);
+    return std::make_unique<ast::IfStmt>(std::move(if_condition), std::move(if_body), std::move(else_body));
 }
 std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l){
     auto stmt_body = std::vector<std::unique_ptr<ast::Stmt>>{};

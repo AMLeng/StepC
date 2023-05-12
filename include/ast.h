@@ -68,6 +68,16 @@ struct VarDecl : public Decl, public Stmt{
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
+struct IfStmt : public Stmt{
+    std::unique_ptr<Expr> if_condition;
+    std::unique_ptr<Stmt> if_body;
+    std::optional<std::unique_ptr<Stmt>> else_body;
+    IfStmt(std::unique_ptr<Expr> if_condition, std::unique_ptr<Stmt> if_body, std::optional<std::unique_ptr<Stmt>> else_body = std::nullopt) : 
+        if_condition(std::move(if_condition)), if_body(std::move(if_body)), else_body(std::move(else_body)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
+};
 struct CompoundStmt : public Stmt{
     std::vector<std::unique_ptr<Stmt>> stmt_body;
     void analyze(symbol::STable*) override;
