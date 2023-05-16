@@ -1,12 +1,34 @@
+#include "ast.h"
 #include "context.h"
 #include <cassert>
 #include <vector>
 namespace context{
+void Context::enter_block(std::string block_label, std::ostream& output, std::unique_ptr<basicblock::Terminator> t){
+    assert(this->current_block == nullptr && "Starting new block without ending current basic block");
+    output << block_label<<":"<<std::endl;
+    current_block = std::make_unique<basicblock::Block>(block_label, std::move(t));
+}
+void Context::exit_block(std::ostream& output, std::unique_ptr<basicblock::Terminator> t){
+    if(!current_block){
+        assert(false && "Tried to exit block when not inside block");
+    }
+    if(t){
+        current_block->add_terminator(std::move(t));
+    }
+    assert(current_block->has_terminator() && "Tried to exit block with no terminator");
+    ast::AST::print_whitespace(this->depth(), output);
+    current_block->print_terminator(output);
+    current_block = nullptr;
+}
+
 Context::Context() : ret_type(nullptr), global_scope(std::make_unique<Scope>()){
     current_scope = global_scope.get();
 }
 value::Value* Context::prev_temp(int i) const{
     return current_scope->tmp_map.at(current_scope->tmp_map.size() - i - 1).get();
+}
+int Context::new_local_name(){
+    return total_locals++;
 }
 value::Value* Context::new_temp(type::BasicType t){
     auto new_tmp_ptr = std::make_unique<value::Value>("%"+std::to_string(instructions),t);
@@ -49,18 +71,25 @@ value::Value* Context::get_value(std::string name) const{
 }
 void Context::enter_scope(){
     current_scope = current_scope->new_child();
+
 }
 void Context::exit_scope(){
     assert(current_scope->parent != nullptr && "Tried to leave global scope");
     current_scope = current_scope->parent;
     current_scope->children.pop_back();
 }
-void Context::enter_function(type::BasicType t){
+void Context::enter_function(type::BasicType t, std::ostream& output){
     ret_type = std::make_unique<type::BasicType>(t);
     total_locals = 0; 
-    instructions = 1; //1 for the first block name
+    enter_block("0",output);
+    instructions = 1; //Instruction 0 is the block label
 }
-void Context::exit_function(){
+void Context::exit_function(std::ostream& output, std::unique_ptr<basicblock::Terminator> t){
+    if(t){
+        current_block->add_terminator(std::move(t));
+    }
+    assert(current_block->has_terminator() && "No terminator for last block of function");
+    exit_block(output, nullptr);
     ret_type = nullptr;
 }
 int Context::depth() const{
@@ -69,5 +98,14 @@ int Context::depth() const{
 type::BasicType Context::return_type() const{
     assert(ret_type);
     return *ret_type;
+}
+void Context::change_block(std::string block_label, std::ostream& output, 
+    std::unique_ptr<basicblock::Terminator> old_terminator, std::unique_ptr<basicblock::Terminator> new_default){
+    if(old_terminator || current_block->has_terminator()){
+        exit_block(output,std::move(old_terminator));
+    }else{
+        exit_block(output, std::make_unique<basicblock::UCond_BR>(block_label));
+    }
+    enter_block(block_label, output, std::move(new_default));
 }
 }//namespace context

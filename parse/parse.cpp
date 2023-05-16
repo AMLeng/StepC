@@ -238,6 +238,10 @@ std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l){
 
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l){
     auto main_method = parse_function_def(l);
+    auto next = l.get_token();
+    if(next.type != token::TokenType::END){
+        throw parse_error::ParseError("Expected end of file", next);
+    }
     return std::make_unique<ast::Program>(std::move(main_method));
 }
 

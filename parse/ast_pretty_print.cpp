@@ -12,7 +12,7 @@ void Program::pretty_print(int depth){
 }
 void CompoundStmt::pretty_print(int depth){
     for(const auto& stmt : stmt_body){
-        stmt -> pretty_print(depth+1);
+        stmt -> pretty_print(depth);
     }
 }
 
@@ -23,7 +23,7 @@ void FunctionDef::pretty_print(int depth){
     std::cout<< "PARAMS: ()" << std::endl;
     AST::print_whitespace(depth+1);
     std::cout<< "BODY: " << std::endl;
-    function_body->pretty_print(depth + 1);
+    function_body->pretty_print(depth + 2);
 }
 
 void NullStmt::pretty_print(int depth){
@@ -35,6 +35,7 @@ void IfStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<< "IF COND:"<<std::endl;
     if_condition->pretty_print(depth+1);
+    AST::print_whitespace(depth);
     std::cout<< "IF BODY:"<<std::endl;
     if_body->pretty_print(depth+1);
     if(this->else_body.has_value()){

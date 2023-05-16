@@ -92,7 +92,29 @@ value::Value* NullStmt::codegen(std::ostream& output, context::Context& c){
 }
 
 value::Value* IfStmt::codegen(std::ostream& output, context::Context& c){
-    //To add
+    auto condition = if_condition->codegen(output, c);
+    condition = codegen_convert(type::make_basic(type::IType::Bool),condition, output, c);
+    AST::print_whitespace(c.depth(), output);
+    int instruction_number = c.new_local_name(); //instruction number for true_label
+    std::string true_label = "iftrue."+std::to_string(instruction_number);
+    std::string end_label = "ifend."+std::to_string(instruction_number);
+    std::string false_label;
+    if(this->else_body.has_value()){
+        false_label = "iffalse."+std::to_string(instruction_number);
+    }else{
+        false_label = "ifend."+std::to_string(instruction_number);
+    }
+    c.change_block(true_label, output, 
+        std::make_unique<basicblock::Cond_BR>(condition, true_label,false_label),
+        std::make_unique<basicblock::UCond_BR>(end_label));
+
+    if_body->codegen(output, c);
+
+    if(this->else_body.has_value()){
+        c.change_block(false_label, output, nullptr, std::make_unique<basicblock::UCond_BR>(end_label));
+        else_body.value()->codegen(output, c);
+    }
+    c.change_block(end_label,output, nullptr, nullptr);
     return nullptr;
 }
 value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c){
@@ -107,9 +129,9 @@ value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c){
     assert(return_type == type::make_basic(type::IType::Int));
     AST::print_whitespace(c.depth(), output);
     output << "define "<<type::ir_type(return_type)<<" @" + name+"(){"<<std::endl;
-    c.enter_function(return_type);
+    c.enter_function(return_type, output);
     function_body->codegen(output, c);
-    c.exit_function();
+    c.exit_function(output);
     AST::print_whitespace(c.depth(), output);
     output << "}"<<std::endl;
     //Ultimately return value with
@@ -121,9 +143,9 @@ value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c){
 value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c){
     auto return_value = return_expr->codegen(output, c);
     return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
-
-    AST::print_whitespace(c.depth(), output);
-    output << "ret "+type::ir_type(c.return_type())+" "+ return_value->get_value() << std::endl;
+    int instruction_number = c.new_local_name(); 
+    c.change_block("afterret."+std::to_string(instruction_number),output, 
+        std::make_unique<basicblock::RET>(return_value),std::make_unique<basicblock::Unreachable>());
     return nullptr;
 }
 
