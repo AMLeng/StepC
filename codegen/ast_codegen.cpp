@@ -86,16 +86,82 @@ value::Value* Program::codegen(std::ostream& output, context::Context& c){
     main_method->codegen(output, c);
     return nullptr;
 }
+value::Value* NullStmt::codegen(std::ostream& output, context::Context& c){
+    //Do nothing
+    return nullptr;
+}
+value::Value* Conditional::codegen(std::ostream& output, context::Context& c){
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    auto condition = cond->codegen(output, c);
+    condition = codegen_convert(type::make_basic(type::IType::Bool),condition, output, c);
+    auto new_tmp = c.new_temp(this->type);
+    AST::print_whitespace(c.depth(), output);
+    output << new_tmp->get_value() <<" = alloca "<<type::ir_type(new_tmp->get_type()) <<std::endl;
 
+    int instruction_number = c.new_local_name(); 
+    std::string true_label = "condtrue."+std::to_string(instruction_number);
+    std::string false_label = "condfalse." + std::to_string(instruction_number);
+    std::string end_label = "condend."+std::to_string(instruction_number);
+    c.change_block(true_label, output, 
+        std::make_unique<basicblock::Cond_BR>(condition, true_label,false_label));
+    auto t_value = true_expr->codegen(output, c);
+    AST::print_whitespace(c.depth(), output);
+    output << "store "<<type::ir_type(t_value->get_type())<<" "<<t_value->get_value();
+    output<<", "<<type::ir_type(new_tmp->get_type())<<"* "<<new_tmp->get_value()<<std::endl;
+
+    c.change_block(false_label, output,std::make_unique<basicblock::UCond_BR>(end_label));  
+    auto f_value = false_expr->codegen(output, c);
+    AST::print_whitespace(c.depth(), output);
+    output << "store "<<type::ir_type(f_value->get_type())<<" "<<f_value->get_value();
+    output<<", "<<type::ir_type(new_tmp->get_type())<<"* "<<new_tmp->get_value()<<std::endl;
+
+    c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(end_label));
+    auto result = c.new_temp(this->type);
+    output << result->get_value()<<" = load "<<type::ir_type(new_tmp->get_type());
+    output << ", " <<type::ir_type(new_tmp->get_type())<<"* "<<new_tmp->get_value()<<std::endl;
+    return result;
+}
+
+value::Value* IfStmt::codegen(std::ostream& output, context::Context& c){
+    auto condition = if_condition->codegen(output, c);
+    condition = codegen_convert(type::make_basic(type::IType::Bool),condition, output, c);
+    int instruction_number = c.new_local_name(); 
+    std::string true_label = "iftrue."+std::to_string(instruction_number);
+    std::string end_label = "ifend."+std::to_string(instruction_number);
+    std::string false_label;
+    AST::print_whitespace(c.depth(), output);
+    if(this->else_body.has_value()){
+        false_label = "iffalse."+std::to_string(instruction_number);
+    }else{
+        false_label = "ifend."+std::to_string(instruction_number);
+    }
+    c.change_block(true_label, output, 
+        std::make_unique<basicblock::Cond_BR>(condition, true_label,false_label));
+
+    if_body->codegen(output, c);
+
+    if(this->else_body.has_value()){
+        c.change_block(false_label, output,std::make_unique<basicblock::UCond_BR>(end_label));
+        else_body.value()->codegen(output, c);
+    }
+    c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(end_label));
+    return nullptr;
+}
+value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c){
+    c.enter_scope();
+    for(const auto& stmt : stmt_body){
+        stmt->codegen(output, c);
+    }
+    c.exit_scope();
+    return nullptr;
+}
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c){
     assert(return_type == type::make_basic(type::IType::Int));
     AST::print_whitespace(c.depth(), output);
     output << "define "<<type::ir_type(return_type)<<" @" + name+"(){"<<std::endl;
-    c.enter_function(return_type);
-    for(const auto& stmt : function_body){
-        stmt->codegen(output, c);
-    }
-    c.exit_function();
+    c.enter_function(return_type, output);
+    function_body->codegen(output, c);
+    c.exit_function(output);
     AST::print_whitespace(c.depth(), output);
     output << "}"<<std::endl;
     //Ultimately return value with
@@ -107,9 +173,9 @@ value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c){
 value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c){
     auto return_value = return_expr->codegen(output, c);
     return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
-
-    AST::print_whitespace(c.depth(), output);
-    output << "ret "+type::ir_type(c.return_type())+" "+ return_value->get_value() << std::endl;
+    int instruction_number = c.new_local_name(); 
+    c.change_block("afterret."+std::to_string(instruction_number),output, 
+        std::make_unique<basicblock::RET>(return_value));
     return nullptr;
 }
 

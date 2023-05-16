@@ -35,3 +35,5 @@ In stage 3 and beyond, StepC will generate an executable, and can be tested with
 * Stage 4: New stage (not one of Nora Sandler's stages). Add in floating point constants (treating doubles and long doubles the same--higher precision long doubles are all target dependent), and started keeping track of types. Implemented most integer and floating point type conversions, including the "integer promotions" and "usual arithmetic conversions", as well as type conversions in codegen. Implemented type checking for previously implemented operations.
 
 * Stage 5: Added local variables. Refactored error reporting to include the full line of source code containing the error. Separated out semantic analysis step. Added symbol table.
+
+* Stage 6: Implemented compound statements, if statements, and ternary conditionals. In particular, implemented basic blocks in code generation for flor control. Equivalent to Nora Sandler's stages 6 and 7.

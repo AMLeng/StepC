@@ -17,12 +17,13 @@ template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 namespace{
 
     //Operator Precedence
+    constexpr int ternary_cond_binding_power = 6;
     //Unary operators should bind more tightly than any normal binary op
     constexpr int unary_op_binding_power = 40;
     //left binding is less than right binding for left associativity (+, -)
     //and vice versa for right associativity
     std::map<token::TokenType, std::pair<int, int>> binary_op_binding_power = {{
-        {token::TokenType::Assign, {21,20}},
+        {token::TokenType::Assign, {5,4}},
         {token::TokenType::Plus,{23,24}}, {token::TokenType::Minus,{23,24}}, 
         {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}}
     }};
@@ -76,6 +77,14 @@ std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l){
     //Right now variables are the only implemented lvalue
     return parse_variable(l);
 }
+std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique_ptr<ast::Expr> cond){
+    auto question = l.get_token();
+    check_token_type(question, token::TokenType::Question);
+    auto true_expr = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::Colon);
+    auto false_expr = parse_expr(l,ternary_cond_binding_power);
+    return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
+}
 
 std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     auto expr_start = l.peek_token();
@@ -106,6 +115,12 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     //While the next thing is an operator of high precedence, keep parsing
     while(true){
         auto potential_op_token = l.peek_token();
+        if(potential_op_token.type == token::TokenType::Question){//Ternary conditional
+            if(ternary_cond_binding_power < min_bind_power){
+                break;
+            }
+            expr_ptr = parse_conditional(l, std::move(expr_ptr));
+        }
         if(binary_op_binding_power.find(potential_op_token.type) == binary_op_binding_power.end()){
             break; //Not an operator
         }
@@ -136,6 +151,7 @@ std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
     while(l.peek_token().type == token::TokenType::Keyword){
         keyword_list.insert(l.get_token().value);
     }
+    check_token_type(l.peek_token(), token::TokenType::Identifier);
     if(keyword_list.size() == 0){
         throw parse_error::ParseError("Parsing decl that did not start with a keyword", first_keyword);
     }
@@ -160,19 +176,60 @@ std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
     return std::make_unique<ast::VarDecl>(var_name, t, std::move(assign));
 }
 
+std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
+    auto next_token = l.peek_token();
+    if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, 
+        "return", "if")){
+        return parse_var_decl(l);
+    }
+    return parse_stmt(l);
+}
 std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     auto next_token = l.peek_token();
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "return")){
         return parse_return_stmt(l);
     }
-    if(next_token.type == token::TokenType::Keyword){
-        return parse_var_decl(l);
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "if")){
+        return parse_if_stmt(l);
+    }
+    if(next_token.type == token::TokenType::LBrace){
+        return parse_compound_stmt(l);
+    }
+    if(next_token.type == token::TokenType::Semicolon){
+        l.get_token();
+        return std::make_unique<ast::NullStmt>();
     }
     //If is a typedef name will also parse var decl, but that's for later
     auto expr = parse_expr(l);
     auto semicolon = l.get_token();
     check_token_type(semicolon, token::TokenType::Semicolon);
     return std::move(expr);
+}
+std::unique_ptr<ast::IfStmt> parse_if_stmt(lexer::Lexer& l){
+    auto if_keyword = l.get_token();
+    if(!token::matches_keyword(if_keyword, "if")){
+        throw parse_error::ParseError("Expected keyword \"if\"", if_keyword);
+    }
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    auto if_condition = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    auto if_body = parse_stmt(l);
+    auto maybe_else= l.peek_token();
+    if(maybe_else.type != token::TokenType::Keyword || !token::matches_keyword(maybe_else, "else")){
+        return std::make_unique<ast::IfStmt>(std::move(if_condition), std::move(if_body));
+    }
+    check_token_type(l.get_token(), token::TokenType::Keyword);
+    auto else_body = parse_stmt(l);
+    return std::make_unique<ast::IfStmt>(std::move(if_condition), std::move(if_body), std::move(else_body));
+}
+std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l){
+    auto stmt_body = std::vector<std::unique_ptr<ast::BlockItem>>{};
+    check_token_type(l.get_token(), token::TokenType::LBrace);
+    while(l.peek_token().type != token::TokenType::RBrace){
+        stmt_body.push_back(parse_block_item(l));
+    }
+    check_token_type(l.get_token(), token::TokenType::RBrace);
+    return std::make_unique<ast::CompoundStmt>(std::move(stmt_body));
 }
 
 std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l){
@@ -187,19 +244,19 @@ std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l){
 
     check_token_type(l.get_token(), token::TokenType::LParen);
     check_token_type(l.get_token(), token::TokenType::RParen);
-    check_token_type(l.get_token(), token::TokenType::LBrace);
+    check_token_type(l.peek_token(), token::TokenType::LBrace);
 
-    auto function_body = std::vector<std::unique_ptr<ast::Stmt>>{};
-    while(l.peek_token().type != token::TokenType::RBrace){
-        function_body.push_back(parse_stmt(l));
-    }
+    auto function_body = parse_compound_stmt(l);
 
-    check_token_type(l.get_token(), token::TokenType::RBrace);
     return std::make_unique<ast::FunctionDef>(name.value, type::from_str(ret_type.value), std::move(function_body));
 }
 
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l){
     auto main_method = parse_function_def(l);
+    auto next = l.get_token();
+    if(next.type != token::TokenType::END){
+        throw parse_error::ParseError("Expected end of file", next);
+    }
     return std::make_unique<ast::Program>(std::move(main_method));
 }
 

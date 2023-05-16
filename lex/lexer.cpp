@@ -9,6 +9,8 @@ namespace lexer{
 namespace{
 bool is_keyword(const std::string& word){
     return word == "return"
+        || word == "if"
+        || word == "else"
         || word == "char"
         || word == "short"
         || word == "int"
@@ -37,6 +39,8 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {'*',token::TokenType::Mult},
     {'/',token::TokenType::Div},
     {'=',token::TokenType::Assign},
+    {':',token::TokenType::Colon},
+    {'?',token::TokenType::Question},
 }};
 
 } //namespace

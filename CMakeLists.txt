@@ -9,7 +9,7 @@ project(IncrementalC
         CXX
 )
 
-add_library(core lex/lexer.cpp parse/parse.cpp parse/ast_construct.cpp parse/type.cpp parse/ast_pretty_print.cpp sem/ast_analyze.cpp codegen/ast_codegen.cpp codegen/context.cpp)
+add_library(core lex/lexer.cpp parse/parse.cpp parse/ast_construct.cpp parse/type.cpp parse/ast_pretty_print.cpp sem/ast_analyze.cpp codegen/ast_codegen.cpp codegen/context.cpp codegen/basic_block.cpp)
 
 add_executable(stage_1_tests tests/stage_1_tests.cpp)
 set_target_properties(stage_1_tests PROPERTIES SUFFIX ".out")
@@ -30,6 +30,10 @@ target_link_libraries(stage_4_tests PRIVATE Catch2::Catch2WithMain core)
 add_executable(stage_5_tests tests/stage_5_tests.cpp)
 set_target_properties(stage_5_tests PROPERTIES SUFFIX ".out")
 target_link_libraries(stage_5_tests PRIVATE Catch2::Catch2WithMain core)
+
+add_executable(stage_6_tests tests/stage_6_tests.cpp)
+set_target_properties(stage_6_tests PROPERTIES SUFFIX ".out")
+target_link_libraries(stage_6_tests PRIVATE Catch2::Catch2WithMain core)
 
 add_executable(step_c step_c.cpp)
 target_link_libraries(step_c PRIVATE core)

@@ -43,9 +43,19 @@ struct Program : public AST{
     }
 };
 
-struct Stmt : public AST{
+struct BlockItem : public AST{
+    //Block items can appear in compound statements
+    virtual ~BlockItem() = 0;
+};
+struct Stmt : public BlockItem{
     //Statements are things that can appear in the body of a function
     virtual ~Stmt() = 0;
+};
+struct NullStmt : public Stmt{
+    NullStmt(){}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 
 struct Decl : public AST{
@@ -57,7 +67,7 @@ struct Decl : public AST{
     virtual ~Decl() = 0;
 };
 
-struct VarDecl : public Decl, public Stmt{
+struct VarDecl : public Decl, public BlockItem{
     bool analyzed = false;
     const type::BasicType type;
     std::optional<std::unique_ptr<BinaryOp>> assignment;
@@ -68,12 +78,29 @@ struct VarDecl : public Decl, public Stmt{
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
+struct IfStmt : public Stmt{
+    std::unique_ptr<Expr> if_condition;
+    std::unique_ptr<Stmt> if_body;
+    std::optional<std::unique_ptr<Stmt>> else_body;
+    IfStmt(std::unique_ptr<Expr> if_condition, std::unique_ptr<Stmt> if_body, std::optional<std::unique_ptr<Stmt>> else_body = std::nullopt) : 
+        if_condition(std::move(if_condition)), if_body(std::move(if_body)), else_body(std::move(else_body)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
+};
+struct CompoundStmt : public Stmt{
+    std::vector<std::unique_ptr<BlockItem>> stmt_body;
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    CompoundStmt(std::vector<std::unique_ptr<BlockItem>> stmt_body) : stmt_body(std::move(stmt_body)) {}
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
+};
 
 struct FunctionDef : public AST{
     std::string name;
     type::BasicType return_type;
-    std::vector<std::unique_ptr<Stmt>> function_body;
-    FunctionDef(std::string name, type::BasicType ret_type, std::vector<std::unique_ptr<Stmt>> body) : 
+    std::unique_ptr<CompoundStmt> function_body;
+    FunctionDef(std::string name, type::BasicType ret_type, std::unique_ptr<CompoundStmt> body) : 
         name(name), return_type(ret_type), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
@@ -95,6 +122,16 @@ struct Expr : public Stmt{
     token::Token tok;
     Expr(token::Token tok) : tok(tok){}
     virtual ~Expr() = 0;
+};
+struct Conditional : public Expr{
+    std::unique_ptr<Expr> cond;
+    std::unique_ptr<Expr> true_expr;
+    std::unique_ptr<Expr> false_expr;
+    Conditional(token::Token op_tok, std::unique_ptr<Expr> cond, std::unique_ptr<Expr> t,std::unique_ptr<Expr> f) :
+        Expr(op_tok), cond(std::move(cond)), true_expr(std::move(t)), false_expr(std::move(f)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
 };
 struct LValue : public Expr{
     LValue(token::Token tok) : Expr(tok){}

@@ -88,6 +88,7 @@ std::string float_to_hex(const std::string& literal_value, type::BasicType type)
 AST::~AST(){}
 Decl::~Decl(){}
 Stmt::~Stmt(){}
+BlockItem::~BlockItem(){}
 Expr::~Expr(){}
 LValue::~LValue(){}
 

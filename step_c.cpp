@@ -44,6 +44,7 @@ int main(int argc, char* argv[]){
         std::cout<<e.what()<<std::endl;
         return 1;
     }
+    //program_ast->pretty_print(0);
     program_ast->codegen(llvm_output, global_context); //Should output program_name .ll
     system(llc_command.c_str()); //Should output program_name .s
     system(rm_llvm_ir.c_str()); 

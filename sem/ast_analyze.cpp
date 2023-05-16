@@ -24,6 +24,19 @@ void Variable::analyze(symbol::STable* st) {
     }
     this->type=st->symbol_type(this->variable_name);
 }
+void Conditional::analyze(symbol::STable* st){
+    this->analyzed = true;
+    cond->analyze(st);
+    if(!type::is_scalar(this->cond->type)){
+        throw sem_error::TypeError("Condition of scalar type required for ternary conditional",this->cond->tok);
+    }
+    true_expr->analyze(st);
+    false_expr->analyze(st);
+    if(!type::is_arith(this->true_expr->type) || !type::is_arith(this->false_expr->type)){
+        throw sem_error::UnknownError("Ternary conditional returning non arithmetic type no yet implemented",this->tok);
+    }
+    this->type = type::usual_arithmetic_conversions(this->true_expr->type, this->false_expr->type);
+}
 void UnaryOp::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
@@ -81,8 +94,17 @@ void BinaryOp::analyze(symbol::STable* st){
     }
 }
 //Methods that just recurse
+void NullStmt::analyze(symbol::STable* st){
+}
 void Constant::analyze(symbol::STable* st){
     this->analyzed = true;
+}
+void IfStmt::analyze(symbol::STable* st){
+    this->if_condition->analyze(st);
+    this->if_body->analyze(st);
+    if(this->else_body.has_value()){
+        this->else_body.value()->analyze(st);
+    }
 }
 void ReturnStmt::analyze(symbol::STable* st){
     return_expr->analyze(st);
@@ -91,16 +113,20 @@ void Program::analyze(symbol::STable* st) {
     auto main_table = st->new_child();
     main_method->analyze(main_table);
 }
+void CompoundStmt::analyze(symbol::STable* st){
+    auto stmt_table = st->new_child();
+    for(auto& stmt : stmt_body){
+        stmt->analyze(stmt_table);
+    }
+}
 void FunctionDef::analyze(symbol::STable* st) {
     if(this->name == "main"){
-        if(function_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body.back().get())){
+        if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
             auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
             std::unique_ptr<Expr> ret_expr = std::make_unique<Constant>(fake_token);
-            function_body.push_back(std::make_unique<ReturnStmt>(std::move(ret_expr)));
+            function_body->stmt_body.push_back(std::make_unique<ReturnStmt>(std::move(ret_expr)));
         }
     }
-    for(auto& stmt : function_body){
-        stmt->analyze(st);
-    }
+    function_body->analyze(st);
 }
 } //namespace ast
