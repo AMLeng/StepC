@@ -90,31 +90,61 @@ value::Value* NullStmt::codegen(std::ostream& output, context::Context& c){
     //Do nothing
     return nullptr;
 }
+value::Value* Conditional::codegen(std::ostream& output, context::Context& c){
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    auto condition = cond->codegen(output, c);
+    condition = codegen_convert(type::make_basic(type::IType::Bool),condition, output, c);
+    auto new_tmp = c.new_temp(this->type);
+    AST::print_whitespace(c.depth(), output);
+    output << new_tmp->get_value() <<" = alloca "<<type::ir_type(new_tmp->get_type()) <<std::endl;
+
+    int instruction_number = c.new_local_name(); 
+    std::string true_label = "condtrue."+std::to_string(instruction_number);
+    std::string false_label = "condfalse." + std::to_string(instruction_number);
+    std::string end_label = "condend."+std::to_string(instruction_number);
+    c.change_block(true_label, output, 
+        std::make_unique<basicblock::Cond_BR>(condition, true_label,false_label));
+    auto t_value = true_expr->codegen(output, c);
+    AST::print_whitespace(c.depth(), output);
+    output << "store "<<type::ir_type(t_value->get_type())<<" "<<t_value->get_value();
+    output<<", "<<type::ir_type(new_tmp->get_type())<<"* "<<new_tmp->get_value()<<std::endl;
+
+    c.change_block(false_label, output,std::make_unique<basicblock::UCond_BR>(end_label));  
+    auto f_value = false_expr->codegen(output, c);
+    AST::print_whitespace(c.depth(), output);
+    output << "store "<<type::ir_type(f_value->get_type())<<" "<<f_value->get_value();
+    output<<", "<<type::ir_type(new_tmp->get_type())<<"* "<<new_tmp->get_value()<<std::endl;
+
+    c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(end_label));
+    auto result = c.new_temp(this->type);
+    output << result->get_value()<<" = load "<<type::ir_type(new_tmp->get_type());
+    output << ", " <<type::ir_type(new_tmp->get_type())<<"* "<<new_tmp->get_value()<<std::endl;
+    return result;
+}
 
 value::Value* IfStmt::codegen(std::ostream& output, context::Context& c){
     auto condition = if_condition->codegen(output, c);
     condition = codegen_convert(type::make_basic(type::IType::Bool),condition, output, c);
-    AST::print_whitespace(c.depth(), output);
-    int instruction_number = c.new_local_name(); //instruction number for true_label
+    int instruction_number = c.new_local_name(); 
     std::string true_label = "iftrue."+std::to_string(instruction_number);
     std::string end_label = "ifend."+std::to_string(instruction_number);
     std::string false_label;
+    AST::print_whitespace(c.depth(), output);
     if(this->else_body.has_value()){
         false_label = "iffalse."+std::to_string(instruction_number);
     }else{
         false_label = "ifend."+std::to_string(instruction_number);
     }
     c.change_block(true_label, output, 
-        std::make_unique<basicblock::Cond_BR>(condition, true_label,false_label),
-        std::make_unique<basicblock::UCond_BR>(end_label));
+        std::make_unique<basicblock::Cond_BR>(condition, true_label,false_label));
 
     if_body->codegen(output, c);
 
     if(this->else_body.has_value()){
-        c.change_block(false_label, output, nullptr, std::make_unique<basicblock::UCond_BR>(end_label));
+        c.change_block(false_label, output,std::make_unique<basicblock::UCond_BR>(end_label));
         else_body.value()->codegen(output, c);
     }
-    c.change_block(end_label,output, nullptr, nullptr);
+    c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(end_label));
     return nullptr;
 }
 value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c){
@@ -145,7 +175,7 @@ value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c){
     return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
     int instruction_number = c.new_local_name(); 
     c.change_block("afterret."+std::to_string(instruction_number),output, 
-        std::make_unique<basicblock::RET>(return_value),std::make_unique<basicblock::Unreachable>());
+        std::make_unique<basicblock::RET>(return_value));
     return nullptr;
 }
 
@@ -170,11 +200,6 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c){
     return nullptr;
 }
 
-value::Value* Conditional::codegen(std::ostream& output, context::Context& c){
-    assert(this->analyzed && "This AST node has not had analysis run on it");
-    assert(false && "Conditional codegen not yet implemented");
-    return nullptr;
-}
 value::Value* Constant::codegen(std::ostream& output, context::Context& c){
     assert(this->analyzed && "This AST node has not had analysis run on it");
     return c.add_literal(this->literal, this->type);

@@ -3,10 +3,10 @@
 #include <cassert>
 #include <vector>
 namespace context{
-void Context::enter_block(std::string block_label, std::ostream& output, std::unique_ptr<basicblock::Terminator> t){
+void Context::enter_block(std::string block_label, std::ostream& output){
     assert(this->current_block == nullptr && "Starting new block without ending current basic block");
     output << block_label<<":"<<std::endl;
-    current_block = std::make_unique<basicblock::Block>(block_label, std::move(t));
+    current_block = std::make_unique<basicblock::Block>(block_label);
 }
 void Context::exit_block(std::ostream& output, std::unique_ptr<basicblock::Terminator> t){
     if(!current_block){
@@ -88,7 +88,9 @@ void Context::exit_function(std::ostream& output, std::unique_ptr<basicblock::Te
     if(t){
         current_block->add_terminator(std::move(t));
     }
-    assert(current_block->has_terminator() && "No terminator for last block of function");
+    if(!current_block->has_terminator()){
+        current_block->add_terminator(std::make_unique<basicblock::Unreachable>());
+    }
     exit_block(output, nullptr);
     ret_type = nullptr;
 }
@@ -100,12 +102,12 @@ type::BasicType Context::return_type() const{
     return *ret_type;
 }
 void Context::change_block(std::string block_label, std::ostream& output, 
-    std::unique_ptr<basicblock::Terminator> old_terminator, std::unique_ptr<basicblock::Terminator> new_default){
+    std::unique_ptr<basicblock::Terminator> old_terminator){
     if(old_terminator || current_block->has_terminator()){
         exit_block(output,std::move(old_terminator));
     }else{
         exit_block(output, std::make_unique<basicblock::UCond_BR>(block_label));
     }
-    enter_block(block_label, output, std::move(new_default));
+    enter_block(block_label, output);
 }
 }//namespace context

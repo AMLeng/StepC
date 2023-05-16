@@ -34,7 +34,7 @@ class Context{
     int total_locals;
     int instructions;
     std::unique_ptr<basicblock::Block> current_block;
-    void enter_block(std::string block_label, std::ostream& output, std::unique_ptr<basicblock::Terminator> t = nullptr);
+    void enter_block(std::string block_label, std::ostream& output);
     void exit_block(std::ostream& output, std::unique_ptr<basicblock::Terminator> t);
 public:
     Context();
@@ -53,7 +53,7 @@ public:
     int depth() const;
     type::BasicType return_type() const;
     void change_block(std::string block_label, std::ostream& output, 
-        std::unique_ptr<basicblock::Terminator> old_terminator, std::unique_ptr<basicblock::Terminator> new_default);
+        std::unique_ptr<basicblock::Terminator> old_terminator);
 };
 } //namespace context
 #endif
