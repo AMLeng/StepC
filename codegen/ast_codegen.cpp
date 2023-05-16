@@ -170,6 +170,11 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c){
     return nullptr;
 }
 
+value::Value* Conditional::codegen(std::ostream& output, context::Context& c){
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    assert(false && "Conditional codegen not yet implemented");
+    return nullptr;
+}
 value::Value* Constant::codegen(std::ostream& output, context::Context& c){
     assert(this->analyzed && "This AST node has not had analysis run on it");
     return c.add_literal(this->literal, this->type);

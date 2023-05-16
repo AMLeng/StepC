@@ -39,6 +39,8 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {'*',token::TokenType::Mult},
     {'/',token::TokenType::Div},
     {'=',token::TokenType::Assign},
+    {':',token::TokenType::Colon},
+    {'?',token::TokenType::Question},
 }};
 
 } //namespace

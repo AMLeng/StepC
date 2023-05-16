@@ -123,6 +123,16 @@ struct Expr : public Stmt{
     Expr(token::Token tok) : tok(tok){}
     virtual ~Expr() = 0;
 };
+struct Conditional : public Expr{
+    std::unique_ptr<Expr> cond;
+    std::unique_ptr<Expr> true_expr;
+    std::unique_ptr<Expr> false_expr;
+    Conditional(token::Token op_tok, std::unique_ptr<Expr> cond, std::unique_ptr<Expr> t,std::unique_ptr<Expr> f) :
+        Expr(op_tok), cond(std::move(cond)), true_expr(std::move(t)), false_expr(std::move(f)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) override;
+};
 struct LValue : public Expr{
     LValue(token::Token tok) : Expr(tok){}
     virtual ~LValue() = 0;

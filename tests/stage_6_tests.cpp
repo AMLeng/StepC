@@ -140,6 +140,40 @@ R"(int main(){
     REQUIRE_THROWS_AS(parse::construct_ast(l),parse_error::ParseError);
     //program_pointer->pretty_print(0);
 }
+TEST_CASE("parse ternary conditional"){
+    auto ss = std::stringstream(
+R"(int main(){
+    long int a = 3 ? 0 : 1;
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse ternary conditional 2"){
+    auto ss = std::stringstream(
+R"(int main(){
+    long int a = 3;
+    int b = a*4-12 ? 2+5 : 32/9;
+    return b;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse error ternary conditional"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 3;
+    int b;
+    a = 5 ? b=0 : b = 200;
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(),sem_error::TypeError);
+    //program_pointer->pretty_print(0);
+}
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here

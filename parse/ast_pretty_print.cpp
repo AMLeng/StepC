@@ -25,6 +25,15 @@ void FunctionDef::pretty_print(int depth){
     std::cout<< "BODY: " << std::endl;
     function_body->pretty_print(depth + 2);
 }
+void Conditional::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "TERNARY CONDITIONAL ON:"<<std::endl;
+    cond->pretty_print(depth+1);
+    std::cout<< "TRUE EXPR:"<<std::endl;
+    true_expr->pretty_print(depth+1);
+    std::cout<< "FALSE EXPR:"<<std::endl;
+    false_expr->pretty_print(depth+1);
+}
 
 void NullStmt::pretty_print(int depth){
     AST::print_whitespace(depth);

@@ -24,6 +24,19 @@ void Variable::analyze(symbol::STable* st) {
     }
     this->type=st->symbol_type(this->variable_name);
 }
+void Conditional::analyze(symbol::STable* st){
+    this->analyzed = true;
+    cond->analyze(st);
+    if(!type::is_scalar(this->cond->type)){
+        throw sem_error::TypeError("Condition of scalar type required for ternary conditional",this->cond->tok);
+    }
+    true_expr->analyze(st);
+    false_expr->analyze(st);
+    if(!type::is_arith(this->true_expr->type) || !type::is_arith(this->false_expr->type)){
+        throw sem_error::UnknownError("Ternary conditional returning non arithmetic type no yet implemented",this->tok);
+    }
+    this->type = type::usual_arithmetic_conversions(this->true_expr->type, this->false_expr->type);
+}
 void UnaryOp::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);

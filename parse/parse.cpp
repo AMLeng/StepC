@@ -17,12 +17,13 @@ template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 namespace{
 
     //Operator Precedence
+    constexpr int ternary_cond_binding_power = 6;
     //Unary operators should bind more tightly than any normal binary op
     constexpr int unary_op_binding_power = 40;
     //left binding is less than right binding for left associativity (+, -)
     //and vice versa for right associativity
     std::map<token::TokenType, std::pair<int, int>> binary_op_binding_power = {{
-        {token::TokenType::Assign, {21,20}},
+        {token::TokenType::Assign, {5,4}},
         {token::TokenType::Plus,{23,24}}, {token::TokenType::Minus,{23,24}}, 
         {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}}
     }};
@@ -76,6 +77,14 @@ std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l){
     //Right now variables are the only implemented lvalue
     return parse_variable(l);
 }
+std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique_ptr<ast::Expr> cond){
+    auto question = l.get_token();
+    check_token_type(question, token::TokenType::Question);
+    auto true_expr = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::Colon);
+    auto false_expr = parse_expr(l,ternary_cond_binding_power);
+    return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
+}
 
 std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     auto expr_start = l.peek_token();
@@ -106,6 +115,12 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     //While the next thing is an operator of high precedence, keep parsing
     while(true){
         auto potential_op_token = l.peek_token();
+        if(potential_op_token.type == token::TokenType::Question){//Ternary conditional
+            if(ternary_cond_binding_power < min_bind_power){
+                break;
+            }
+            expr_ptr = parse_conditional(l, std::move(expr_ptr));
+        }
         if(binary_op_binding_power.find(potential_op_token.type) == binary_op_binding_power.end()){
             break; //Not an operator
         }

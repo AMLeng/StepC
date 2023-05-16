@@ -8,7 +8,8 @@ namespace token{
 enum class TokenType{
     LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,
     Keyword, Identifier, IntegerLiteral, FloatLiteral,
-    BitwiseNot, Not, Minus, Plus, Mult, Div, Assign,
+    BitwiseNot, Not, Minus, Plus, Mult, Div, Assign, 
+    Colon, Question,
     END, COMMENT
 };
 
@@ -82,9 +83,13 @@ inline std::string string_name(TokenType type){
         case TokenType:: Keyword:
             return "keyword";
         case TokenType:: Identifier:
-            return "Identifier";
+            return "identifier";
         case TokenType:: IntegerLiteral:
             return "integer literal";
+        case TokenType:: Colon:
+            return "colon ':'";
+        case TokenType:: Question:
+            return "question mark '?'";
         case TokenType:: COMMENT:
             return "comment";
         case TokenType:: END:

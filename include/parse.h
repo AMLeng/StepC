@@ -13,6 +13,7 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power = 0);
 std::unique_ptr<ast::IfStmt> parse_if_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l);
 std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l);
+std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l);
 std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l);
 std::unique_ptr<ast::Variable> parse_variable(lexer::Lexer& l);
