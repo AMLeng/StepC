@@ -39,6 +39,7 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {'{',token::TokenType::LBrace},
     {'}',token::TokenType::RBrace},
     {';',token::TokenType::Semicolon},
+    {',',token::TokenType::Comma},
     {'~',token::TokenType::BitwiseNot},
     {'&',token::TokenType::BitwiseAnd},
     {'|',token::TokenType::BitwiseOr},
@@ -180,6 +181,27 @@ token::Token Lexer::read_token_from_stream(){
             if(c== '|'){
                 advance_input(token_value, c);
                 return create_token(token::TokenType::Or, token_value, starting_position, current_pos, current_line);
+            }
+        }
+        if(c == '='){
+            throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
+            auto type = followed_by_eq.at(token_value.back());
+            advance_input(token_value, c);
+            return create_token(type, token_value, starting_position, current_pos, current_line);
+        }
+        auto type = single_char_tokens.at(token_value.back());
+        return create_token(type, token_value, starting_position, current_pos, current_line);
+    }
+    if (c == '+' || c == '-'){
+        advance_input(token_value, c);
+        if(c == token_value.back()){
+            if(c == '+'){
+                advance_input(token_value, c);
+                return create_token(token::TokenType::Plusplus, token_value, starting_position, current_pos, current_line);
+            }
+            if(c== '-'){
+                advance_input(token_value, c);
+                return create_token(token::TokenType::Minusminus, token_value, starting_position, current_pos, current_line);
             }
         }
         if(c == '='){

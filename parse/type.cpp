@@ -159,7 +159,7 @@ bool can_represent(FType target, FType source){
             //Since LDouble and Double are the same for us
             return true;
         case FType::Float:
-            return (target == FType::Float);
+            return (source == FType::Float);
     }
     __builtin_unreachable();
     assert(false);

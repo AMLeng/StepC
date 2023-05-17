@@ -73,6 +73,11 @@ void Constant::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<<"CONSTANT "<<literal<<" OF TYPE "<< type::to_string(type) <<std::endl;
 }
+void Postfix::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<<"POSTFIX OP "<< tok.type <<" ON EXPR"<<std::endl;
+    arg->pretty_print(depth+1);
+}
 void UnaryOp::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<<"UNARY OP "<< tok.type <<" ON EXPR"<<std::endl;

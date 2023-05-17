@@ -37,11 +37,69 @@ void Conditional::analyze(symbol::STable* st){
     }
     this->type = type::usual_arithmetic_conversions(this->true_expr->type, this->false_expr->type);
 }
+void Postfix::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    //Typechecking
+    switch(this->tok.type){
+        case token::TokenType::Plusplus:
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required as argument of increment",tok);
+            }
+            }
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            break;
+        case token::TokenType::Minusminus:
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
+            }
+            }
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            break;
+        default:
+            assert(false && "Unknown postfix operator type");
+            break;
+    }
+}
 void UnaryOp::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
     //Typechecking
     switch(this->tok.type){
+        case token::TokenType::Plusplus:
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required as argument of increment",tok);
+            }
+            }
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            break;
+        case token::TokenType::Minusminus:
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
+            }
+            }
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            break;
         case token::TokenType::Plus:
         case token::TokenType::Minus:
             if(!type::is_arith(this->arg->type)){
@@ -137,6 +195,11 @@ void BinaryOp::analyze(symbol::STable* st){
             this->new_left_type = type::integer_promotions(this->left->type);
             this->new_right_type = type::integer_promotions(this->right->type);
             this->type = this->new_left_type;
+            break;
+        case token::TokenType::Comma:
+            this->new_right_type = this->right->type;
+            this->new_left_type = this->left->type;
+            this->type = this->left->type;
             break;
         default:
             assert(false && "Unknown binary operator type");

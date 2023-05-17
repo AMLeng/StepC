@@ -12,6 +12,7 @@ enum class TokenType{
     Colon, Question, And, Or,
     Equal,NEqual,Greater,Less,LEq,GEq,
     BitwiseNot,BitwiseAnd,BitwiseOr,BitwiseXor, LShift,RShift,
+    Comma,Plusplus, Minusminus,
     END, COMMENT
 };
 
@@ -68,6 +69,12 @@ inline std::string string_name(TokenType type){
             return "semicolon";
         case TokenType:: Period:
             return "period";
+        case TokenType::Comma:
+            return "comma";
+        case TokenType::Plusplus:
+            return "plus plus";
+        case TokenType::Minusminus:
+            return "minusminus";
         case TokenType:: BitwiseNot:
             return "bitwise not";
         case TokenType:: BitwiseAnd:

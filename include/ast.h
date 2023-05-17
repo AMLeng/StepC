@@ -154,6 +154,14 @@ struct Constant : public Expr{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct Postfix : public Expr{
+    std::unique_ptr<Expr> arg;
+    Postfix(token::Token op, std::unique_ptr<Expr> exp) : 
+        Expr(op), arg(std::move(exp)) {}
+    void analyze(symbol::STable* st) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct UnaryOp : public Expr{
     std::unique_ptr<Expr> arg;
     UnaryOp(token::Token op, std::unique_ptr<Expr> exp) : 

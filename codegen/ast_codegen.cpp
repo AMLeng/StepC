@@ -168,8 +168,8 @@ value::Value* short_circuit_codegen(const ast::BinaryOp* node, std::ostream& out
 }
 value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& output, context::Context& c){
     auto left_register = node->left->codegen(output, c);
-    auto right_register = node->right->codegen(output, c);
     left_register = codegen_convert(node->new_left_type, std::move(left_register), output, c);
+    auto right_register = node->right->codegen(output, c);
     right_register = codegen_convert(node->new_right_type, std::move(right_register), output, c);
     value::Value* result = nullptr;
     switch(node->tok.type){
@@ -263,6 +263,9 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
             break;
         case token::TokenType::BitwiseXor:
             result = make_command(node->type,"xor", left_register,right_register,output,c);
+            break;
+        case token::TokenType::Comma:
+            result = right_register;
             break;
         default:
             assert(false && "Unknown binary op during codegen");
@@ -381,6 +384,57 @@ value::Value* Constant::codegen(std::ostream& output, context::Context& c)const 
     return c.add_literal(this->literal, this->type);
 }
 
+value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    auto operand = arg->codegen(output, c);
+    std::string t = type::ir_type(this->type);
+    std::string command = "";
+    value::Value* new_temp = nullptr;
+    switch(tok.type){
+        case token::TokenType::Plusplus:
+        {
+            auto variable = dynamic_cast<const ast::Variable*>(arg.get());
+            assert(variable && "Other lvalues not yet implemented");
+            auto var_reg = c.get_value(variable->variable_name);
+            new_temp = make_load(var_reg, output, c);
+            command = std::visit(overloaded{
+                [](type::IType){return "add";},
+                [](type::FType){return "fadd";},
+                }, this->type);
+            
+            AST::print_whitespace(c.depth(), output);
+            auto var_temp = c.new_temp(this->type);
+            output << var_temp->get_value()<<" = "<<command<<" "<<t<<" "<<new_temp->get_value()<<std::visit(overloaded{
+                [](type::IType){return ", 1";},
+                [](type::FType){return ", 1.0";},
+                }, this->type) <<std::endl;
+            make_store(var_temp,var_reg, output, c);
+        }
+            return new_temp;
+        case token::TokenType::Minusminus:
+        {
+            auto variable = dynamic_cast<const ast::Variable*>(arg.get());
+            assert(variable && "Other lvalues not yet implemented");
+            auto var_reg = c.get_value(variable->variable_name);
+            new_temp = make_load(var_reg, output, c);
+            command = std::visit(overloaded{
+                [](type::IType){return "sub";},
+                [](type::FType){return "fsub";},
+                }, this->type);
+            
+            AST::print_whitespace(c.depth(), output);
+            auto var_temp = c.new_temp(this->type);
+            output << var_temp->get_value()<<" = "<<command<<" "<<t<<" "<<new_temp->get_value()<<std::visit(overloaded{
+                [](type::IType){return ", 1";},
+                [](type::FType){return ", 1.0";},
+                }, this->type) <<std::endl;
+            make_store(var_temp,var_reg, output, c);
+        }
+            return new_temp;
+        default:
+            assert(false && "Operator Not Implemented");
+    }
+}
 value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto operand = arg->codegen(output, c);
@@ -388,7 +442,48 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
     std::string command = "";
     value::Value* new_temp = nullptr;
     switch(tok.type){
-        //Can't factor out since behavior for Not is not just one operation
+        case token::TokenType::Plusplus:
+        {
+            auto variable = dynamic_cast<const ast::Variable*>(arg.get());
+            assert(variable && "Other lvalues not yet implemented");
+            auto var_reg = c.get_value(variable->variable_name);
+            auto var_temp = make_load(var_reg, output, c);
+            var_temp =  codegen_convert(this->type, var_temp, output, c);
+            command = std::visit(overloaded{
+                [](type::IType){return "add";},
+                [](type::FType){return "fadd";},
+                }, var_temp->get_type());
+            
+            AST::print_whitespace(c.depth(), output);
+            new_temp = c.new_temp(this->type);
+            output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(overloaded{
+                [](type::IType){return ", 1";},
+                [](type::FType){return ", 1.0";},
+                }, var_temp->get_type()) <<std::endl;
+            make_store(new_temp,var_reg, output, c);
+        }
+            return new_temp;
+        case token::TokenType::Minusminus:
+        {
+            auto variable = dynamic_cast<const ast::Variable*>(arg.get());
+            assert(variable && "Other lvalues not yet implemented");
+            auto var_reg = c.get_value(variable->variable_name);
+            auto var_temp = make_load(var_reg, output, c);
+            var_temp =  codegen_convert(this->type, var_temp, output, c);
+            command = std::visit(overloaded{
+                [](type::IType){return "sub";},
+                [](type::FType){return "fsub";},
+                }, var_temp->get_type());
+            
+            AST::print_whitespace(c.depth(), output);
+            new_temp = c.new_temp(this->type);
+            output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(overloaded{
+                [](type::IType){return ", 1";},
+                [](type::FType){return ", 1.0";},
+                }, var_temp->get_type()) <<std::endl;
+            make_store(new_temp,var_reg, output, c);
+        }
+            return new_temp;
         case token::TokenType::Plus:
             return codegen_convert(this->type, std::move(operand), output, c);
         case token::TokenType::Minus:
@@ -401,7 +496,10 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
             
             AST::print_whitespace(c.depth(), output);
             new_temp = c.new_temp(this->type);
-            output << new_temp->get_value()<<" = "<<command<<" "<<t<<" 0, " <<operand->get_value() <<std::endl;
+            output << new_temp->get_value()<<" = "<<command<<" "<<t<<std::visit(overloaded{
+                [](type::IType){return " 0, ";},
+                [](type::FType){return " 0.0, ";},
+                }, operand->get_type()) <<operand->get_value() <<std::endl;
             return new_temp;
         case token::TokenType::BitwiseNot:
             operand =  codegen_convert(this->type, std::move(operand), output, c);
@@ -458,6 +556,7 @@ value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const 
         case token::TokenType::BitwiseAnd:
         case token::TokenType::BitwiseOr:
         case token::TokenType::BitwiseXor:
+        case token::TokenType::Comma:
             return other_bin_op_codegen(this, output, c);
         default:
             assert(false && "Unknown binary assignment op during codegen");

@@ -33,6 +33,7 @@ namespace{
         {token::TokenType::BitwiseXor, {13,14}}, {token::TokenType::BitwiseOr, {11,12}},
         {token::TokenType::And, {9,10}}, {token::TokenType::Or, {7,8}},
         {token::TokenType::Assign, {5,4}},
+        {token::TokenType::Comma, {2,3}},
     }};
 
     //Check and throw default unexpected token exception
@@ -60,7 +61,9 @@ std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::Lexer& l){
                 token::TokenType::Minus,
                 token::TokenType::Plus,
                 token::TokenType::BitwiseNot,
-                token::TokenType::Not)){
+                token::TokenType::Not,
+                token::TokenType::Plusplus,//Prefix versions
+                token::TokenType::Minusminus)){
         throw parse_error::ParseError("Not valid unary operator",op_token);
     }
     auto expr = parse_expr(l, unary_op_binding_power);
@@ -93,6 +96,15 @@ std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique
     return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
 }
 
+std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
+    auto op_token = l.get_token();
+    if(!token::matches_type(op_token,
+                token::TokenType::Plusplus,
+                token::TokenType::Minusminus)){
+        throw parse_error::ParseError("Not valid postfix operator",op_token);
+    }
+    return std::make_unique<ast::Postfix>(op_token,std::move(arg));
+}
 std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     auto expr_start = l.peek_token();
     std::unique_ptr<ast::Expr> expr_ptr = nullptr;
@@ -105,6 +117,8 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
         case token::TokenType::Plus:
         case token::TokenType::BitwiseNot:
         case token::TokenType::Not:
+        case token::TokenType::Plusplus:
+        case token::TokenType::Minusminus:
             expr_ptr =  parse_unary_op(l);
             break;
         case token::TokenType::Identifier:
@@ -127,6 +141,16 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
                 break;
             }
             expr_ptr = parse_conditional(l, std::move(expr_ptr));
+            break;
+        }
+        if(potential_op_token.type == token::TokenType::Plusplus ||
+            potential_op_token.type == token::TokenType::Minusminus){
+            //postfix increment/decrement
+            if(unary_op_binding_power+1 < min_bind_power){
+                break;
+            }
+            expr_ptr = parse_postfix(l, std::move(expr_ptr));
+            break;
         }
         if(binary_op_binding_power.find(potential_op_token.type) == binary_op_binding_power.end()){
             break; //Not an operator
