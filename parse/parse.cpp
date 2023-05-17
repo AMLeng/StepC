@@ -25,7 +25,8 @@ namespace{
     std::map<token::TokenType, std::pair<int, int>> binary_op_binding_power = {{
         {token::TokenType::Assign, {5,4}},
         {token::TokenType::Plus,{23,24}}, {token::TokenType::Minus,{23,24}}, 
-        {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}}
+        {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}},
+        {token::TokenType::And, {9,10}}, {token::TokenType::Or, {7,8}}
     }};
 
     //Check and throw default unexpected token exception

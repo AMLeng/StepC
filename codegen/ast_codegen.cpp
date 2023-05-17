@@ -13,6 +13,26 @@ struct overloaded : Ts...{
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 
 namespace{
+value::Value* make_load(value::Value* reg, std::ostream& output, context::Context& c){
+    auto result = c.new_temp(reg->get_type());
+    AST::print_whitespace(c.depth(), output);
+    output << result->get_value()<<" = load "<<type::ir_type(reg->get_type());
+    output << ", " <<type::ir_type(reg->get_type())<<"* "<<reg->get_value()<<std::endl;
+    return result;
+}
+value::Value* make_tmp_reg(type::BasicType t, std::ostream& output, context::Context& c){
+    auto new_tmp = c.new_temp(t);
+    AST::print_whitespace(c.depth(), output);
+    output << new_tmp->get_value() <<" = alloca "<<type::ir_type(new_tmp->get_type()) <<std::endl;
+    return new_tmp;
+}
+void make_store(value::Value* val, value::Value* reg, std::ostream& output, context::Context& c){
+    AST::print_whitespace(c.depth(), output);
+    output << "store "<<type::ir_type(val->get_type())<<" "<<val->get_value();
+    output<<", "<<type::ir_type(reg->get_type())<<"* "<<reg->get_value()<<std::endl;
+}
+
+
 std::string convert_command(type::IType target, type::IType source){
     if(type::can_represent(target, source)){
         if(type::is_signed_int(type::make_basic(source))){
@@ -79,24 +99,134 @@ value::Value* codegen_convert(type::BasicType target_type, value::Value* val,
     output << val->get_value() << " to " << type::ir_type(target_type) << std::endl;
     return new_tmp;
 }
+
+value::Value* assignment_codegen(std::ostream& output, context::Context& c,
+    const ast::LValue* left, const std::unique_ptr<ast::Expr>& right, type::BasicType type, token::Token tok){
+    auto right_register = right->codegen(output, c);
+    auto variable = dynamic_cast<const ast::Variable*>(left);
+    assert(variable && "Other lvalues not yet implemented");
+    auto var_value = c.get_value(variable->variable_name);
+    right_register = codegen_convert(type, std::move(right_register), output, c);
+    switch(tok.type){
+        case token::TokenType::Assign:
+            make_store(right_register, var_value, output, c);
+            break;
+        default:
+            assert(false && "Unknown binary assignment op during codegen");
+    }
+    return right_register;
+}
+value::Value* short_circuit_codegen(std::ostream& output, context::Context& c,
+    const std::unique_ptr<ast::Expr>& left, const std::unique_ptr<ast::Expr>& right, type::BasicType type, token::Token tok){
+    int instruction_number = c.new_local_name(); 
+    std::string no_sc_label = "logical_op_no_sc."+std::to_string(instruction_number);
+    std::string end_label = "logical_op_end."+std::to_string(instruction_number);
+
+    auto left_register = left->codegen(output, c);
+    left_register = codegen_convert(type::make_basic(type::IType::Bool),left_register, output, c);
+
+    auto new_tmp = make_tmp_reg(type::make_basic(type::IType::Bool), output, c);
+    make_store(left_register, new_tmp, output, c);
+
+    switch(tok.type){
+        case token::TokenType::And:
+            c.change_block(no_sc_label, output, 
+                std::make_unique<basicblock::Cond_BR>(left_register, no_sc_label,end_label));
+            break;
+        case token::TokenType::Or:
+            c.change_block(no_sc_label, output, 
+                std::make_unique<basicblock::Cond_BR>(left_register, end_label,no_sc_label));
+            break;
+        default:
+            assert(false && "Unknown binary assignment op during codegen");
+    }
+    auto right_register = right->codegen(output, c);
+    right_register = codegen_convert(type::make_basic(type::IType::Bool),right_register, output, c);
+    auto no_sc_result = c.new_temp(type::make_basic(type::IType::Bool));
+    switch(tok.type){
+        case token::TokenType::And:
+            AST::print_whitespace(c.depth(), output);
+            output <<no_sc_result->get_value()<<" = and i1 "<<left_register->get_value()<<", "<<right_register->get_value()<<std::endl;
+            break;
+        case token::TokenType::Or:
+            AST::print_whitespace(c.depth(), output);
+            output <<no_sc_result->get_value()<<" = or i1 "<<left_register->get_value()<<", "<<right_register->get_value()<<std::endl;
+            break;
+        default:
+            assert(false && "Unknown binary assignment op during codegen");
+    }
+    make_store(no_sc_result, new_tmp, output, c);
+    c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(end_label));
+
+    auto result = make_load(new_tmp, output, c);
+    result = codegen_convert(type, result, output, c);
+    return result;
+}
+value::Value* other_bin_op_codegen(std::ostream& output, context::Context& c,
+    const std::unique_ptr<ast::Expr>& left, const std::unique_ptr<ast::Expr>& right, type::BasicType type, token::Token tok){
+    auto left_register = left->codegen(output, c);
+    auto right_register = right->codegen(output, c);
+    std::string t = type::ir_type(type);
+    std::string command = "";
+    switch(tok.type){
+        case token::TokenType::Minus:
+            left_register = codegen_convert(type, std::move(left_register), output, c);
+            right_register = codegen_convert(type, std::move(right_register), output, c);
+            command = std::visit(overloaded{
+                [](type::IType){return "sub";},
+                [](type::FType){return "fsub";},
+                }, type);
+            break;
+        case token::TokenType::Plus:
+            left_register = codegen_convert(type, std::move(left_register), output, c);
+            right_register = codegen_convert(type, std::move(right_register), output, c);
+            command = std::visit(overloaded{
+                [](type::IType){return "add";},
+                [](type::FType){return "fadd";},
+                }, type);
+            break;
+        case token::TokenType::Mult:
+            left_register = codegen_convert(type, std::move(left_register), output, c);
+            right_register = codegen_convert(type, std::move(right_register), output, c);
+            command = std::visit(overloaded{
+                [](type::IType){return "mul";},
+                [](type::FType){return "fmul";},
+                }, type);
+            break;
+        case token::TokenType::Div:
+            left_register = codegen_convert(type, std::move(left_register), output, c);
+            right_register = codegen_convert(type, std::move(right_register), output, c);
+            command = std::visit(overloaded{
+                [](type::IType t){
+                    if(type::is_signed_int(t)){return "sdiv";}
+                    else{return "udiv";}},
+                [](type::FType){return "fdiv";},
+                }, type);
+            break;
+        default:
+            assert(false && "Unknown binary op during codegen");
+    }
+    AST::print_whitespace(c.depth(), output);
+    auto new_temp = c.new_temp(type);
+    output << new_temp->get_value()<<" = "<<command<<" "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
+    return new_temp;
+}
 } //namespace
 
 
-value::Value* Program::codegen(std::ostream& output, context::Context& c){
+value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     main_method->codegen(output, c);
     return nullptr;
 }
-value::Value* NullStmt::codegen(std::ostream& output, context::Context& c){
+value::Value* NullStmt::codegen(std::ostream& output, context::Context& c)const {
     //Do nothing
     return nullptr;
 }
-value::Value* Conditional::codegen(std::ostream& output, context::Context& c){
+value::Value* Conditional::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto condition = cond->codegen(output, c);
     condition = codegen_convert(type::make_basic(type::IType::Bool),condition, output, c);
-    auto new_tmp = c.new_temp(this->type);
-    AST::print_whitespace(c.depth(), output);
-    output << new_tmp->get_value() <<" = alloca "<<type::ir_type(new_tmp->get_type()) <<std::endl;
+    auto new_tmp = make_tmp_reg(this->type, output, c);
 
     int instruction_number = c.new_local_name(); 
     std::string true_label = "condtrue."+std::to_string(instruction_number);
@@ -105,24 +235,17 @@ value::Value* Conditional::codegen(std::ostream& output, context::Context& c){
     c.change_block(true_label, output, 
         std::make_unique<basicblock::Cond_BR>(condition, true_label,false_label));
     auto t_value = true_expr->codegen(output, c);
-    AST::print_whitespace(c.depth(), output);
-    output << "store "<<type::ir_type(t_value->get_type())<<" "<<t_value->get_value();
-    output<<", "<<type::ir_type(new_tmp->get_type())<<"* "<<new_tmp->get_value()<<std::endl;
+    make_store(t_value,new_tmp, output, c);
 
     c.change_block(false_label, output,std::make_unique<basicblock::UCond_BR>(end_label));  
     auto f_value = false_expr->codegen(output, c);
-    AST::print_whitespace(c.depth(), output);
-    output << "store "<<type::ir_type(f_value->get_type())<<" "<<f_value->get_value();
-    output<<", "<<type::ir_type(new_tmp->get_type())<<"* "<<new_tmp->get_value()<<std::endl;
+    make_store(f_value,new_tmp, output, c);
 
     c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(end_label));
-    auto result = c.new_temp(this->type);
-    output << result->get_value()<<" = load "<<type::ir_type(new_tmp->get_type());
-    output << ", " <<type::ir_type(new_tmp->get_type())<<"* "<<new_tmp->get_value()<<std::endl;
-    return result;
+    return make_load(new_tmp, output, c);
 }
 
-value::Value* IfStmt::codegen(std::ostream& output, context::Context& c){
+value::Value* IfStmt::codegen(std::ostream& output, context::Context& c)const {
     auto condition = if_condition->codegen(output, c);
     condition = codegen_convert(type::make_basic(type::IType::Bool),condition, output, c);
     int instruction_number = c.new_local_name(); 
@@ -147,7 +270,7 @@ value::Value* IfStmt::codegen(std::ostream& output, context::Context& c){
     c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(end_label));
     return nullptr;
 }
-value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c){
+value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)const {
     c.enter_scope();
     for(const auto& stmt : stmt_body){
         stmt->codegen(output, c);
@@ -155,7 +278,7 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c){
     c.exit_scope();
     return nullptr;
 }
-value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c){
+value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
     assert(return_type == type::make_basic(type::IType::Int));
     AST::print_whitespace(c.depth(), output);
     output << "define "<<type::ir_type(return_type)<<" @" + name+"(){"<<std::endl;
@@ -170,7 +293,7 @@ value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c){
     return nullptr;
 }
 
-value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c){
+value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c)const {
     auto return_value = return_expr->codegen(output, c);
     return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
     int instruction_number = c.new_local_name(); 
@@ -179,17 +302,13 @@ value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c){
     return nullptr;
 }
 
-value::Value* Variable::codegen(std::ostream& output, context::Context& c){
+value::Value* Variable::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto var_value = c.get_value(variable_name);
-    auto new_tmp = c.new_temp(var_value->get_type());
-    AST::print_whitespace(c.depth(), output);
-    output << new_tmp->get_value()<<" = load "<<type::ir_type(new_tmp->get_type());
-    output << ", " <<type::ir_type(var_value->get_type())<<"* "<<var_value->get_value()<<std::endl;
-    return new_tmp;
+    return make_load(var_value,output,c);
 }
 
-value::Value* VarDecl::codegen(std::ostream& output, context::Context& c){
+value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto variable = c.add_local(name, type);
     AST::print_whitespace(c.depth(), output);
@@ -200,12 +319,12 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c){
     return nullptr;
 }
 
-value::Value* Constant::codegen(std::ostream& output, context::Context& c){
+value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     return c.add_literal(this->literal, this->type);
 }
 
-value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c){
+value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto operand = arg->codegen(output, c);
     std::string t = type::ir_type(this->type);
@@ -261,72 +380,22 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c){
 }
 
 
-value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c){
+value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    auto right_register = this->right->codegen(output, c);
-    //Operators that return an lvalue
-    if(token::matches_type(tok, token::TokenType::Assign)){
-        auto variable = dynamic_cast<ast::Variable*>(this->left.get());
-        assert(variable && "Other lvalues not yet implemented");
-        auto var_value = c.get_value(variable->variable_name);
-        right_register = codegen_convert(this->type, std::move(right_register), output, c);
-        switch(tok.type){
-            case token::TokenType::Assign:
-                AST::print_whitespace(c.depth(), output);
-                output << "store "<<type::ir_type(right_register->get_type())<<" "<<right_register->get_value();
-                output<<", "<<type::ir_type(this->type)<<"* "<<var_value->get_value()<<std::endl;
-                break;
-            default:
-                assert(false && "Unknown binary assignment op during codegen");
-        }
-        return right_register;
-    }
-    //Operators that return an rvalue
-    auto left_register = this->left->codegen(output, c);
-    std::string t = type::ir_type(this->type);
-    std::string command = "";
     switch(tok.type){
+        case token::TokenType::Assign:
+            return assignment_codegen(output, c, dynamic_cast<ast::LValue*>(this->left.get()), this->right, this->type, this->tok);
+        case token::TokenType::And:
+        case token::TokenType::Or:
+            return short_circuit_codegen(output, c, this->left, this->right, this->type, this->tok);
         case token::TokenType::Minus:
-            left_register = codegen_convert(this->type, std::move(left_register), output, c);
-            right_register = codegen_convert(this->type, std::move(right_register), output, c);
-            command = std::visit(overloaded{
-                [](type::IType){return "sub";},
-                [](type::FType){return "fsub";},
-                }, this->type);
-            break;
         case token::TokenType::Plus:
-            left_register = codegen_convert(this->type, std::move(left_register), output, c);
-            right_register = codegen_convert(this->type, std::move(right_register), output, c);
-            command = std::visit(overloaded{
-                [](type::IType){return "add";},
-                [](type::FType){return "fadd";},
-                }, this->type);
-            break;
-        case token::TokenType::Mult:
-            left_register = codegen_convert(this->type, std::move(left_register), output, c);
-            right_register = codegen_convert(this->type, std::move(right_register), output, c);
-            command = std::visit(overloaded{
-                [](type::IType){return "mul";},
-                [](type::FType){return "fmul";},
-                }, this->type);
-            break;
         case token::TokenType::Div:
-            left_register = codegen_convert(this->type, std::move(left_register), output, c);
-            right_register = codegen_convert(this->type, std::move(right_register), output, c);
-            command = std::visit(overloaded{
-                [](type::IType t){
-                    if(type::is_signed_int(t)){return "sdiv";}
-                    else{return "udiv";}},
-                [](type::FType){return "fdiv";},
-                }, this->type);
-            break;
+        case token::TokenType::Mult:
+            return other_bin_op_codegen(output, c, this->left, this->right, this->type, this->tok);
         default:
-            assert(false && "Unknown binary op during codegen");
+            assert(false && "Unknown binary assignment op during codegen");
     }
-    AST::print_whitespace(c.depth(), output);
-    auto new_temp = c.new_temp(this->type);
-    output << new_temp->get_value()<<" = "<<command<<" "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-    return new_temp;
 }
 
 } //namespace ast

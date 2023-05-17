@@ -26,6 +26,16 @@ token::Token create_token(token::TokenType type, std::string value, std::pair<in
     location::Location loc = {tok_start.first, tok_start.second, tok_end.first, tok_end.second};
     return token::Token{type, value, loc, source};
 }
+/*const std::map<char, token::TokenType> followed_by_eq = {{
+    {'~',token::TokenType::BitwiseNot},
+    {'!',token::TokenType::Not},
+    {'-',token::TokenType::Minus},
+    {'+',token::TokenType::Plus},
+    {'*',token::TokenType::Mult},
+    {'/',token::TokenType::Div},
+    {'=',token::TokenType::Assign},
+}};*/
+
 const std::map<char, token::TokenType> single_char_tokens = {{
     {'(',token::TokenType::LParen},
     {')',token::TokenType::RParen},
@@ -131,6 +141,20 @@ token::Token Lexer::read_token_from_stream(){
         if(std::isalpha(c)){
             return create_token(token::TokenType::Period, token_value, starting_position, current_pos, current_line);
         }
+    }
+    if (c == '&' || c == '|'){
+        advance_input(token_value, c);
+        if(c == token_value.back()){
+            if(c == '&'){
+                advance_input(token_value, c);
+                return create_token(token::TokenType::And, token_value, starting_position, current_pos, current_line);
+            }
+            if(c== '|'){
+                advance_input(token_value, c);
+                return create_token(token::TokenType::Or, token_value, starting_position, current_pos, current_line);
+            }
+        }
+        throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
     }
 
     //Handle all remaining single character tokens

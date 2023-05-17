@@ -9,7 +9,7 @@ enum class TokenType{
     LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,
     Keyword, Identifier, IntegerLiteral, FloatLiteral,
     BitwiseNot, Not, Minus, Plus, Mult, Div, Assign, 
-    Colon, Question,
+    Colon, Question, And, Or,
     END, COMMENT
 };
 
@@ -78,6 +78,10 @@ inline std::string string_name(TokenType type){
             return "multiplication";
         case TokenType::Div:
             return "division";
+        case TokenType::And:
+            return "logical and";
+        case TokenType::Or:
+            return "logical or";
         case TokenType::Assign:
             return "assignment operator";
         case TokenType:: Keyword:

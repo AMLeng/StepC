@@ -89,6 +89,13 @@ void BinaryOp::analyze(symbol::STable* st){
             }
             this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
             break;
+        case token::TokenType::And:
+        case token::TokenType::Or:
+            if(!type::is_scalar(this->left->type) || !type::is_scalar(this->right->type)){
+                throw sem_error::TypeError("Operand of scalar type required",tok);
+            }
+            this->type = type::from_str("int");
+            break;
         default:
             assert(false && "Unknown binary operator type");
     }
