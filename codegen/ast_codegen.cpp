@@ -17,7 +17,7 @@ value::Value* make_command(type::BasicType t, std::string command, value::Value*
     std::ostream& output, context::Context& c){
     AST::print_whitespace(c.depth(), output);
     auto new_temp = c.new_temp(t);
-    output << new_temp->get_value()<<" = "<<command<<" "<<type::ir_type(t)<<" " << left->get_value() <<", "<< right->get_value()<<std::endl;
+    output << new_temp->get_value()<<" = "<<command<<" "<<type::ir_type(left->get_type())<<" " << left->get_value() <<", "<< right->get_value()<<std::endl;
     return new_temp;
 }
 
@@ -171,38 +171,82 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
     auto right_register = node->right->codegen(output, c);
     left_register = codegen_convert(node->new_left_type, std::move(left_register), output, c);
     right_register = codegen_convert(node->new_right_type, std::move(right_register), output, c);
-    std::string command = "";
+    value::Value* result = nullptr;
     switch(node->tok.type){
         case token::TokenType::Minus:
-            command = std::visit(overloaded{
+            result = make_command(node->type, std::visit(overloaded{
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
-                }, node->type);
+                }, node->type), left_register,right_register,output,c);
             break;
         case token::TokenType::Plus:
-            command = std::visit(overloaded{
+            result = make_command(node->type,std::visit(overloaded{
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
-                }, node->type);
+                }, node->type) , left_register,right_register,output,c);
             break;
         case token::TokenType::Mult:
-            command = std::visit(overloaded{
+            result = make_command(node->type,std::visit(overloaded{
                 [](type::IType){return "mul";},
                 [](type::FType){return "fmul";},
-                }, node->type);
+                }, node->type) , left_register,right_register,output,c);
             break;
         case token::TokenType::Div:
-            command = std::visit(overloaded{
+            result = make_command(node->type,std::visit(overloaded{
                 [](type::IType t){
                     if(type::is_signed_int(t)){return "sdiv";}
                     else{return "udiv";}},
                 [](type::FType){return "fdiv";},
-                }, node->type);
+                }, node->type) , left_register,right_register,output,c);
+            break;
+        case token::TokenType::Equal:
+            result = make_command(type::from_str("_Bool"),std::visit(overloaded{
+                [](type::IType){return "icmp eq";},
+                [](type::FType){return "fcmp oeq";},
+                }, node->new_left_type) , left_register,right_register,output,c);
+            break;
+        case token::TokenType::NEqual:
+            result = make_command(type::from_str("_Bool"),std::visit(overloaded{
+                [](type::IType){return "icmp ne";},
+                [](type::FType){return "fcmp one";},
+                }, node->new_left_type) , left_register,right_register,output,c);
+            break;
+        case token::TokenType::Less:
+            result = make_command(type::from_str("_Bool"),std::visit(overloaded{
+                [](type::IType t){
+                    if(type::is_signed_int(t)){return "icmp slt";}
+                    else{return "icmp ult";}},
+                [](type::FType){return "fcmp olt";},
+                }, node->new_left_type) , left_register,right_register,output,c);
+            break;
+        case token::TokenType::Greater:
+            result = make_command(type::from_str("_Bool"),std::visit(overloaded{
+                [](type::IType t){
+                    if(type::is_signed_int(t)){return "icmp sgt";}
+                    else{return "icmp ugt";}},
+                [](type::FType){return "fcmp ogt";},
+                }, node->new_left_type) , left_register,right_register,output,c);
+            break;
+        case token::TokenType::LEq:
+            result = make_command(type::from_str("_Bool"),std::visit(overloaded{
+                [](type::IType t){
+                    if(type::is_signed_int(t)){return "icmp sle";}
+                    else{return "icmp ule";}},
+                [](type::FType){return "fcmp ole";},
+                }, node->new_left_type) , left_register,right_register,output,c);
+            break;
+        case token::TokenType::GEq:
+            result = make_command(type::from_str("_Bool"),std::visit(overloaded{
+                [](type::IType t){
+                    if(type::is_signed_int(t)){return "icmp sge";}
+                    else{return "icmp uge";}},
+                [](type::FType){return "fcmp oge";},
+                }, node->new_left_type) , left_register,right_register,output,c);
             break;
         default:
             assert(false && "Unknown binary op during codegen");
     }
-    return make_command(node->type, command, left_register,right_register,output,c);
+    return codegen_convert(node->type, result, output, c);
 }
 } //namespace
 
@@ -382,6 +426,12 @@ value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const 
         case token::TokenType::Plus:
         case token::TokenType::Div:
         case token::TokenType::Mult:
+        case token::TokenType::Equal:
+        case token::TokenType::NEqual:
+        case token::TokenType::Less:
+        case token::TokenType::Greater:
+        case token::TokenType::LEq:
+        case token::TokenType::GEq:
             return other_bin_op_codegen(this, output, c);
         default:
             assert(false && "Unknown binary assignment op during codegen");

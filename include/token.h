@@ -10,6 +10,7 @@ enum class TokenType{
     Keyword, Identifier, IntegerLiteral, FloatLiteral,
     BitwiseNot, Not, Minus, Plus, Mult, Div, Assign, 
     Colon, Question, And, Or,
+    Equal,NEqual,Greater,Less,LEq,GEq,
     END, COMMENT
 };
 
@@ -82,21 +83,33 @@ inline std::string string_name(TokenType type){
             return "logical and";
         case TokenType::Or:
             return "logical or";
+        case TokenType::Equal:
+            return "equal";
+        case TokenType::NEqual:
+            return "not equal";
+        case TokenType::Less:
+            return "less than";
+        case TokenType::Greater:
+            return "greater than";
+        case TokenType::LEq:
+            return "less than or equal to";
+        case TokenType::GEq:
+            return "greater than or equal to";
         case TokenType::Assign:
             return "assignment operator";
-        case TokenType:: Keyword:
+        case TokenType::Keyword:
             return "keyword";
-        case TokenType:: Identifier:
+        case TokenType::Identifier:
             return "identifier";
-        case TokenType:: IntegerLiteral:
+        case TokenType::IntegerLiteral:
             return "integer literal";
-        case TokenType:: Colon:
+        case TokenType::Colon:
             return "colon ':'";
-        case TokenType:: Question:
+        case TokenType::Question:
             return "question mark '?'";
-        case TokenType:: COMMENT:
+        case TokenType::COMMENT:
             return "comment";
-        case TokenType:: END:
+        case TokenType::END:
             return "end of input stream";
     }
     //Annotation or g++ complains

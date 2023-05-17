@@ -98,8 +98,25 @@ void BinaryOp::analyze(symbol::STable* st){
             if(!type::is_scalar(this->left->type) || !type::is_scalar(this->right->type)){
                 throw sem_error::TypeError("Operand of scalar type required",tok);
             }
-            this->new_left_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
-            this->new_right_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_right_type = this->right->type;
+            this->new_left_type = this->left->type;
+            this->type = type::from_str("int");
+            break;
+        case token::TokenType::Equal:
+        case token::TokenType::NEqual:
+            //Check that in fact real type
+        case token::TokenType::Less:
+        case token::TokenType::Greater:
+        case token::TokenType::LEq:
+        case token::TokenType::GEq:
+            if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            {
+            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = convert_type;
+            this->new_right_type = convert_type;
+            }
             this->type = type::from_str("int");
             break;
         default:

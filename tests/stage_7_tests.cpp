@@ -30,6 +30,60 @@ R"(int main(){
     auto program_pointer = parse::construct_ast(l);
     //program_pointer->pretty_print(0);
 }
+TEST_CASE("parse leq"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 4 <= 5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse less"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 4 < 5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse geq"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 4 >= 5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse greater"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 4 > 5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse not equal"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 4 != 5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse equal"){
+    auto ss = std::stringstream(
+R"(int main(){
+    return 4 == 5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here
 //Since those tests should be updated during refactoring

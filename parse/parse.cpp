@@ -23,10 +23,13 @@ namespace{
     //left binding is less than right binding for left associativity (+, -)
     //and vice versa for right associativity
     std::map<token::TokenType, std::pair<int, int>> binary_op_binding_power = {{
-        {token::TokenType::Assign, {5,4}},
-        {token::TokenType::Plus,{23,24}}, {token::TokenType::Minus,{23,24}}, 
         {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}},
-        {token::TokenType::And, {9,10}}, {token::TokenType::Or, {7,8}}
+        {token::TokenType::Plus,{23,24}}, {token::TokenType::Minus,{23,24}}, 
+        {token::TokenType::Less, {19,20}}, {token::TokenType::Greater, {19,20}},
+        {token::TokenType::LEq, {19,20}}, {token::TokenType::GEq, {19,20}},
+        {token::TokenType::Equal, {17,18}}, {token::TokenType::NEqual, {17,18}},
+        {token::TokenType::And, {9,10}}, {token::TokenType::Or, {7,8}},
+        {token::TokenType::Assign, {5,4}},
     }};
 
     //Check and throw default unexpected token exception
