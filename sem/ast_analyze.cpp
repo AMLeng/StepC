@@ -78,6 +78,8 @@ void BinaryOp::analyze(symbol::STable* st){
             }
             }
             //All basic types are interconvertable, modulo some potential for UB
+            this->new_right_type = this->right->type;
+            this->new_left_type = this->left->type;
             this->type = this->left->type;
             break;
         case token::TokenType::Plus:
@@ -88,12 +90,16 @@ void BinaryOp::analyze(symbol::STable* st){
                 throw sem_error::TypeError("Operand of arithmetic type required",tok);
             }
             this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = this->type;
+            this->new_right_type = this->type;
             break;
         case token::TokenType::And:
         case token::TokenType::Or:
             if(!type::is_scalar(this->left->type) || !type::is_scalar(this->right->type)){
                 throw sem_error::TypeError("Operand of scalar type required",tok);
             }
+            this->new_left_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_right_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
             this->type = type::from_str("int");
             break;
         default:

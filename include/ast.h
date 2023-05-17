@@ -166,6 +166,8 @@ struct UnaryOp : public Expr{
 struct BinaryOp : public Expr{
     std::unique_ptr<Expr> left;
     std::unique_ptr<Expr> right;
+    type::BasicType new_left_type;
+    type::BasicType new_right_type;
     BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
         Expr(op), left(std::move(left)), right(std::move(right)) { }
     void analyze(symbol::STable* st) override;

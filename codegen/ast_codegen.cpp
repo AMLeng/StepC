@@ -13,6 +13,14 @@ struct overloaded : Ts...{
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 
 namespace{
+value::Value* make_command(type::BasicType t, std::string command, value::Value* left, value::Value* right, 
+    std::ostream& output, context::Context& c){
+    AST::print_whitespace(c.depth(), output);
+    auto new_temp = c.new_temp(t);
+    output << new_temp->get_value()<<" = "<<command<<" "<<type::ir_type(t)<<" " << left->get_value() <<", "<< right->get_value()<<std::endl;
+    return new_temp;
+}
+
 value::Value* make_load(value::Value* reg, std::ostream& output, context::Context& c){
     auto result = c.new_temp(reg->get_type());
     AST::print_whitespace(c.depth(), output);
@@ -100,14 +108,13 @@ value::Value* codegen_convert(type::BasicType target_type, value::Value* val,
     return new_tmp;
 }
 
-value::Value* assignment_codegen(std::ostream& output, context::Context& c,
-    const ast::LValue* left, const std::unique_ptr<ast::Expr>& right, type::BasicType type, token::Token tok){
-    auto right_register = right->codegen(output, c);
-    auto variable = dynamic_cast<const ast::Variable*>(left);
+value::Value* assignment_codegen(const ast::BinaryOp* node, std::ostream& output, context::Context& c){
+    auto right_register = node->right->codegen(output, c);
+    auto variable = dynamic_cast<const ast::Variable*>(node->left.get());
     assert(variable && "Other lvalues not yet implemented");
     auto var_value = c.get_value(variable->variable_name);
-    right_register = codegen_convert(type, std::move(right_register), output, c);
-    switch(tok.type){
+    right_register = codegen_convert(node->type, std::move(right_register), output, c);
+    switch(node->tok.type){
         case token::TokenType::Assign:
             make_store(right_register, var_value, output, c);
             break;
@@ -116,19 +123,18 @@ value::Value* assignment_codegen(std::ostream& output, context::Context& c,
     }
     return right_register;
 }
-value::Value* short_circuit_codegen(std::ostream& output, context::Context& c,
-    const std::unique_ptr<ast::Expr>& left, const std::unique_ptr<ast::Expr>& right, type::BasicType type, token::Token tok){
+value::Value* short_circuit_codegen(const ast::BinaryOp* node, std::ostream& output, context::Context& c){
     int instruction_number = c.new_local_name(); 
     std::string no_sc_label = "logical_op_no_sc."+std::to_string(instruction_number);
     std::string end_label = "logical_op_end."+std::to_string(instruction_number);
 
-    auto left_register = left->codegen(output, c);
+    auto left_register = node->left->codegen(output, c);
     left_register = codegen_convert(type::make_basic(type::IType::Bool),left_register, output, c);
 
     auto new_tmp = make_tmp_reg(type::make_basic(type::IType::Bool), output, c);
     make_store(left_register, new_tmp, output, c);
 
-    switch(tok.type){
+    switch(node->tok.type){
         case token::TokenType::And:
             c.change_block(no_sc_label, output, 
                 std::make_unique<basicblock::Cond_BR>(left_register, no_sc_label,end_label));
@@ -140,17 +146,15 @@ value::Value* short_circuit_codegen(std::ostream& output, context::Context& c,
         default:
             assert(false && "Unknown binary assignment op during codegen");
     }
-    auto right_register = right->codegen(output, c);
+    auto right_register = node->right->codegen(output, c);
     right_register = codegen_convert(type::make_basic(type::IType::Bool),right_register, output, c);
-    auto no_sc_result = c.new_temp(type::make_basic(type::IType::Bool));
-    switch(tok.type){
+    value::Value* no_sc_result = nullptr;
+    switch(node->tok.type){
         case token::TokenType::And:
-            AST::print_whitespace(c.depth(), output);
-            output <<no_sc_result->get_value()<<" = and i1 "<<left_register->get_value()<<", "<<right_register->get_value()<<std::endl;
+            no_sc_result = make_command(type::from_str("_Bool"),"and",left_register,right_register,output,c);
             break;
         case token::TokenType::Or:
-            AST::print_whitespace(c.depth(), output);
-            output <<no_sc_result->get_value()<<" = or i1 "<<left_register->get_value()<<", "<<right_register->get_value()<<std::endl;
+            no_sc_result = make_command(type::from_str("_Bool"),"or",left_register,right_register,output,c);
             break;
         default:
             assert(false && "Unknown binary assignment op during codegen");
@@ -159,57 +163,46 @@ value::Value* short_circuit_codegen(std::ostream& output, context::Context& c,
     c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(end_label));
 
     auto result = make_load(new_tmp, output, c);
-    result = codegen_convert(type, result, output, c);
+    result = codegen_convert(node->type, result, output, c);
     return result;
 }
-value::Value* other_bin_op_codegen(std::ostream& output, context::Context& c,
-    const std::unique_ptr<ast::Expr>& left, const std::unique_ptr<ast::Expr>& right, type::BasicType type, token::Token tok){
-    auto left_register = left->codegen(output, c);
-    auto right_register = right->codegen(output, c);
-    std::string t = type::ir_type(type);
+value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& output, context::Context& c){
+    auto left_register = node->left->codegen(output, c);
+    auto right_register = node->right->codegen(output, c);
+    left_register = codegen_convert(node->new_left_type, std::move(left_register), output, c);
+    right_register = codegen_convert(node->new_right_type, std::move(right_register), output, c);
     std::string command = "";
-    switch(tok.type){
+    switch(node->tok.type){
         case token::TokenType::Minus:
-            left_register = codegen_convert(type, std::move(left_register), output, c);
-            right_register = codegen_convert(type, std::move(right_register), output, c);
             command = std::visit(overloaded{
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
-                }, type);
+                }, node->type);
             break;
         case token::TokenType::Plus:
-            left_register = codegen_convert(type, std::move(left_register), output, c);
-            right_register = codegen_convert(type, std::move(right_register), output, c);
             command = std::visit(overloaded{
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
-                }, type);
+                }, node->type);
             break;
         case token::TokenType::Mult:
-            left_register = codegen_convert(type, std::move(left_register), output, c);
-            right_register = codegen_convert(type, std::move(right_register), output, c);
             command = std::visit(overloaded{
                 [](type::IType){return "mul";},
                 [](type::FType){return "fmul";},
-                }, type);
+                }, node->type);
             break;
         case token::TokenType::Div:
-            left_register = codegen_convert(type, std::move(left_register), output, c);
-            right_register = codegen_convert(type, std::move(right_register), output, c);
             command = std::visit(overloaded{
                 [](type::IType t){
                     if(type::is_signed_int(t)){return "sdiv";}
                     else{return "udiv";}},
                 [](type::FType){return "fdiv";},
-                }, type);
+                }, node->type);
             break;
         default:
             assert(false && "Unknown binary op during codegen");
     }
-    AST::print_whitespace(c.depth(), output);
-    auto new_temp = c.new_temp(type);
-    output << new_temp->get_value()<<" = "<<command<<" "<<t<<" " << left_register->get_value() <<", "<< right_register->get_value()<<std::endl;
-    return new_temp;
+    return make_command(node->type, command, left_register,right_register,output,c);
 }
 } //namespace
 
@@ -252,7 +245,6 @@ value::Value* IfStmt::codegen(std::ostream& output, context::Context& c)const {
     std::string true_label = "iftrue."+std::to_string(instruction_number);
     std::string end_label = "ifend."+std::to_string(instruction_number);
     std::string false_label;
-    AST::print_whitespace(c.depth(), output);
     if(this->else_body.has_value()){
         false_label = "iffalse."+std::to_string(instruction_number);
     }else{
@@ -369,9 +361,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::FType){return " 0.0, ";},
                 }, operand->get_type()) << operand->get_value() <<std::endl;
 
-            AST::print_whitespace(c.depth(), output);
-            new_temp = c.new_temp(this->type);
-            output << new_temp->get_value()<<" = zext i1 "<< intermediate_bool->get_value() <<" to "<<t<<std::endl;
+            new_temp = codegen_convert(this->type, intermediate_bool, output, c);
         }
             return new_temp;
         default:
@@ -384,15 +374,15 @@ value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const 
     assert(this->analyzed && "This AST node has not had analysis run on it");
     switch(tok.type){
         case token::TokenType::Assign:
-            return assignment_codegen(output, c, dynamic_cast<ast::LValue*>(this->left.get()), this->right, this->type, this->tok);
+            return assignment_codegen(this, output, c);
         case token::TokenType::And:
         case token::TokenType::Or:
-            return short_circuit_codegen(output, c, this->left, this->right, this->type, this->tok);
+            return short_circuit_codegen(this, output, c);
         case token::TokenType::Minus:
         case token::TokenType::Plus:
         case token::TokenType::Div:
         case token::TokenType::Mult:
-            return other_bin_op_codegen(output, c, this->left, this->right, this->type, this->tok);
+            return other_bin_op_codegen(this, output, c);
         default:
             assert(false && "Unknown binary assignment op during codegen");
     }
