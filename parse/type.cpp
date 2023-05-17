@@ -363,13 +363,34 @@ bool is_signed_int(BasicType type){
     assert(false);
 }
 bool is_unsigned_int(BasicType type){
-    return !is_signed_int(type);
+    if(!std::holds_alternative<IType>(type)){
+        return false;
+    }
+    switch(std::get<IType>(type)){
+        case IType::SChar:
+        case IType::Char:
+        case IType::Short:
+        case IType::Int:
+        case IType::Long:
+        case IType::LLong:
+            return false;
+        case IType::Bool:
+        case IType::UChar:
+        case IType::UShort:
+        case IType::UInt:
+        case IType::ULong:
+        case IType::ULLong:
+            return true;
+    }
+    //Annotation or g++ complains
+    __builtin_unreachable();
+    assert(false);
 }
 bool is_float(BasicType type){
     return std::holds_alternative<FType>(type);
 }
 bool is_int(BasicType type){
-    return is_signed_int(type) || is_unsigned_int(type);
+    return std::holds_alternative<IType>(type);
 }
 bool is_arith(BasicType type){
     return is_int(type) || is_float(type);

@@ -40,6 +40,9 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {'}',token::TokenType::RBrace},
     {';',token::TokenType::Semicolon},
     {'~',token::TokenType::BitwiseNot},
+    {'&',token::TokenType::BitwiseAnd},
+    {'|',token::TokenType::BitwiseOr},
+    {'^',token::TokenType::BitwiseXor},
     {'!',token::TokenType::Not},
     {'-',token::TokenType::Minus},
     {'+',token::TokenType::Plus},
@@ -141,6 +144,32 @@ token::Token Lexer::read_token_from_stream(){
             return create_token(token::TokenType::Period, token_value, starting_position, current_pos, current_line);
         }
     }
+    if (c == '<' || c == '>'){
+        advance_input(token_value, c);
+        if(c == token_value.back()){
+            if(c == '<'){
+                advance_input(token_value, c);
+                if(c == '='){
+                    throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
+                }
+                return create_token(token::TokenType::LShift, token_value, starting_position, current_pos, current_line);
+            }
+            if(c== '>'){
+                advance_input(token_value, c);
+                if(c == '='){
+                    throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
+                }
+                return create_token(token::TokenType::RShift, token_value, starting_position, current_pos, current_line);
+            }
+        }
+        if(c == '='){
+            auto type = followed_by_eq.at(token_value.back());
+            advance_input(token_value, c);
+            return create_token(type, token_value, starting_position, current_pos, current_line);
+        }
+        auto type = single_char_tokens.at(token_value.back());
+        return create_token(type, token_value, starting_position, current_pos, current_line);
+    }
     if (c == '&' || c == '|'){
         advance_input(token_value, c);
         if(c == token_value.back()){
@@ -153,7 +182,14 @@ token::Token Lexer::read_token_from_stream(){
                 return create_token(token::TokenType::Or, token_value, starting_position, current_pos, current_line);
             }
         }
-        throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
+        if(c == '='){
+            throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
+            auto type = followed_by_eq.at(token_value.back());
+            advance_input(token_value, c);
+            return create_token(type, token_value, starting_position, current_pos, current_line);
+        }
+        auto type = single_char_tokens.at(token_value.back());
+        return create_token(type, token_value, starting_position, current_pos, current_line);
     }
     if(followed_by_eq.find(c) != followed_by_eq.end()){
         advance_input(token_value, c);

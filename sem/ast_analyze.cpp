@@ -119,6 +119,25 @@ void BinaryOp::analyze(symbol::STable* st){
             }
             this->type = type::from_str("int");
             break;
+        case token::TokenType::BitwiseAnd:
+        case token::TokenType::BitwiseOr:
+        case token::TokenType::BitwiseXor:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = this->type;
+            this->new_right_type = this->type;
+            break;
+        case token::TokenType::LShift:
+        case token::TokenType::RShift:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            this->new_left_type = type::integer_promotions(this->left->type);
+            this->new_right_type = type::integer_promotions(this->right->type);
+            this->type = this->new_left_type;
+            break;
         default:
             assert(false && "Unknown binary operator type");
     }

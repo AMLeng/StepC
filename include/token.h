@@ -8,9 +8,10 @@ namespace token{
 enum class TokenType{
     LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,
     Keyword, Identifier, IntegerLiteral, FloatLiteral,
-    BitwiseNot, Not, Minus, Plus, Mult, Div, Assign, 
+    Not, Minus, Plus, Mult, Div, Assign, 
     Colon, Question, And, Or,
     Equal,NEqual,Greater,Less,LEq,GEq,
+    BitwiseNot,BitwiseAnd,BitwiseOr,BitwiseXor, LShift,RShift,
     END, COMMENT
 };
 
@@ -69,6 +70,16 @@ inline std::string string_name(TokenType type){
             return "period";
         case TokenType:: BitwiseNot:
             return "bitwise not";
+        case TokenType:: BitwiseAnd:
+            return "bitwise and";
+        case TokenType:: BitwiseOr:
+            return "bitwise or";
+        case TokenType:: BitwiseXor:
+            return "bitwise xor";
+        case TokenType::LShift:
+            return "left bitshift";
+        case TokenType::RShift:
+            return "right bitshift";
         case TokenType::Not:
             return "logical not";
         case TokenType:: Minus:

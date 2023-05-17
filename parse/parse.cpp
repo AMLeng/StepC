@@ -25,9 +25,12 @@ namespace{
     std::map<token::TokenType, std::pair<int, int>> binary_op_binding_power = {{
         {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}},
         {token::TokenType::Plus,{23,24}}, {token::TokenType::Minus,{23,24}}, 
+        {token::TokenType::LShift,{21,22}}, {token::TokenType::RShift,{21,22}}, 
         {token::TokenType::Less, {19,20}}, {token::TokenType::Greater, {19,20}},
         {token::TokenType::LEq, {19,20}}, {token::TokenType::GEq, {19,20}},
         {token::TokenType::Equal, {17,18}}, {token::TokenType::NEqual, {17,18}},
+        {token::TokenType::BitwiseAnd, {15,16}},
+        {token::TokenType::BitwiseXor, {13,14}}, {token::TokenType::BitwiseOr, {11,12}},
         {token::TokenType::And, {9,10}}, {token::TokenType::Or, {7,8}},
         {token::TokenType::Assign, {5,4}},
     }};

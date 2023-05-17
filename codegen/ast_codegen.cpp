@@ -243,6 +243,27 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
                 [](type::FType){return "fcmp oge";},
                 }, node->new_left_type) , left_register,right_register,output,c);
             break;
+        case token::TokenType::LShift:
+            //LLVM IR requires both arguments to the shift to be the same integer type
+            right_register = codegen_convert(node->new_left_type, right_register, output, c);
+            result = make_command(node->type,"shl", left_register,right_register,output,c);
+            break;
+        case token::TokenType::RShift:
+            //LLVM IR requires both arguments to the shift to be the same integer type
+            right_register = codegen_convert(node->new_left_type, right_register, output, c);
+            //C standard says that if the left operand is signed and negative, then UB
+            //So it doesn't matter if we lshr or ashr
+            result = make_command(node->type,"lshr", left_register,right_register,output,c);
+            break;
+        case token::TokenType::BitwiseAnd:
+            result = make_command(node->type,"and", left_register,right_register,output,c);
+            break;
+        case token::TokenType::BitwiseOr:
+            result = make_command(node->type,"or", left_register,right_register,output,c);
+            break;
+        case token::TokenType::BitwiseXor:
+            result = make_command(node->type,"xor", left_register,right_register,output,c);
+            break;
         default:
             assert(false && "Unknown binary op during codegen");
     }
@@ -432,6 +453,11 @@ value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const 
         case token::TokenType::Greater:
         case token::TokenType::LEq:
         case token::TokenType::GEq:
+        case token::TokenType::LShift:
+        case token::TokenType::RShift:
+        case token::TokenType::BitwiseAnd:
+        case token::TokenType::BitwiseOr:
+        case token::TokenType::BitwiseXor:
             return other_bin_op_codegen(this, output, c);
         default:
             assert(false && "Unknown binary assignment op during codegen");
