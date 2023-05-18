@@ -37,3 +37,5 @@ In stage 3 and beyond, StepC will generate an executable, and can be tested with
 * Stage 5: Added local variables. Refactored error reporting to include the full line of source code containing the error. Separated out semantic analysis step. Added symbol table.
 
 * Stage 6: Implemented compound statements, if statements, and ternary conditionals. In particular, implemented basic blocks in code generation for flor control. Equivalent to Nora Sandler's stages 6 and 7.
+
+* Stage 7: Implemented remaining binary operators (including compound assignments), as well as prefix/postfix increment and decrement, as well as multiple comma separated variable declarations. Superset of Nora Sandler's stage 4.

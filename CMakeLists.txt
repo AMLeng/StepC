@@ -35,6 +35,10 @@ add_executable(stage_6_tests tests/stage_6_tests.cpp)
 set_target_properties(stage_6_tests PROPERTIES SUFFIX ".out")
 target_link_libraries(stage_6_tests PRIVATE Catch2::Catch2WithMain core)
 
+add_executable(stage_7_tests tests/stage_7_tests.cpp)
+set_target_properties(stage_7_tests PROPERTIES SUFFIX ".out")
+target_link_libraries(stage_7_tests PRIVATE Catch2::Catch2WithMain core)
+
 add_executable(step_c step_c.cpp)
 target_link_libraries(step_c PRIVATE core)
 set_target_properties(step_c PROPERTIES SUFFIX ".out")

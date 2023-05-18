@@ -23,9 +23,23 @@ namespace{
     //left binding is less than right binding for left associativity (+, -)
     //and vice versa for right associativity
     std::map<token::TokenType, std::pair<int, int>> binary_op_binding_power = {{
-        {token::TokenType::Assign, {5,4}},
+        {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}},
+        {token::TokenType::Mod, {25,26}}, 
         {token::TokenType::Plus,{23,24}}, {token::TokenType::Minus,{23,24}}, 
-        {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}}
+        {token::TokenType::LShift,{21,22}}, {token::TokenType::RShift,{21,22}}, 
+        {token::TokenType::Less, {19,20}}, {token::TokenType::Greater, {19,20}},
+        {token::TokenType::LEq, {19,20}}, {token::TokenType::GEq, {19,20}},
+        {token::TokenType::Equal, {17,18}}, {token::TokenType::NEqual, {17,18}},
+        {token::TokenType::BitwiseAnd, {15,16}},
+        {token::TokenType::BitwiseXor, {13,14}}, {token::TokenType::BitwiseOr, {11,12}},
+        {token::TokenType::And, {9,10}}, {token::TokenType::Or, {7,8}},
+        {token::TokenType::Assign, {5,4}},
+        {token::TokenType::LSAssign, {5,4}},{token::TokenType::RSAssign, {5,4}},
+        {token::TokenType::BOAssign, {5,4}},{token::TokenType::BXAssign, {5,4}},
+        {token::TokenType::ModAssign, {5,4}},{token::TokenType::BAAssign, {5,4}},
+        {token::TokenType::MultAssign, {5,4}},{token::TokenType::DivAssign, {5,4}},
+        {token::TokenType::PlusAssign, {5,4}},{token::TokenType::MinusAssign, {5,4}},
+        {token::TokenType::Comma, {2,3}},
     }};
 
     //Check and throw default unexpected token exception
@@ -53,7 +67,9 @@ std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::Lexer& l){
                 token::TokenType::Minus,
                 token::TokenType::Plus,
                 token::TokenType::BitwiseNot,
-                token::TokenType::Not)){
+                token::TokenType::Not,
+                token::TokenType::Plusplus,//Prefix versions
+                token::TokenType::Minusminus)){
         throw parse_error::ParseError("Not valid unary operator",op_token);
     }
     auto expr = parse_expr(l, unary_op_binding_power);
@@ -86,6 +102,15 @@ std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique
     return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
 }
 
+std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
+    auto op_token = l.get_token();
+    if(!token::matches_type(op_token,
+                token::TokenType::Plusplus,
+                token::TokenType::Minusminus)){
+        throw parse_error::ParseError("Not valid postfix operator",op_token);
+    }
+    return std::make_unique<ast::Postfix>(op_token,std::move(arg));
+}
 std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     auto expr_start = l.peek_token();
     std::unique_ptr<ast::Expr> expr_ptr = nullptr;
@@ -98,6 +123,8 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
         case token::TokenType::Plus:
         case token::TokenType::BitwiseNot:
         case token::TokenType::Not:
+        case token::TokenType::Plusplus:
+        case token::TokenType::Minusminus:
             expr_ptr =  parse_unary_op(l);
             break;
         case token::TokenType::Identifier:
@@ -120,6 +147,16 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
                 break;
             }
             expr_ptr = parse_conditional(l, std::move(expr_ptr));
+            break;
+        }
+        if(potential_op_token.type == token::TokenType::Plusplus ||
+            potential_op_token.type == token::TokenType::Minusminus){
+            //postfix increment/decrement
+            if(unary_op_binding_power+1 < min_bind_power){
+                break;
+            }
+            expr_ptr = parse_postfix(l, std::move(expr_ptr));
+            break;
         }
         if(binary_op_binding_power.find(potential_op_token.type) == binary_op_binding_power.end()){
             break; //Not an operator
@@ -145,42 +182,49 @@ std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l){
     check_token_type(semicolon, token::TokenType::Semicolon);
     return std::make_unique<ast::ReturnStmt>(std::move(ret_value));
 }
-std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
+std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     auto keyword_list = std::multiset<std::string>{};
     auto first_keyword = l.peek_token();
     while(l.peek_token().type == token::TokenType::Keyword){
         keyword_list.insert(l.get_token().value);
     }
-    check_token_type(l.peek_token(), token::TokenType::Identifier);
     if(keyword_list.size() == 0){
         throw parse_error::ParseError("Parsing decl that did not start with a keyword", first_keyword);
     }
+    check_token_type(l.peek_token(), token::TokenType::Identifier);
     type::BasicType t;
     try{
         t = type::from_str_multiset(keyword_list);
     }catch(std::runtime_error& e){
         throw sem_error::TypeError(e.what(), first_keyword);
     }
-    auto var_name = l.get_token();
-    check_token_type(var_name, token::TokenType::Identifier);
-    auto next_tok = l.peek_token();
-    if(token::matches_type(next_tok, token::TokenType::Semicolon)){
-        check_token_type(l.get_token(), token::TokenType::Semicolon);
-        return std::make_unique<ast::VarDecl>(var_name, t);
-    }
-    check_token_type(next_tok, token::TokenType::Assign);
-    std::unique_ptr<ast::LValue> var = std::make_unique<ast::Variable>(var_name);
-    auto assign = parse_binary_op(l,std::move(var),
-        binary_op_binding_power.at(token::TokenType::Assign).second);
-    check_token_type(l.get_token(), token::TokenType::Semicolon);
-    return std::make_unique<ast::VarDecl>(var_name, t, std::move(assign));
+    auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
+    do{
+        auto var_name = l.get_token();
+        check_token_type(var_name, token::TokenType::Identifier);
+        auto next_tok = l.peek_token();
+        if(token::matches_type(next_tok, token::TokenType::Assign)){
+            std::unique_ptr<ast::LValue> var = std::make_unique<ast::Variable>(var_name);
+            auto assign = parse_binary_op(l,std::move(var),
+                    binary_op_binding_power.at(token::TokenType::Assign).second);
+            decls.push_back(std::make_unique<ast::VarDecl>(var_name, t, std::move(assign)));
+        }else{
+            decls.push_back(std::make_unique<ast::VarDecl>(var_name, t));
+        }
+        next_tok = l.get_token();
+        if(token::matches_type(next_tok,token::TokenType::Semicolon)){
+            break;
+        }
+        check_token_type(next_tok, token::TokenType::Comma);
+    }while(true);
+    return std::make_unique<ast::DeclList>(std::move(decls));
 }
 
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
     auto next_token = l.peek_token();
     if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, 
         "return", "if")){
-        return parse_var_decl(l);
+        return parse_decl_list(l);
     }
     return parse_stmt(l);
 }

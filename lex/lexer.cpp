@@ -26,19 +26,41 @@ token::Token create_token(token::TokenType type, std::string value, std::pair<in
     location::Location loc = {tok_start.first, tok_start.second, tok_end.first, tok_end.second};
     return token::Token{type, value, loc, source};
 }
+const std::map<char, token::TokenType> followed_by_eq = {{
+    {'!',token::TokenType::NEqual},
+    {'>',token::TokenType::GEq},
+    {'<',token::TokenType::LEq},
+    {'=',token::TokenType::Equal},
+    {'+',token::TokenType::PlusAssign},
+    {'-',token::TokenType::MinusAssign},
+    {'*',token::TokenType::MultAssign},
+    {'/',token::TokenType::DivAssign},
+    {'%',token::TokenType::ModAssign},
+    {'^',token::TokenType::BXAssign},
+    {'|',token::TokenType::BOAssign},
+    {'&',token::TokenType::BAAssign},
+}};
+
 const std::map<char, token::TokenType> single_char_tokens = {{
     {'(',token::TokenType::LParen},
     {')',token::TokenType::RParen},
     {'{',token::TokenType::LBrace},
     {'}',token::TokenType::RBrace},
     {';',token::TokenType::Semicolon},
+    {',',token::TokenType::Comma},
     {'~',token::TokenType::BitwiseNot},
+    {'&',token::TokenType::BitwiseAnd},
+    {'|',token::TokenType::BitwiseOr},
+    {'^',token::TokenType::BitwiseXor},
     {'!',token::TokenType::Not},
     {'-',token::TokenType::Minus},
     {'+',token::TokenType::Plus},
     {'*',token::TokenType::Mult},
     {'/',token::TokenType::Div},
+    {'%',token::TokenType::Mod},
     {'=',token::TokenType::Assign},
+    {'<',token::TokenType::Less},
+    {'>',token::TokenType::Greater},
     {':',token::TokenType::Colon},
     {'?',token::TokenType::Question},
 }};
@@ -131,6 +153,84 @@ token::Token Lexer::read_token_from_stream(){
         if(std::isalpha(c)){
             return create_token(token::TokenType::Period, token_value, starting_position, current_pos, current_line);
         }
+    }
+    if (c == '<' || c == '>'){
+        advance_input(token_value, c);
+        if(c == token_value.back()){
+            if(c == '<'){
+                advance_input(token_value, c);
+                if(c == '='){
+                    advance_input(token_value, c);
+                    return create_token(token::TokenType::LSAssign, token_value, starting_position, current_pos, current_line);
+                }
+                return create_token(token::TokenType::LShift, token_value, starting_position, current_pos, current_line);
+            }
+            if(c== '>'){
+                advance_input(token_value, c);
+                if(c == '='){
+                    advance_input(token_value, c);
+                    return create_token(token::TokenType::RSAssign, token_value, starting_position, current_pos, current_line);
+                }
+                return create_token(token::TokenType::RShift, token_value, starting_position, current_pos, current_line);
+            }
+        }
+        if(c == '='){
+            auto type = followed_by_eq.at(token_value.back());
+            advance_input(token_value, c);
+            return create_token(type, token_value, starting_position, current_pos, current_line);
+        }
+        auto type = single_char_tokens.at(token_value.back());
+        return create_token(type, token_value, starting_position, current_pos, current_line);
+    }
+    if (c == '&' || c == '|'){
+        advance_input(token_value, c);
+        if(c == token_value.back()){
+            if(c == '&'){
+                advance_input(token_value, c);
+                return create_token(token::TokenType::And, token_value, starting_position, current_pos, current_line);
+            }
+            if(c== '|'){
+                advance_input(token_value, c);
+                return create_token(token::TokenType::Or, token_value, starting_position, current_pos, current_line);
+            }
+        }
+        if(c == '='){
+            auto type = followed_by_eq.at(token_value.back());
+            advance_input(token_value, c);
+            return create_token(type, token_value, starting_position, current_pos, current_line);
+        }
+        auto type = single_char_tokens.at(token_value.back());
+        return create_token(type, token_value, starting_position, current_pos, current_line);
+    }
+    if (c == '+' || c == '-'){
+        advance_input(token_value, c);
+        if(c == token_value.back()){
+            if(c == '+'){
+                advance_input(token_value, c);
+                return create_token(token::TokenType::Plusplus, token_value, starting_position, current_pos, current_line);
+            }
+            if(c== '-'){
+                advance_input(token_value, c);
+                return create_token(token::TokenType::Minusminus, token_value, starting_position, current_pos, current_line);
+            }
+        }
+        if(c == '='){
+            auto type = followed_by_eq.at(token_value.back());
+            advance_input(token_value, c);
+            return create_token(type, token_value, starting_position, current_pos, current_line);
+        }
+        auto type = single_char_tokens.at(token_value.back());
+        return create_token(type, token_value, starting_position, current_pos, current_line);
+    }
+    if(followed_by_eq.find(c) != followed_by_eq.end()){
+        advance_input(token_value, c);
+        if(c == '='){
+            auto type = followed_by_eq.at(token_value.back());
+            advance_input(token_value, c);
+            return create_token(type, token_value, starting_position, current_pos, current_line);
+        }
+        auto type = single_char_tokens.at(token_value.back());
+        return create_token(type, token_value, starting_position, current_pos, current_line);
     }
 
     //Handle all remaining single character tokens

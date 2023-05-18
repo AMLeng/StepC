@@ -37,11 +37,69 @@ void Conditional::analyze(symbol::STable* st){
     }
     this->type = type::usual_arithmetic_conversions(this->true_expr->type, this->false_expr->type);
 }
+void Postfix::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    //Typechecking
+    switch(this->tok.type){
+        case token::TokenType::Plusplus:
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required as argument of increment",tok);
+            }
+            }
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            break;
+        case token::TokenType::Minusminus:
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
+            }
+            }
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            break;
+        default:
+            assert(false && "Unknown postfix operator type");
+            break;
+    }
+}
 void UnaryOp::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
     //Typechecking
     switch(this->tok.type){
+        case token::TokenType::Plusplus:
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required as argument of increment",tok);
+            }
+            }
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            break;
+        case token::TokenType::Minusminus:
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
+            }
+            }
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            break;
         case token::TokenType::Plus:
         case token::TokenType::Minus:
             if(!type::is_arith(this->arg->type)){
@@ -70,6 +128,77 @@ void BinaryOp::analyze(symbol::STable* st){
     this->left->analyze(st);
     this->right->analyze(st);
     switch(this->tok.type){
+        case token::TokenType::PlusAssign:
+        case token::TokenType::MinusAssign:
+        case token::TokenType::DivAssign:
+        case token::TokenType::MultAssign:
+            if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+            }
+            }
+            {
+            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = convert_type;
+            this->new_right_type = convert_type;
+            }
+            this->type = this->left->type;
+            break;
+        case token::TokenType::ModAssign:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            {
+            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = convert_type;
+            this->new_right_type = convert_type;
+            }
+            this->type = this->left->type;
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+            }
+            }
+            break;
+        case token::TokenType::BAAssign:
+        case token::TokenType::BOAssign:
+        case token::TokenType::BXAssign:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+            }
+            }
+            {
+            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = convert_type;
+            this->new_right_type = convert_type;
+            }
+            this->type = this->left->type;
+            break;
+        case token::TokenType::LSAssign:
+        case token::TokenType::RSAssign:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+            }
+            }
+            this->new_left_type = type::integer_promotions(this->left->type);
+            this->new_right_type = type::integer_promotions(this->right->type);
+            this->type = this->left->type;
+            break;
         case token::TokenType::Assign:
             {
             auto lval = dynamic_cast<ast::LValue*>(this->left.get());
@@ -78,6 +207,8 @@ void BinaryOp::analyze(symbol::STable* st){
             }
             }
             //All basic types are interconvertable, modulo some potential for UB
+            this->new_right_type = this->right->type;
+            this->new_left_type = this->left->type;
             this->type = this->left->type;
             break;
         case token::TokenType::Plus:
@@ -88,6 +219,66 @@ void BinaryOp::analyze(symbol::STable* st){
                 throw sem_error::TypeError("Operand of arithmetic type required",tok);
             }
             this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = this->type;
+            this->new_right_type = this->type;
+            break;
+        case token::TokenType::Mod:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = this->type;
+            this->new_right_type = this->type;
+            break;
+        case token::TokenType::And:
+        case token::TokenType::Or:
+            if(!type::is_scalar(this->left->type) || !type::is_scalar(this->right->type)){
+                throw sem_error::TypeError("Operand of scalar type required",tok);
+            }
+            this->new_right_type = this->right->type;
+            this->new_left_type = this->left->type;
+            this->type = type::from_str("int");
+            break;
+        case token::TokenType::Equal:
+        case token::TokenType::NEqual:
+            //Check that in fact real type
+        case token::TokenType::Less:
+        case token::TokenType::Greater:
+        case token::TokenType::LEq:
+        case token::TokenType::GEq:
+            if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            {
+            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = convert_type;
+            this->new_right_type = convert_type;
+            }
+            this->type = type::from_str("int");
+            break;
+        case token::TokenType::BitwiseAnd:
+        case token::TokenType::BitwiseOr:
+        case token::TokenType::BitwiseXor:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = this->type;
+            this->new_right_type = this->type;
+            break;
+        case token::TokenType::LShift:
+        case token::TokenType::RShift:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            this->new_left_type = type::integer_promotions(this->left->type);
+            this->new_right_type = type::integer_promotions(this->right->type);
+            this->type = this->new_left_type;
+            break;
+        case token::TokenType::Comma:
+            this->new_right_type = this->right->type;
+            this->new_left_type = this->left->type;
+            this->type = this->left->type;
             break;
         default:
             assert(false && "Unknown binary operator type");
@@ -117,6 +308,12 @@ void CompoundStmt::analyze(symbol::STable* st){
     auto stmt_table = st->new_child();
     for(auto& stmt : stmt_body){
         stmt->analyze(stmt_table);
+    }
+}
+void DeclList::analyze(symbol::STable* st){
+    this->analyzed = true;
+    for(auto& decl : decls){
+        decl->analyze(st);
     }
 }
 void FunctionDef::analyze(symbol::STable* st) {

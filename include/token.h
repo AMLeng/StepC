@@ -8,8 +8,13 @@ namespace token{
 enum class TokenType{
     LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,
     Keyword, Identifier, IntegerLiteral, FloatLiteral,
-    BitwiseNot, Not, Minus, Plus, Mult, Div, Assign, 
-    Colon, Question,
+    Not, Minus, Plus, Mult, Div, Mod,
+    Assign, PlusAssign, MinusAssign, DivAssign, MultAssign,ModAssign,
+    LSAssign,RSAssign,BAAssign, BOAssign, BXAssign,
+    Colon, Question, And, Or,
+    Equal,NEqual,Greater,Less,LEq,GEq,
+    BitwiseNot,BitwiseAnd,BitwiseOr,BitwiseXor, LShift,RShift,
+    Comma,Plusplus, Minusminus,
     END, COMMENT
 };
 
@@ -66,8 +71,24 @@ inline std::string string_name(TokenType type){
             return "semicolon";
         case TokenType:: Period:
             return "period";
+        case TokenType::Comma:
+            return "comma";
+        case TokenType::Plusplus:
+            return "plus plus";
+        case TokenType::Minusminus:
+            return "minusminus";
         case TokenType:: BitwiseNot:
             return "bitwise not";
+        case TokenType:: BitwiseAnd:
+            return "bitwise and";
+        case TokenType:: BitwiseOr:
+            return "bitwise or";
+        case TokenType:: BitwiseXor:
+            return "bitwise xor";
+        case TokenType::LShift:
+            return "left bitshift";
+        case TokenType::RShift:
+            return "right bitshift";
         case TokenType::Not:
             return "logical not";
         case TokenType:: Minus:
@@ -78,21 +99,59 @@ inline std::string string_name(TokenType type){
             return "multiplication";
         case TokenType::Div:
             return "division";
+        case TokenType::Mod:
+            return "mod";
+        case TokenType::And:
+            return "logical and";
+        case TokenType::Or:
+            return "logical or";
+        case TokenType::Equal:
+            return "equal";
+        case TokenType::NEqual:
+            return "not equal";
+        case TokenType::Less:
+            return "less than";
+        case TokenType::Greater:
+            return "greater than";
+        case TokenType::LEq:
+            return "less than or equal to";
+        case TokenType::GEq:
+            return "greater than or equal to";
+        case TokenType::PlusAssign:
+            return "plus assign compound operator";
+        case TokenType::MinusAssign:
+            return "minus assign compound operator";
+        case TokenType::DivAssign:
+            return "division assign compound operator";
+        case TokenType::MultAssign:
+            return "multiplication assign compound operator";
+        case TokenType::ModAssign:
+            return "mod assign compound operator";
+        case TokenType::LSAssign:
+            return "left shift assign compound operator";
+        case TokenType::RSAssign:
+            return "right shift assign compound operator";
+        case TokenType::BAAssign:
+            return "binary and assign compound operator";
+        case TokenType::BOAssign:
+            return "binary or assign compound operator";
+        case TokenType::BXAssign:
+            return "binary xor assign compound operator";
         case TokenType::Assign:
             return "assignment operator";
-        case TokenType:: Keyword:
+        case TokenType::Keyword:
             return "keyword";
-        case TokenType:: Identifier:
+        case TokenType::Identifier:
             return "identifier";
-        case TokenType:: IntegerLiteral:
+        case TokenType::IntegerLiteral:
             return "integer literal";
-        case TokenType:: Colon:
+        case TokenType::Colon:
             return "colon ':'";
-        case TokenType:: Question:
+        case TokenType::Question:
             return "question mark '?'";
-        case TokenType:: COMMENT:
+        case TokenType::COMMENT:
             return "comment";
-        case TokenType:: END:
+        case TokenType::END:
             return "end of input stream";
     }
     //Annotation or g++ complains

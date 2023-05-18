@@ -15,6 +15,13 @@ void CompoundStmt::pretty_print(int depth){
         stmt -> pretty_print(depth);
     }
 }
+void DeclList::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "DECLARATIONS:" << std::endl;
+    for(const auto& decl : decls){
+        decl -> pretty_print(depth + 1);
+    }
+}
 
 void FunctionDef::pretty_print(int depth){
     AST::print_whitespace(depth);
@@ -72,6 +79,11 @@ void VarDecl::pretty_print(int depth){
 void Constant::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<<"CONSTANT "<<literal<<" OF TYPE "<< type::to_string(type) <<std::endl;
+}
+void Postfix::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<<"POSTFIX OP "<< tok.type <<" ON EXPR"<<std::endl;
+    arg->pretty_print(depth+1);
 }
 void UnaryOp::pretty_print(int depth){
     AST::print_whitespace(depth);

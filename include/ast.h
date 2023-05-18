@@ -28,7 +28,7 @@ struct AST{
     virtual void analyze(symbol::STable* st) = 0;
     virtual void pretty_print(int depth) = 0;
     virtual ~AST() = 0;
-    virtual value::Value* codegen(std::ostream& output, context::Context& c) = 0;
+    virtual value::Value* codegen(std::ostream& output, context::Context& c) const = 0;
 };
 
 struct Program : public AST{
@@ -36,18 +36,18 @@ struct Program : public AST{
     Program(std::unique_ptr<FunctionDef> main) : main_method(std::move(main)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
     void analyze(){
         auto global_st = symbol::STable();
         this->analyze(&global_st);
     }
 };
 
-struct BlockItem : public AST{
+struct BlockItem : virtual public AST{
     //Block items can appear in compound statements
     virtual ~BlockItem() = 0;
 };
-struct Stmt : public BlockItem{
+struct Stmt : virtual public BlockItem{
     //Statements are things that can appear in the body of a function
     virtual ~Stmt() = 0;
 };
@@ -55,10 +55,10 @@ struct NullStmt : public Stmt{
     NullStmt(){}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
-struct Decl : public AST{
+struct Decl : virtual public AST{
     //Declarations are things that can appear at global scope,
     //And which require altering the symbol table
     const std::string name;
@@ -66,8 +66,16 @@ struct Decl : public AST{
     Decl(token::Token tok) : tok(tok), name(tok.value) {}
     virtual ~Decl() = 0;
 };
+struct DeclList : public BlockItem{
+    bool analyzed = false;
+    std::vector<std::unique_ptr<Decl>> decls;
+    DeclList(std::vector<std::unique_ptr<Decl>> decls) : decls(std::move(decls)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 
-struct VarDecl : public Decl, public BlockItem{
+struct VarDecl : public Decl {
     bool analyzed = false;
     const type::BasicType type;
     std::optional<std::unique_ptr<BinaryOp>> assignment;
@@ -76,7 +84,7 @@ struct VarDecl : public Decl, public BlockItem{
         : Decl(tok), type(type), assignment(std::move(assignment)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 struct IfStmt : public Stmt{
     std::unique_ptr<Expr> if_condition;
@@ -86,14 +94,14 @@ struct IfStmt : public Stmt{
         if_condition(std::move(if_condition)), if_body(std::move(if_body)), else_body(std::move(else_body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 struct CompoundStmt : public Stmt{
     std::vector<std::unique_ptr<BlockItem>> stmt_body;
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     CompoundStmt(std::vector<std::unique_ptr<BlockItem>> stmt_body) : stmt_body(std::move(stmt_body)) {}
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
 struct FunctionDef : public AST{
@@ -104,7 +112,7 @@ struct FunctionDef : public AST{
         name(name), return_type(ret_type), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
 struct ReturnStmt : public Stmt{
@@ -112,11 +120,11 @@ struct ReturnStmt : public Stmt{
     ReturnStmt(std::unique_ptr<Expr> ret_expr) : return_expr(std::move(ret_expr)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
 
-struct Expr : public Stmt{
+struct Expr : virtual public Stmt{
     type::BasicType type;
     bool analyzed = false;
     token::Token tok;
@@ -131,7 +139,7 @@ struct Conditional : public Expr{
         Expr(op_tok), cond(std::move(cond)), true_expr(std::move(t)), false_expr(std::move(f)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 struct LValue : public Expr{
     LValue(token::Token tok) : Expr(tok){}
@@ -143,7 +151,7 @@ struct Variable : public LValue{
     Variable(token::Token tok) : LValue(tok), variable_name(tok.value) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
 struct Constant : public Expr{
@@ -151,26 +159,36 @@ struct Constant : public Expr{
     Constant(const token::Token& tok);
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct Postfix : public Expr{
+    std::unique_ptr<Expr> arg;
+    Postfix(token::Token op, std::unique_ptr<Expr> exp) : 
+        Expr(op), arg(std::move(exp)) {}
+    void analyze(symbol::STable* st) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct UnaryOp : public Expr{
     std::unique_ptr<Expr> arg;
     UnaryOp(token::Token op, std::unique_ptr<Expr> exp) : 
         Expr(op), arg(std::move(exp)) {}
     void analyze(symbol::STable* st) override;
     void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
 struct BinaryOp : public Expr{
     std::unique_ptr<Expr> left;
     std::unique_ptr<Expr> right;
+    type::BasicType new_left_type;
+    type::BasicType new_right_type;
     BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
         Expr(op), left(std::move(left)), right(std::move(right)) { }
     void analyze(symbol::STable* st) override;
     void pretty_print(int depth) override;
-    value::Value* codegen(std::ostream& output, context::Context& c) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
 } //namespace ast

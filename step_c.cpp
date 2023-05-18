@@ -36,7 +36,6 @@ int main(int argc, char* argv[]){
     auto rm_llvm_ir = "rm "+program_name+".ll";
     auto rm_assembly = "rm "+program_name+".s";
 
-    auto llvm_output = std::ofstream(program_name +".ll");
     try{
         program_ast->analyze();
     }catch(std::exception& e){
@@ -44,6 +43,7 @@ int main(int argc, char* argv[]){
         std::cout<<e.what()<<std::endl;
         return 1;
     }
+    auto llvm_output = std::ofstream(program_name +".ll");
     //program_ast->pretty_print(0);
     program_ast->codegen(llvm_output, global_context); //Should output program_name .ll
     system(llc_command.c_str()); //Should output program_name .s
