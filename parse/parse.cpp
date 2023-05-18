@@ -24,6 +24,7 @@ namespace{
     //and vice versa for right associativity
     std::map<token::TokenType, std::pair<int, int>> binary_op_binding_power = {{
         {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}},
+        {token::TokenType::Mod, {25,26}}, 
         {token::TokenType::Plus,{23,24}}, {token::TokenType::Minus,{23,24}}, 
         {token::TokenType::LShift,{21,22}}, {token::TokenType::RShift,{21,22}}, 
         {token::TokenType::Less, {19,20}}, {token::TokenType::Greater, {19,20}},

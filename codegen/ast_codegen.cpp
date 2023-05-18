@@ -21,11 +21,11 @@ value::Value* make_command(type::BasicType t, std::string command, value::Value*
     return new_temp;
 }
 
-value::Value* make_load(value::Value* reg, std::ostream& output, context::Context& c){
-    auto result = c.new_temp(reg->get_type());
+value::Value* make_load(value::Value* local, std::ostream& output, context::Context& c){
+    auto result = c.new_temp(local->get_type());
     AST::print_whitespace(c.depth(), output);
-    output << result->get_value()<<" = load "<<type::ir_type(reg->get_type());
-    output << ", " <<type::ir_type(reg->get_type())<<"* "<<reg->get_value()<<std::endl;
+    output << result->get_value()<<" = load "<<type::ir_type(local->get_type());
+    output << ", " <<type::ir_type(local->get_type())<<"* "<<local->get_value()<<std::endl;
     return result;
 }
 value::Value* make_tmp_reg(type::BasicType t, std::ostream& output, context::Context& c){
@@ -110,18 +110,80 @@ value::Value* codegen_convert(type::BasicType target_type, value::Value* val,
 
 value::Value* assignment_codegen(const ast::BinaryOp* node, std::ostream& output, context::Context& c){
     auto right_register = node->right->codegen(output, c);
-    auto variable = dynamic_cast<const ast::Variable*>(node->left.get());
-    assert(variable && "Other lvalues not yet implemented");
-    auto var_value = c.get_value(variable->variable_name);
-    right_register = codegen_convert(node->type, std::move(right_register), output, c);
+    right_register = codegen_convert(node->new_right_type, std::move(right_register), output, c);
+    auto ast_variable = dynamic_cast<const ast::Variable*>(node->left.get());
+    assert(ast_variable && "Other lvalues not yet implemented");
+    auto var_value = c.get_value(ast_variable->variable_name);
+    auto loaded_value = make_load(var_value, output, c);
+    loaded_value = codegen_convert(node->new_left_type,loaded_value, output, c);
+
+    value::Value* result = nullptr;
     switch(node->tok.type){
+        case token::TokenType::PlusAssign:
+            result = make_command(node->new_left_type,std::visit(overloaded{
+                [](type::IType){return "add";},
+                [](type::FType){return "fadd";},
+                }, node->type) , loaded_value,right_register,output,c);
+            break;
+        case token::TokenType::MinusAssign:
+            result = make_command(node->new_left_type, std::visit(overloaded{
+                [](type::IType){return "sub";},
+                [](type::FType){return "fsub";},
+                }, node->type), loaded_value,right_register,output,c);
+            break;
+        case token::TokenType::DivAssign:
+            result = make_command(node->new_left_type,std::visit(overloaded{
+                [](type::IType t){
+                    if(type::is_signed_int(t)){return "sdiv";}
+                    else{return "udiv";}},
+                [](type::FType){return "fdiv";},
+                }, node->type) , loaded_value,right_register,output,c);
+            break;
+        case token::TokenType::MultAssign:
+            result = make_command(node->new_left_type,std::visit(overloaded{
+                [](type::IType){return "mul";},
+                [](type::FType){return "fmul";},
+                }, node->type) , loaded_value,right_register,output,c);
+            break;
+        case token::TokenType::ModAssign:
+            result = make_command(node->new_left_type,std::visit(overloaded{
+                [](type::IType t){
+                    if(type::is_signed_int(t)){return "srem";}
+                    else{return "urem";}},
+                [](type::FType){
+                    assert(false && "C does not allow mod to take floating point arguments");
+                    return "frem";},
+                }, node->type) , loaded_value,right_register,output,c);
+            break;
+        case token::TokenType::LSAssign:
+            right_register = codegen_convert(node->new_left_type, right_register, output, c);
+            result = make_command(node->new_left_type,"shl", loaded_value,right_register,output,c);
+            break;
+        case token::TokenType::RSAssign:
+            //LLVM IR requires both arguments to the shift to be the same integer type
+            right_register = codegen_convert(node->new_left_type, right_register, output, c);
+            //C standard says that if the left operand is signed and negative, then UB
+            //So it doesn't matter if we lshr or ashr
+            result = make_command(node->new_left_type,"lshr", loaded_value,right_register,output,c);
+            break;
+        case token::TokenType::BAAssign:
+            result = make_command(node->new_left_type,"and", loaded_value,right_register,output,c);
+            break;
+        case token::TokenType::BOAssign:
+            result = make_command(node->new_left_type,"or", loaded_value,right_register,output,c);
+            break;
+        case token::TokenType::BXAssign:
+            result = make_command(node->new_left_type,"xor", loaded_value,right_register,output,c);
+            break;
         case token::TokenType::Assign:
-            make_store(right_register, var_value, output, c);
+            result = right_register;
             break;
         default:
             assert(false && "Unknown binary assignment op during codegen");
     }
-    return right_register;
+    result = codegen_convert(var_value->get_type(), result, output, c);
+    make_store(result, var_value, output, c);
+    return result;
 }
 value::Value* short_circuit_codegen(const ast::BinaryOp* node, std::ostream& output, context::Context& c){
     int instruction_number = c.new_local_name(); 
@@ -197,6 +259,16 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
                     if(type::is_signed_int(t)){return "sdiv";}
                     else{return "udiv";}},
                 [](type::FType){return "fdiv";},
+                }, node->type) , left_register,right_register,output,c);
+            break;
+        case token::TokenType::Mod:
+            result = make_command(node->type,std::visit(overloaded{
+                [](type::IType t){
+                    if(type::is_signed_int(t)){return "srem";}
+                    else{return "urem";}},
+                [](type::FType){
+                    assert(false && "C does not allow mod to take floating point arguments");
+                    return "frem";},
                 }, node->type) , left_register,right_register,output,c);
             break;
         case token::TokenType::Equal:
@@ -536,6 +608,16 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
 value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     switch(tok.type){
+        case token::TokenType::PlusAssign:
+        case token::TokenType::MinusAssign:
+        case token::TokenType::DivAssign:
+        case token::TokenType::MultAssign:
+        case token::TokenType::ModAssign:
+        case token::TokenType::BAAssign:
+        case token::TokenType::BOAssign:
+        case token::TokenType::BXAssign:
+        case token::TokenType::LSAssign:
+        case token::TokenType::RSAssign:
         case token::TokenType::Assign:
             return assignment_codegen(this, output, c);
         case token::TokenType::And:
@@ -545,6 +627,7 @@ value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const 
         case token::TokenType::Plus:
         case token::TokenType::Div:
         case token::TokenType::Mult:
+        case token::TokenType::Mod:
         case token::TokenType::Equal:
         case token::TokenType::NEqual:
         case token::TokenType::Less:

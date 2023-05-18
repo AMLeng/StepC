@@ -57,6 +57,7 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {'+',token::TokenType::Plus},
     {'*',token::TokenType::Mult},
     {'/',token::TokenType::Div},
+    {'%',token::TokenType::Mod},
     {'=',token::TokenType::Assign},
     {'<',token::TokenType::Less},
     {'>',token::TokenType::Greater},

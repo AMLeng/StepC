@@ -250,6 +250,17 @@ R"(int main(){
     auto program_pointer = parse::construct_ast(l);
     //program_pointer->pretty_print(0);
 }
+TEST_CASE("parse mod"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 7;
+    int b = 5;
+    return a % b;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here
 //Since those tests should be updated during refactoring

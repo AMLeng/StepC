@@ -128,6 +128,77 @@ void BinaryOp::analyze(symbol::STable* st){
     this->left->analyze(st);
     this->right->analyze(st);
     switch(this->tok.type){
+        case token::TokenType::PlusAssign:
+        case token::TokenType::MinusAssign:
+        case token::TokenType::DivAssign:
+        case token::TokenType::MultAssign:
+            if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+            }
+            }
+            {
+            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = convert_type;
+            this->new_right_type = convert_type;
+            }
+            this->type = this->left->type;
+            break;
+        case token::TokenType::ModAssign:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            {
+            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = convert_type;
+            this->new_right_type = convert_type;
+            }
+            this->type = this->left->type;
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+            }
+            }
+            break;
+        case token::TokenType::BAAssign:
+        case token::TokenType::BOAssign:
+        case token::TokenType::BXAssign:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+            }
+            }
+            {
+            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = convert_type;
+            this->new_right_type = convert_type;
+            }
+            this->type = this->left->type;
+            break;
+        case token::TokenType::LSAssign:
+        case token::TokenType::RSAssign:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+            }
+            }
+            this->new_left_type = type::integer_promotions(this->left->type);
+            this->new_right_type = type::integer_promotions(this->right->type);
+            this->type = this->left->type;
+            break;
         case token::TokenType::Assign:
             {
             auto lval = dynamic_cast<ast::LValue*>(this->left.get());
@@ -146,6 +217,14 @@ void BinaryOp::analyze(symbol::STable* st){
         case token::TokenType::Div:
             if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
+            this->new_left_type = this->type;
+            this->new_right_type = this->type;
+            break;
+        case token::TokenType::Mod:
+            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
             }
             this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
             this->new_left_type = this->type;
