@@ -440,6 +440,12 @@ value::Value* Variable::codegen(std::ostream& output, context::Context& c)const 
     return make_load(var_value,output,c);
 }
 
+value::Value* DeclList::codegen(std::ostream& output, context::Context& c)const {
+    for(const auto& decl : decls){
+        decl->codegen(output, c);
+    }
+    return nullptr;
+}
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto variable = c.add_local(name, type);

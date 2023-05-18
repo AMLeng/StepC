@@ -310,6 +310,12 @@ void CompoundStmt::analyze(symbol::STable* st){
         stmt->analyze(stmt_table);
     }
 }
+void DeclList::analyze(symbol::STable* st){
+    this->analyzed = true;
+    for(auto& decl : decls){
+        decl->analyze(st);
+    }
+}
 void FunctionDef::analyze(symbol::STable* st) {
     if(this->name == "main"){
         if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){

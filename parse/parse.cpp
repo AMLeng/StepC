@@ -182,42 +182,49 @@ std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l){
     check_token_type(semicolon, token::TokenType::Semicolon);
     return std::make_unique<ast::ReturnStmt>(std::move(ret_value));
 }
-std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l){
+std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     auto keyword_list = std::multiset<std::string>{};
     auto first_keyword = l.peek_token();
     while(l.peek_token().type == token::TokenType::Keyword){
         keyword_list.insert(l.get_token().value);
     }
-    check_token_type(l.peek_token(), token::TokenType::Identifier);
     if(keyword_list.size() == 0){
         throw parse_error::ParseError("Parsing decl that did not start with a keyword", first_keyword);
     }
+    check_token_type(l.peek_token(), token::TokenType::Identifier);
     type::BasicType t;
     try{
         t = type::from_str_multiset(keyword_list);
     }catch(std::runtime_error& e){
         throw sem_error::TypeError(e.what(), first_keyword);
     }
-    auto var_name = l.get_token();
-    check_token_type(var_name, token::TokenType::Identifier);
-    auto next_tok = l.peek_token();
-    if(token::matches_type(next_tok, token::TokenType::Semicolon)){
-        check_token_type(l.get_token(), token::TokenType::Semicolon);
-        return std::make_unique<ast::VarDecl>(var_name, t);
-    }
-    check_token_type(next_tok, token::TokenType::Assign);
-    std::unique_ptr<ast::LValue> var = std::make_unique<ast::Variable>(var_name);
-    auto assign = parse_binary_op(l,std::move(var),
-        binary_op_binding_power.at(token::TokenType::Assign).second);
-    check_token_type(l.get_token(), token::TokenType::Semicolon);
-    return std::make_unique<ast::VarDecl>(var_name, t, std::move(assign));
+    auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
+    do{
+        auto var_name = l.get_token();
+        check_token_type(var_name, token::TokenType::Identifier);
+        auto next_tok = l.peek_token();
+        if(token::matches_type(next_tok, token::TokenType::Assign)){
+            std::unique_ptr<ast::LValue> var = std::make_unique<ast::Variable>(var_name);
+            auto assign = parse_binary_op(l,std::move(var),
+                    binary_op_binding_power.at(token::TokenType::Assign).second);
+            decls.push_back(std::make_unique<ast::VarDecl>(var_name, t, std::move(assign)));
+        }else{
+            decls.push_back(std::make_unique<ast::VarDecl>(var_name, t));
+        }
+        next_tok = l.get_token();
+        if(token::matches_type(next_tok,token::TokenType::Semicolon)){
+            break;
+        }
+        check_token_type(next_tok, token::TokenType::Comma);
+    }while(true);
+    return std::make_unique<ast::DeclList>(std::move(decls));
 }
 
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
     auto next_token = l.peek_token();
     if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, 
         "return", "if")){
-        return parse_var_decl(l);
+        return parse_decl_list(l);
     }
     return parse_stmt(l);
 }

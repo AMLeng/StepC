@@ -15,6 +15,13 @@ void CompoundStmt::pretty_print(int depth){
         stmt -> pretty_print(depth);
     }
 }
+void DeclList::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "DECLARATIONS:" << std::endl;
+    for(const auto& decl : decls){
+        decl -> pretty_print(depth + 1);
+    }
+}
 
 void FunctionDef::pretty_print(int depth){
     AST::print_whitespace(depth);

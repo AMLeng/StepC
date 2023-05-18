@@ -16,7 +16,7 @@ std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l);
 std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l);
 std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l);
-std::unique_ptr<ast::VarDecl> parse_var_decl(lexer::Lexer& l);
+std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l);
 std::unique_ptr<ast::Variable> parse_variable(lexer::Lexer& l);
 std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l);
 std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l);

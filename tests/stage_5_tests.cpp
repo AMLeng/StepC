@@ -123,7 +123,7 @@ TEST_CASE("parse var decl"){
     auto ss = std::stringstream(
 R"(long int a;})");
     lexer::Lexer l(ss);
-    auto a = parse::parse_var_decl(l);
+    auto a = parse::parse_decl_list(l);
     //a->pretty_print(0);
 }
 TEST_CASE("parse multiple stmt"){
@@ -246,11 +246,13 @@ R"(
     _Bool b = 2;
 )");
     lexer::Lexer l(ss);
-    auto decl = parse::parse_var_decl(l);
-    REQUIRE(decl->type == type::from_str("_Bool"));
+    auto decl_list = parse::parse_decl_list(l);
+    auto var_decl_p = dynamic_cast<ast::VarDecl*>(decl_list->decls.back().get());
+    REQUIRE(var_decl_p);
+    REQUIRE(var_decl_p->type == type::from_str("_Bool"));
     auto global_st = symbol::STable();
-    decl->analyze(&global_st);
-    REQUIRE(decl->assignment.value()->left->type == type::from_str("_Bool"));
+    decl_list->analyze(&global_st);
+    REQUIRE(var_decl_p->assignment.value()->left->type == type::from_str("_Bool"));
 }
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)

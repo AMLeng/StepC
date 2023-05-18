@@ -43,11 +43,11 @@ struct Program : public AST{
     }
 };
 
-struct BlockItem : public AST{
+struct BlockItem : virtual public AST{
     //Block items can appear in compound statements
     virtual ~BlockItem() = 0;
 };
-struct Stmt : public BlockItem{
+struct Stmt : virtual public BlockItem{
     //Statements are things that can appear in the body of a function
     virtual ~Stmt() = 0;
 };
@@ -58,7 +58,7 @@ struct NullStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
-struct Decl : public AST{
+struct Decl : virtual public AST{
     //Declarations are things that can appear at global scope,
     //And which require altering the symbol table
     const std::string name;
@@ -66,8 +66,16 @@ struct Decl : public AST{
     Decl(token::Token tok) : tok(tok), name(tok.value) {}
     virtual ~Decl() = 0;
 };
+struct DeclList : public BlockItem{
+    bool analyzed = false;
+    std::vector<std::unique_ptr<Decl>> decls;
+    DeclList(std::vector<std::unique_ptr<Decl>> decls) : decls(std::move(decls)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 
-struct VarDecl : public Decl, public BlockItem{
+struct VarDecl : public Decl {
     bool analyzed = false;
     const type::BasicType type;
     std::optional<std::unique_ptr<BinaryOp>> assignment;
@@ -116,7 +124,7 @@ struct ReturnStmt : public Stmt{
 };
 
 
-struct Expr : public Stmt{
+struct Expr : virtual public Stmt{
     type::BasicType type;
     bool analyzed = false;
     token::Token tok;
