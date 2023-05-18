@@ -8,7 +8,9 @@ namespace token{
 enum class TokenType{
     LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,
     Keyword, Identifier, IntegerLiteral, FloatLiteral,
-    Not, Minus, Plus, Mult, Div, Assign, 
+    Not, Minus, Plus, Mult, Div, Mod,
+    Assign, PlusAssign, MinusAssign, DivAssign, MultAssign,ModAssign,
+    LSAssign,RSAssign,BAAssign, BOAssign, BXAssign,
     Colon, Question, And, Or,
     Equal,NEqual,Greater,Less,LEq,GEq,
     BitwiseNot,BitwiseAnd,BitwiseOr,BitwiseXor, LShift,RShift,
@@ -97,6 +99,8 @@ inline std::string string_name(TokenType type){
             return "multiplication";
         case TokenType::Div:
             return "division";
+        case TokenType::Mod:
+            return "mod";
         case TokenType::And:
             return "logical and";
         case TokenType::Or:
@@ -113,6 +117,26 @@ inline std::string string_name(TokenType type){
             return "less than or equal to";
         case TokenType::GEq:
             return "greater than or equal to";
+        case TokenType::PlusAssign:
+            return "plus assign compound operator";
+        case TokenType::MinusAssign:
+            return "minus assign compound operator";
+        case TokenType::DivAssign:
+            return "division assign compound operator";
+        case TokenType::MultAssign:
+            return "multiplication assign compound operator";
+        case TokenType::ModAssign:
+            return "mod assign compound operator";
+        case TokenType::LSAssign:
+            return "left shift assign compound operator";
+        case TokenType::RSAssign:
+            return "right shift assign compound operator";
+        case TokenType::BAAssign:
+            return "binary and assign compound operator";
+        case TokenType::BOAssign:
+            return "binary or assign compound operator";
+        case TokenType::BXAssign:
+            return "binary xor assign compound operator";
         case TokenType::Assign:
             return "assignment operator";
         case TokenType::Keyword:

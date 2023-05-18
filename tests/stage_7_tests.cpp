@@ -221,6 +221,35 @@ R"(int main(){
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
     //program_pointer->pretty_print(0);
 }
+TEST_CASE("parse compound assignments"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 1;
+    int b = 5;
+    int c = 8;
+    a += b /= c;
+    c %= a ^= 25;
+    return b &= a * c;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse compound assignments 2"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 1;
+    int b = 5;
+    int c = 8;
+    a *= b -= c;
+    c |= a <<= 25;
+    b %= 2;
+    return b >>= a-c;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here
 //Since those tests should be updated during refactoring

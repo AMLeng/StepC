@@ -31,6 +31,14 @@ const std::map<char, token::TokenType> followed_by_eq = {{
     {'>',token::TokenType::GEq},
     {'<',token::TokenType::LEq},
     {'=',token::TokenType::Equal},
+    {'+',token::TokenType::PlusAssign},
+    {'-',token::TokenType::MinusAssign},
+    {'*',token::TokenType::MultAssign},
+    {'/',token::TokenType::DivAssign},
+    {'%',token::TokenType::ModAssign},
+    {'^',token::TokenType::BXAssign},
+    {'|',token::TokenType::BOAssign},
+    {'&',token::TokenType::BAAssign},
 }};
 
 const std::map<char, token::TokenType> single_char_tokens = {{
@@ -151,14 +159,16 @@ token::Token Lexer::read_token_from_stream(){
             if(c == '<'){
                 advance_input(token_value, c);
                 if(c == '='){
-                    throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
+                    advance_input(token_value, c);
+                    return create_token(token::TokenType::LSAssign, token_value, starting_position, current_pos, current_line);
                 }
                 return create_token(token::TokenType::LShift, token_value, starting_position, current_pos, current_line);
             }
             if(c== '>'){
                 advance_input(token_value, c);
                 if(c == '='){
-                    throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
+                    advance_input(token_value, c);
+                    return create_token(token::TokenType::RSAssign, token_value, starting_position, current_pos, current_line);
                 }
                 return create_token(token::TokenType::RShift, token_value, starting_position, current_pos, current_line);
             }
@@ -184,7 +194,6 @@ token::Token Lexer::read_token_from_stream(){
             }
         }
         if(c == '='){
-            throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
             auto type = followed_by_eq.at(token_value.back());
             advance_input(token_value, c);
             return create_token(type, token_value, starting_position, current_pos, current_line);
@@ -205,7 +214,6 @@ token::Token Lexer::read_token_from_stream(){
             }
         }
         if(c == '='){
-            throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
             auto type = followed_by_eq.at(token_value.back());
             advance_input(token_value, c);
             return create_token(type, token_value, starting_position, current_pos, current_line);

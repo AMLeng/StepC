@@ -33,6 +33,11 @@ namespace{
         {token::TokenType::BitwiseXor, {13,14}}, {token::TokenType::BitwiseOr, {11,12}},
         {token::TokenType::And, {9,10}}, {token::TokenType::Or, {7,8}},
         {token::TokenType::Assign, {5,4}},
+        {token::TokenType::LSAssign, {5,4}},{token::TokenType::RSAssign, {5,4}},
+        {token::TokenType::BOAssign, {5,4}},{token::TokenType::BXAssign, {5,4}},
+        {token::TokenType::ModAssign, {5,4}},{token::TokenType::BAAssign, {5,4}},
+        {token::TokenType::MultAssign, {5,4}},{token::TokenType::DivAssign, {5,4}},
+        {token::TokenType::PlusAssign, {5,4}},{token::TokenType::MinusAssign, {5,4}},
         {token::TokenType::Comma, {2,3}},
     }};
 
