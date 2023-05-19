@@ -13,18 +13,39 @@ class STable{
     STable* parent;
 public:
     bool in_loop = false;
-    bool in_switch = false;
 private:
+    std::unique_ptr<std::set<std::optional<unsigned long long int>>> switch_cases;
     std::unique_ptr<std::map<std::string,std::optional<token::Token>>> function_labels;
     std::vector<std::unique_ptr<STable>> children;
     std::map<std::string, type::BasicType> sym_map;
-    STable(STable* p) : parent(p), in_loop(p->in_loop), in_switch(p->in_switch),function_labels(nullptr) {}
+    STable(STable* p) : parent(p), in_loop(p->in_loop), switch_cases(nullptr),function_labels(nullptr) {}
+    std::set<std::optional<unsigned long long int>>* get_switch() const{
+        if(switch_cases != nullptr) return switch_cases.get();
+        if(parent == nullptr) return nullptr;
+        return parent->get_switch();
+    }
 public:
     STable() = default;
     STable* new_child(){
         auto child = STable(this);
         children.push_back(std::make_unique<STable>(std::move(child)));
         return children.back().get();
+    }
+    bool in_switch() const{
+        return get_switch() != nullptr;
+    }
+    void add_case(std::optional<unsigned long long int> case_val){
+        auto current_switch = get_switch();
+        assert(current_switch && "Can't add case outside of switch statement");
+        auto insert_pair = current_switch->insert(case_val);
+        if(insert_pair.second == false){
+            throw std::runtime_error("Case already defined for this switch statement");
+        }
+    }
+    STable* new_switch_scope_child(){
+        auto child = new_child();
+        child->switch_cases = std::make_unique<std::set<std::optional<unsigned long long int>>>();
+        return child;
     }
     STable* new_function_scope_child(){
         auto child = new_child();

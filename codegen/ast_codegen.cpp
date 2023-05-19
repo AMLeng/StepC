@@ -470,6 +470,18 @@ value::Value* DoStmt::codegen(std::ostream& output, context::Context& c)const {
     c.break_targets.pop_back();
     return nullptr;
 }
+value::Value* CaseStmt::codegen(std::ostream& output, context::Context& c)const {
+    //To do
+    return nullptr;
+}
+value::Value* DefaultStmt::codegen(std::ostream& output, context::Context& c)const {
+    //To do
+    return nullptr;
+}
+value::Value* SwitchStmt::codegen(std::ostream& output, context::Context& c)const {
+    //To do
+    return nullptr;
+}
 value::Value* WhileStmt::codegen(std::ostream& output, context::Context& c)const {
     int instruction_number = c.new_local_name(); 
     std::string control_label = "whilecontrol."+std::to_string(instruction_number);

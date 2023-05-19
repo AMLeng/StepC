@@ -258,7 +258,7 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
     auto next_token = l.peek_token();
     if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, 
-        "return", "if", "for", "do", "while", "continue", "break", "goto")){
+        "return", "if", "for", "do", "while", "continue", "break", "goto", "switch", "case", "default")){
         return parse_decl_list(l);
     }
     return parse_stmt(l);
@@ -289,6 +289,15 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "goto")){
         return parse_goto_stmt(l);
     }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "switch")){
+        return parse_switch_stmt(l);
+    }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "case")){
+        return parse_case_stmt(l);
+    }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "default")){
+        return parse_default_stmt(l);
+    }
     if(next_token.type == token::TokenType::LBrace){
         return parse_compound_stmt(l);
     }
@@ -307,6 +316,36 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     auto semicolon = l.get_token();
     check_token_type(semicolon, token::TokenType::Semicolon);
     return std::move(expr);
+}
+std::unique_ptr<ast::CaseStmt> parse_case_stmt(lexer::Lexer& l){
+    auto case_keyword = l.get_token();
+    if(!token::matches_keyword(case_keyword, "case")){
+        throw parse_error::ParseError("Expected keyword \"case\"", case_keyword);
+    }
+    auto c = parse_constant(l);
+    check_token_type(l.get_token(), token::TokenType::Colon);
+    auto body = parse_stmt(l);
+    return std::make_unique<ast::CaseStmt>(case_keyword, std::move(c), std::move(body));
+}
+std::unique_ptr<ast::DefaultStmt> parse_default_stmt(lexer::Lexer& l){
+    auto default_keyword = l.get_token();
+    if(!token::matches_keyword(default_keyword, "default")){
+        throw parse_error::ParseError("Expected keyword \"default\"", default_keyword);
+    }
+    check_token_type(l.get_token(), token::TokenType::Colon);
+    auto body = parse_stmt(l);
+    return std::make_unique<ast::DefaultStmt>(default_keyword, std::move(body));
+}
+std::unique_ptr<ast::SwitchStmt> parse_switch_stmt(lexer::Lexer& l){
+    auto switch_keyword = l.get_token();
+    if(!token::matches_keyword(switch_keyword, "switch")){
+        throw parse_error::ParseError("Expected keyword \"switch\"", switch_keyword);
+    }
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    auto control = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    auto body = parse_stmt(l);
+    return std::make_unique<ast::SwitchStmt>(std::move(control), std::move(body));
 }
 std::unique_ptr<ast::WhileStmt> parse_while_stmt(lexer::Lexer& l){
     auto while_keyword = l.get_token();

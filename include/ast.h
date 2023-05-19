@@ -127,11 +127,40 @@ struct IfStmt : public Stmt{
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
-struct CompoundStmt : public Stmt{
-    std::vector<std::unique_ptr<BlockItem>> stmt_body;
+struct CaseStmt : public Stmt{
+    token::Token tok;
+    std::unique_ptr<Constant> label;
+    std::unique_ptr<Stmt> stmt;
+    CaseStmt(token::Token tok, std::unique_ptr<Constant> c, std::unique_ptr<Stmt> stmt) 
+        : tok(tok), label(std::move(c)), stmt(std::move(stmt)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct DefaultStmt : public Stmt{
+    token::Token tok;
+    std::unique_ptr<Stmt> stmt;
+    DefaultStmt(token::Token tok, std::unique_ptr<Stmt> stmt) 
+        : stmt(std::move(stmt)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct SwitchStmt : public Stmt{
+    std::unique_ptr<Expr> control_expr;
+    std::unique_ptr<Stmt> switch_body;
+    type::BasicType control_type;
+    SwitchStmt(std::unique_ptr<Expr> expr, std::unique_ptr<Stmt> body) 
+        :control_expr(std::move(expr)), switch_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct CompoundStmt : public Stmt{
+    std::vector<std::unique_ptr<BlockItem>> stmt_body;
     CompoundStmt(std::vector<std::unique_ptr<BlockItem>> stmt_body) : stmt_body(std::move(stmt_body)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 

@@ -30,6 +30,14 @@ void DeclList::pretty_print(int depth){
         decl -> pretty_print(depth + 1);
     }
 }
+void SwitchStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "SWITCH STMT WITH CONDITION: "<<std::endl;
+    control_expr->pretty_print(depth + 1);
+    AST::print_whitespace(depth);
+    std::cout<< "AND BODY: "<<std::endl;
+    switch_body->pretty_print(depth + 1);
+}
 void WhileStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<< "WHILE STMT WITH CONDITION: "<<std::endl;
@@ -116,6 +124,18 @@ void IfStmt::pretty_print(int depth){
 void GotoStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<< "GOTO STMT WITH LABEL "<<ident_tok.value<<":"<<std::endl;
+}
+void CaseStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "CASE STMT WITH LABEL ";
+    label->pretty_print(0);
+    std::cout<< ": "<<std::endl;
+    stmt->pretty_print(depth+1);
+}
+void DefaultStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "DEFAULT STMT:"<<std::endl;
+    stmt->pretty_print(depth+1);
 }
 void LabeledStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
