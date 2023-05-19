@@ -113,6 +113,15 @@ void IfStmt::pretty_print(int depth){
         else_body.value()->pretty_print(depth+1);
     }
 }
+void GotoStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "GOTO STMT WITH LABEL "<<ident_tok.value<<":"<<std::endl;
+}
+void LabeledStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "LABELED STMT WITH LABEL "<<ident_tok.value<<":"<<std::endl;
+    stmt->pretty_print(depth+1);
+}
 void BreakStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<< "BREAK STMT"<<std::endl;

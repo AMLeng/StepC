@@ -21,6 +21,8 @@ std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l);
 std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::ContinueStmt> parse_continue_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::BreakStmt> parse_break_stmt(lexer::Lexer& l);
+std::unique_ptr<ast::GotoStmt> parse_goto_stmt(lexer::Lexer& l);
+std::unique_ptr<ast::LabeledStmt> parse_labeled_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l);
 std::unique_ptr<ast::Variable> parse_variable(lexer::Lexer& l);
 std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l);

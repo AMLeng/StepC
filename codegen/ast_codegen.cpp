@@ -351,6 +351,19 @@ value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     main_method->codegen(output, c);
     return nullptr;
 }
+value::Value* GotoStmt::codegen(std::ostream& output, context::Context& c)const {
+    int instruction_number = c.new_local_name(); 
+    std::string ir_label = ident_tok.value+".label";
+    c.change_block("aftergoto."+std::to_string(instruction_number),output, 
+        std::make_unique<basicblock::UCond_BR>(ir_label));
+    return nullptr;
+}
+value::Value* LabeledStmt::codegen(std::ostream& output, context::Context& c)const {
+    std::string ir_label = ident_tok.value+".label";
+    c.change_block(ir_label, output, nullptr);
+    stmt->codegen(output, c);
+    return nullptr;
+}
 value::Value* NullStmt::codegen(std::ostream& output, context::Context& c)const {
     //Do nothing
     return nullptr;

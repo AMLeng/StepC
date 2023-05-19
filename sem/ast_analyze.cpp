@@ -311,6 +311,22 @@ void ContinueStmt::analyze(symbol::STable* st){
         throw sem_error::FlowError("Continue statement outside of loop",this->tok);
     }
 }
+void GotoStmt::analyze(symbol::STable* st){
+    try{
+        st->require_label(ident_tok);
+    }catch(std::runtime_error& e){
+        throw sem_error::FlowError("Cannot have goto outside function",this->ident_tok);
+    }
+    //Matched with a call at function end
+}
+void LabeledStmt::analyze(symbol::STable* st){
+    stmt->analyze(st);
+    try{
+        st->add_label(ident_tok.value);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError("Duplicate label name within the same function",this->ident_tok);
+    }
+}
 void BreakStmt::analyze(symbol::STable* st){
     if(!st->in_loop && !st->in_switch){
         throw sem_error::FlowError("Break statement outside of loop or switch",this->tok);
@@ -377,6 +393,16 @@ void FunctionDef::analyze(symbol::STable* st) {
             function_body->stmt_body.push_back(std::make_unique<ReturnStmt>(std::move(ret_expr)));
         }
     }
-    function_body->analyze(st);
+    symbol::STable* function_table;
+    //try{
+    function_table = st->new_function_scope_child();
+    /*}catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }*/
+    function_body->analyze(function_table);
+    std::optional<token::Token> error_tok;
+    if((error_tok = function_table->unmatched_label())!= std::nullopt){
+        throw sem_error::STError("Goto with unmatched label",error_tok.value());
+    }
 }
 } //namespace ast

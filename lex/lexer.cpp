@@ -16,6 +16,7 @@ bool is_keyword(const std::string& word){
         || word == "while"
         || word == "continue"
         || word == "break"
+        || word == "goto"
         || word == "char"
         || word == "short"
         || word == "int"

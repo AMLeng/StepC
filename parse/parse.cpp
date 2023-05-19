@@ -170,6 +170,24 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     return expr_ptr;
 }
 
+std::unique_ptr<ast::GotoStmt> parse_goto_stmt(lexer::Lexer& l){
+    auto goto_keyword = l.get_token();
+    check_token_type(goto_keyword, token::TokenType::Keyword);
+    if(!token::matches_keyword(goto_keyword, "goto")){
+        throw parse_error::ParseError("Expected keyword \"goto\"", goto_keyword);
+    }
+    auto ident_tok = l.get_token();
+    check_token_type(ident_tok, token::TokenType::Identifier);
+    check_token_type(l.get_token(), token::TokenType::Semicolon);
+    return std::make_unique<ast::GotoStmt>(ident_tok);
+}
+std::unique_ptr<ast::LabeledStmt> parse_labeled_stmt(lexer::Lexer& l){
+    auto ident_tok = l.get_token();
+    check_token_type(ident_tok, token::TokenType::Identifier);
+    check_token_type(l.get_token(), token::TokenType::Colon);
+    auto body = parse_stmt(l);
+    return std::make_unique<ast::LabeledStmt>(ident_tok, std::move(body));
+}
 std::unique_ptr<ast::BreakStmt> parse_break_stmt(lexer::Lexer& l){
     auto break_keyword = l.get_token();
     check_token_type(break_keyword, token::TokenType::Keyword);
@@ -240,7 +258,7 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
     auto next_token = l.peek_token();
     if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, 
-        "return", "if", "for", "do", "while", "continue", "break")){
+        "return", "if", "for", "do", "while", "continue", "break", "goto")){
         return parse_decl_list(l);
     }
     return parse_stmt(l);
@@ -268,12 +286,21 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "break")){
         return parse_break_stmt(l);
     }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "goto")){
+        return parse_goto_stmt(l);
+    }
     if(next_token.type == token::TokenType::LBrace){
         return parse_compound_stmt(l);
     }
     if(next_token.type == token::TokenType::Semicolon){
         l.get_token();
         return std::make_unique<ast::NullStmt>();
+    }
+    if(next_token.type == token::TokenType::Identifier){
+        auto maybe_colon = l.peek_token(2);
+        if(maybe_colon.type == token::TokenType::Colon){
+            return parse_labeled_stmt(l);
+        }
     }
     //If is a typedef name will also parse var decl, but that's for later
     auto expr = parse_expr(l);

@@ -146,6 +146,23 @@ struct FunctionDef : public AST{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct LabeledStmt : public Stmt{
+    token::Token ident_tok;
+    std::unique_ptr<Stmt> stmt;
+    LabeledStmt(token::Token tok, std::unique_ptr<Stmt> stmt) 
+        : ident_tok(tok), stmt(std::move(stmt)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+
+struct GotoStmt : public Stmt{
+    token::Token ident_tok;
+    GotoStmt(token::Token tok) :ident_tok(tok) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct ContinueStmt : public Stmt{
     token::Token tok;
     ContinueStmt(token::Token tok) : tok(tok) {}
