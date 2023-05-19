@@ -3,6 +3,12 @@
 #include "sem_error.h"
 namespace ast{
 
+template <class... Ts>
+struct overloaded : Ts...{
+    using Ts::operator()...;
+};
+
+template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
     //Add symbol to symbol table, check that not already present
@@ -303,6 +309,24 @@ void ReturnStmt::analyze(symbol::STable* st){
 void Program::analyze(symbol::STable* st) {
     auto main_table = st->new_child();
     main_method->analyze(main_table);
+}
+void ForStmt::analyze(symbol::STable* st){
+    auto stmt_table = st->new_child();
+
+    std::visit(overloaded{
+        [](std::monostate){/*Do nothing*/},
+        [stmt_table](auto& ast_node){
+            ast_node->analyze(stmt_table);
+            }
+    },this->init_clause);
+    control_expr->analyze(stmt_table);
+    if(!type::is_scalar(this->control_expr->type)){
+        throw sem_error::TypeError("Condition of scalar type required in for statement control expression",this->control_expr->tok);
+    }
+    if(this->post_expr.has_value()){
+        this->post_expr.value()->analyze(stmt_table);
+    }
+    this->body->analyze(stmt_table);
 }
 void CompoundStmt::analyze(symbol::STable* st){
     auto stmt_table = st->new_child();

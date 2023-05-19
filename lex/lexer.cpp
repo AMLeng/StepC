@@ -11,6 +11,7 @@ bool is_keyword(const std::string& word){
     return word == "return"
         || word == "if"
         || word == "else"
+        || word == "for"
         || word == "char"
         || word == "short"
         || word == "int"

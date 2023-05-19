@@ -440,6 +440,32 @@ value::Value* Variable::codegen(std::ostream& output, context::Context& c)const 
     return make_load(var_value,output,c);
 }
 
+value::Value* ForStmt::codegen(std::ostream& output, context::Context& c)const {
+    c.enter_scope();
+    std::visit(overloaded{
+        [&](std::monostate) -> void{},
+        [&](const auto& ast_node) -> void{
+            ast_node->codegen(output, c);
+            },
+    },this->init_clause);
+
+    int instruction_number = c.new_local_name(); 
+    std::string control_label = "forcontrol."+std::to_string(instruction_number);
+    std::string body_label = "forbody."+std::to_string(instruction_number);
+    std::string end_label = "forend."+std::to_string(instruction_number);
+
+    c.change_block(control_label,output,nullptr);
+    auto control_value = codegen_convert(type::from_str("_Bool"),control_expr->codegen(output, c),output, c);
+    c.change_block(body_label,output,std::make_unique<basicblock::Cond_BR>(control_value, body_label,end_label));
+
+    this->body->codegen(output, c);
+    if(this->post_expr.has_value()){
+        this->post_expr.value()->codegen(output, c);
+    }
+    c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(control_label));
+    c.exit_scope();
+    return nullptr;
+}
 value::Value* DeclList::codegen(std::ostream& output, context::Context& c)const {
     for(const auto& decl : decls){
         decl->codegen(output, c);

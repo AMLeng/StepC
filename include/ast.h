@@ -86,6 +86,19 @@ struct VarDecl : public Decl {
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
+struct ForStmt : public Stmt{
+    std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>> init_clause;
+    std::unique_ptr<Expr> control_expr;
+    std::optional<std::unique_ptr<Expr>> post_expr;
+    std::unique_ptr<Stmt> body;
+    ForStmt(std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>> init, std::unique_ptr<Expr> control, 
+        std::optional<std::unique_ptr<Expr>> post, std::unique_ptr<Stmt> body)
+        : init_clause(std::move(init)), control_expr(std::move(control)), 
+        post_expr(std::move(post)) , body(std::move(body)){}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct IfStmt : public Stmt{
     std::unique_ptr<Expr> if_condition;
     std::unique_ptr<Stmt> if_body;

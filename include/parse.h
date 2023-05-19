@@ -14,6 +14,7 @@ std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast
 std::unique_ptr<ast::IfStmt> parse_if_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l);
 std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l);
+std::unique_ptr<ast::ForStmt> parse_for_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l);
 std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l);

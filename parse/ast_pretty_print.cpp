@@ -1,6 +1,14 @@
 #include "ast.h"
 #include <string>
 namespace ast{
+
+template <class... Ts>
+struct overloaded : Ts...{
+    using Ts::operator()...;
+};
+
+template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
+
 void AST::print_whitespace(int depth, std::ostream& output){
     for(int i=0; i<depth; i++){
         output << "  ";
@@ -22,6 +30,35 @@ void DeclList::pretty_print(int depth){
         decl -> pretty_print(depth + 1);
     }
 }
+void ForStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "FOR STMT WITH INIT: "<<std::endl;
+
+    std::visit(overloaded{
+        [depth](std::monostate) -> void{
+            AST::print_whitespace(depth+1);
+            std::cout<< "NONE"<<std::endl;
+            },
+        [depth](auto& ast_node) -> void{
+            ast_node->pretty_print(depth+1);
+            },
+    },this->init_clause);
+    AST::print_whitespace(depth);
+    std::cout<< "CONTROL STMT: "<<std::endl;
+    control_expr->pretty_print(depth+1);
+    AST::print_whitespace(depth);
+    std::cout<< "POST EXPR: "<<std::endl;
+    if(this->post_expr.has_value()){
+        this->post_expr.value()->pretty_print(depth+1);
+    }else{
+        AST::print_whitespace(depth+1);
+        std::cout<< "NONE"<<std::endl;
+    }
+    AST::print_whitespace(depth);
+    std::cout<< "FOR BODY: "<<std::endl;
+    body->pretty_print(depth+1);
+}
+
 
 void FunctionDef::pretty_print(int depth){
     AST::print_whitespace(depth);

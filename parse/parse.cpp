@@ -191,8 +191,8 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     if(keyword_list.size() == 0){
         throw parse_error::ParseError("Parsing decl that did not start with a keyword", first_keyword);
     }
-    check_token_type(l.peek_token(), token::TokenType::Identifier);
     type::BasicType t;
+    check_token_type(l.peek_token(), token::TokenType::Identifier);
     try{
         t = type::from_str_multiset(keyword_list);
     }catch(std::runtime_error& e){
@@ -211,11 +211,10 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
         }else{
             decls.push_back(std::make_unique<ast::VarDecl>(var_name, t));
         }
-        next_tok = l.get_token();
-        if(token::matches_type(next_tok,token::TokenType::Semicolon)){
+        if(token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
             break;
         }
-        check_token_type(next_tok, token::TokenType::Comma);
+        check_token_type(l.get_token(), token::TokenType::Comma);
     }while(true);
     return std::make_unique<ast::DeclList>(std::move(decls));
 }
@@ -223,7 +222,7 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
     auto next_token = l.peek_token();
     if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, 
-        "return", "if")){
+        "return", "if", "for")){
         return parse_decl_list(l);
     }
     return parse_stmt(l);
@@ -235,6 +234,9 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     }
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "if")){
         return parse_if_stmt(l);
+    }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "for")){
+        return parse_for_stmt(l);
     }
     if(next_token.type == token::TokenType::LBrace){
         return parse_compound_stmt(l);
@@ -248,6 +250,42 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     auto semicolon = l.get_token();
     check_token_type(semicolon, token::TokenType::Semicolon);
     return std::move(expr);
+}
+std::unique_ptr<ast::ForStmt> parse_for_stmt(lexer::Lexer& l){
+    auto for_keyword = l.get_token();
+    if(!token::matches_keyword(for_keyword, "for")){
+        throw parse_error::ParseError("Expected keyword \"for\"", for_keyword);
+    }
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    //Parse initial clause
+    auto init = std::variant<std::monostate,std::unique_ptr<ast::DeclList>,std::unique_ptr<ast::Expr>>{};
+    if(!token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
+        if(token::matches_type(l.peek_token(),token::TokenType::Keyword)){
+            init = parse_decl_list(l);
+        }else{
+            init = parse_expr(l);
+        }
+    }
+
+    check_token_type(l.get_token(), token::TokenType::Semicolon);
+    //Parse control expr
+    static const auto fake_token = token::Token{
+        token::TokenType::IntegerLiteral, "1",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
+    std::unique_ptr<ast::Expr> control = std::make_unique<ast::Constant>(fake_token);
+    if(!token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
+        control = parse_expr(l);
+    }
+
+    check_token_type(l.get_token(), token::TokenType::Semicolon);
+    //Parse post expr
+    auto post = std::optional<std::unique_ptr<ast::Expr>>{std::nullopt};
+    if(!token::matches_type(l.peek_token(),token::TokenType::RParen)){
+        post = parse_expr(l);
+    }
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    //Parse body
+    auto body = parse_stmt(l);
+    return std::make_unique<ast::ForStmt>(std::move(init), std::move(control), std::move(post), std::move(body));
 }
 std::unique_ptr<ast::IfStmt> parse_if_stmt(lexer::Lexer& l){
     auto if_keyword = l.get_token();
