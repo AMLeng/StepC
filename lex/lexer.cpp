@@ -130,7 +130,7 @@ token::Token Lexer::LexingSubmethods::lex_keyword_ident(Lexer& l){
 }
 
 
-token::Token Lexer::read_token_from_stream(){
+token::Token Lexer::read_token_from_stream() {
     ignore_space();
 
     char c = input_stream.peek();
