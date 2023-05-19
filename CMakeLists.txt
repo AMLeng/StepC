@@ -9,7 +9,10 @@ project(IncrementalC
         CXX
 )
 
-add_library(core lex/lexer.cpp parse/parse.cpp parse/ast_construct.cpp parse/type.cpp parse/ast_pretty_print.cpp sem/ast_analyze.cpp codegen/ast_codegen.cpp codegen/context.cpp codegen/basic_block.cpp)
+add_library(core lex/lexer.cpp 
+    parse/parse.cpp parse/ast_construct.cpp parse/type.cpp parse/ast_pretty_print.cpp 
+    sem/ast_analyze.cpp sem/symbol.cpp
+    codegen/ast_codegen.cpp codegen/context.cpp codegen/basic_block.cpp)
 
 add_executable(stage_1_tests tests/stage_1_tests.cpp)
 set_target_properties(stage_1_tests PROPERTIES SUFFIX ".out")
