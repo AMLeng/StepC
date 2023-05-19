@@ -8,9 +8,13 @@
 namespace symbol{
 class STable{
     STable* parent;
+public:
+    bool in_loop = false;
+    bool in_switch = false;
+private:
     std::vector<std::unique_ptr<STable>> children;
     std::map<std::string, type::BasicType> sym_map;
-    STable(STable* p) : parent(p) {}
+    STable(STable* p) : parent(p), in_loop(p->in_loop), in_switch(p->in_switch) {}
 public:
     STable() = default;
     STable* new_child(){

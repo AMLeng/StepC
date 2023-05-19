@@ -86,6 +86,24 @@ struct VarDecl : public Decl {
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
+struct DoStmt : public Stmt{
+    std::unique_ptr<Expr> control_expr;
+    std::unique_ptr<Stmt> body;
+    DoStmt(std::unique_ptr<Expr> control, std::unique_ptr<Stmt> body)
+        : control_expr(std::move(control)), body(std::move(body)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct WhileStmt : public Stmt{
+    std::unique_ptr<Expr> control_expr;
+    std::unique_ptr<Stmt> body;
+    WhileStmt(std::unique_ptr<Expr> control, std::unique_ptr<Stmt> body)
+        : control_expr(std::move(control)), body(std::move(body)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct ForStmt : public Stmt{
     std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>> init_clause;
     std::unique_ptr<Expr> control_expr;
@@ -128,6 +146,20 @@ struct FunctionDef : public AST{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct ContinueStmt : public Stmt{
+    token::Token tok;
+    ContinueStmt(token::Token tok) : tok(tok) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct BreakStmt : public Stmt{
+    token::Token tok;
+    BreakStmt(token::Token tok) : tok(tok) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct ReturnStmt : public Stmt{
     std::unique_ptr<Expr> return_expr;
     ReturnStmt(std::unique_ptr<Expr> ret_expr) : return_expr(std::move(ret_expr)) {}

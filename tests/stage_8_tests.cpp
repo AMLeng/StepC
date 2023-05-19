@@ -29,13 +29,136 @@ TEST_CASE("parse for stmt empty"){
 R"(int main(){
     int a = 0;
     for(;;){
-        a += i;
+        a += 1;
     }
     return a;
 })");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
     program_pointer->analyze();
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse do stmt"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 0;
+    do
+        a += 1;
+    while(a > 0);
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse do stmt error"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 0;
+    do a -= 1; while(a > 0)
+    return a;
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse do decl not stmt error"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 0;
+    do int a = 100; while(a < 0)
+    return a;
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse while stmt"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 0;
+    while(a < 4){
+        a += 1;
+    }
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse while error"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 0;
+    while(){
+        a += 1;
+    }
+    return a;
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse continue "){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 0;
+    while(a < 20){
+        a += 1;
+    continue;
+    }
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("parse break "){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 0;
+    while(a < 20){
+        a += 1;
+    break;
+    }
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("break outside loop error"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 0;
+    break;
+    while(a < 20){
+        a += 1;
+    }
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::FlowError);
+    //program_pointer->pretty_print(0);
+}
+TEST_CASE("continue outside loop error"){
+    auto ss = std::stringstream(
+R"(int main(){
+    int a = 0;
+    continue;
+    while(a < 20){
+        a += 1;
+    }
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::FlowError);
     //program_pointer->pretty_print(0);
 }
 

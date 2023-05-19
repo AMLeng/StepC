@@ -30,6 +30,22 @@ void DeclList::pretty_print(int depth){
         decl -> pretty_print(depth + 1);
     }
 }
+void WhileStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "WHILE STMT WITH CONDITION: "<<std::endl;
+    control_expr->pretty_print(depth + 1);
+    AST::print_whitespace(depth);
+    std::cout<< "AND BODY: "<<std::endl;
+    body->pretty_print(depth + 1);
+}
+void DoStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "DO WHILE STMT WITH CONDITION: "<<std::endl;
+    control_expr->pretty_print(depth + 1);
+    AST::print_whitespace(depth);
+    std::cout<< "AND BODY: "<<std::endl;
+    body->pretty_print(depth + 1);
+}
 void ForStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<< "FOR STMT WITH INIT: "<<std::endl;
@@ -96,6 +112,14 @@ void IfStmt::pretty_print(int depth){
         std::cout<< "ELSE:"<<std::endl;
         else_body.value()->pretty_print(depth+1);
     }
+}
+void BreakStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "BREAK STMT"<<std::endl;
+}
+void ContinueStmt::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<< "CONTINUE STMT"<<std::endl;
 }
 void ReturnStmt::pretty_print(int depth){
     AST::print_whitespace(depth);

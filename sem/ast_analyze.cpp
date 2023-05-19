@@ -306,6 +306,16 @@ void IfStmt::analyze(symbol::STable* st){
 void ReturnStmt::analyze(symbol::STable* st){
     return_expr->analyze(st);
 }
+void ContinueStmt::analyze(symbol::STable* st){
+    if(!st->in_loop){
+        throw sem_error::FlowError("Continue statement outside of loop",this->tok);
+    }
+}
+void BreakStmt::analyze(symbol::STable* st){
+    if(!st->in_loop && !st->in_switch){
+        throw sem_error::FlowError("Break statement outside of loop or switch",this->tok);
+    }
+}
 void Program::analyze(symbol::STable* st) {
     auto main_table = st->new_child();
     main_method->analyze(main_table);
@@ -326,7 +336,26 @@ void ForStmt::analyze(symbol::STable* st){
     if(this->post_expr.has_value()){
         this->post_expr.value()->analyze(stmt_table);
     }
+    stmt_table->in_loop = true;
     this->body->analyze(stmt_table);
+}
+void WhileStmt::analyze(symbol::STable* st){
+    control_expr->analyze(st);
+    if(!type::is_scalar(this->control_expr->type)){
+        throw sem_error::TypeError("Condition of scalar type required in for statement control expression",this->control_expr->tok);
+    }
+    auto stmt_table = st->new_child();
+    stmt_table->in_loop = true;
+    body->analyze(stmt_table);
+}
+void DoStmt::analyze(symbol::STable* st){
+    control_expr->analyze(st);
+    if(!type::is_scalar(this->control_expr->type)){
+        throw sem_error::TypeError("Condition of scalar type required in for statement control expression",this->control_expr->tok);
+    }
+    auto stmt_table = st->new_child();
+    stmt_table->in_loop = true;
+    body->analyze(stmt_table);
 }
 void CompoundStmt::analyze(symbol::STable* st){
     auto stmt_table = st->new_child();

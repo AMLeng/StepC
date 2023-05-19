@@ -170,6 +170,24 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
     return expr_ptr;
 }
 
+std::unique_ptr<ast::BreakStmt> parse_break_stmt(lexer::Lexer& l){
+    auto break_keyword = l.get_token();
+    check_token_type(break_keyword, token::TokenType::Keyword);
+    if(!token::matches_keyword(break_keyword, "break")){
+        throw parse_error::ParseError("Expected keyword \"break\"", break_keyword);
+    }
+    check_token_type(l.get_token(), token::TokenType::Semicolon);
+    return std::make_unique<ast::BreakStmt>(break_keyword);
+}
+std::unique_ptr<ast::ContinueStmt> parse_continue_stmt(lexer::Lexer& l){
+    auto continue_keyword = l.get_token();
+    check_token_type(continue_keyword, token::TokenType::Keyword);
+    if(!token::matches_keyword(continue_keyword, "continue")){
+        throw parse_error::ParseError("Expected keyword \"continue\"", continue_keyword);
+    }
+    check_token_type(l.get_token(), token::TokenType::Semicolon);
+    return std::make_unique<ast::ContinueStmt>(continue_keyword);
+}
 std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l){
     auto return_keyword = l.get_token();
     check_token_type(return_keyword, token::TokenType::Keyword);
@@ -222,7 +240,7 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
     auto next_token = l.peek_token();
     if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, 
-        "return", "if", "for")){
+        "return", "if", "for", "do", "while", "continue", "break")){
         return parse_decl_list(l);
     }
     return parse_stmt(l);
@@ -238,6 +256,18 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "for")){
         return parse_for_stmt(l);
     }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "do")){
+        return parse_do_stmt(l);
+    }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "while")){
+        return parse_while_stmt(l);
+    }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "continue")){
+        return parse_continue_stmt(l);
+    }
+    if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "break")){
+        return parse_break_stmt(l);
+    }
     if(next_token.type == token::TokenType::LBrace){
         return parse_compound_stmt(l);
     }
@@ -250,6 +280,33 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     auto semicolon = l.get_token();
     check_token_type(semicolon, token::TokenType::Semicolon);
     return std::move(expr);
+}
+std::unique_ptr<ast::WhileStmt> parse_while_stmt(lexer::Lexer& l){
+    auto while_keyword = l.get_token();
+    if(!token::matches_keyword(while_keyword, "while")){
+        throw parse_error::ParseError("Expected keyword \"while\"", while_keyword);
+    }
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    auto control = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    auto body = parse_stmt(l);
+    return std::make_unique<ast::WhileStmt>(std::move(control), std::move(body));
+}
+std::unique_ptr<ast::DoStmt> parse_do_stmt(lexer::Lexer& l){
+    auto do_keyword = l.get_token();
+    if(!token::matches_keyword(do_keyword, "do")){
+        throw parse_error::ParseError("Expected keyword \"do\"", do_keyword);
+    }
+    auto body = parse_stmt(l);
+    auto while_keyword = l.get_token();
+    if(!token::matches_keyword(while_keyword, "while")){
+        throw parse_error::ParseError("Expected keyword \"while\"", while_keyword);
+    }
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    auto control = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    check_token_type(l.get_token(), token::TokenType::Semicolon);
+    return std::make_unique<ast::DoStmt>(std::move(control), std::move(body));
 }
 std::unique_ptr<ast::ForStmt> parse_for_stmt(lexer::Lexer& l){
     auto for_keyword = l.get_token();

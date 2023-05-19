@@ -54,6 +54,8 @@ public:
     type::BasicType return_type() const;
     void change_block(std::string block_label, std::ostream& output, 
         std::unique_ptr<basicblock::Terminator> old_terminator);
+    std::vector<std::string> continue_targets;
+    std::vector<std::string> break_targets;
 };
 } //namespace context
 #endif
