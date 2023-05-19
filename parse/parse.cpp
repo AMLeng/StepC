@@ -414,7 +414,7 @@ std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l){
 
     auto function_body = parse_compound_stmt(l);
 
-    return std::make_unique<ast::FunctionDef>(name.value, type::from_str(ret_type.value), std::move(function_body));
+    return std::make_unique<ast::FunctionDef>(name, type::from_str(ret_type.value), std::move(function_body));
 }
 
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l){

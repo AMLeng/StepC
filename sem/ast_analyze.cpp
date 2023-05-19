@@ -386,7 +386,7 @@ void DeclList::analyze(symbol::STable* st){
     }
 }
 void FunctionDef::analyze(symbol::STable* st) {
-    if(this->name == "main"){
+    if(this->name_tok.value == "main"){
         if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
             auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
             std::unique_ptr<Expr> ret_expr = std::make_unique<Constant>(fake_token);
@@ -394,11 +394,11 @@ void FunctionDef::analyze(symbol::STable* st) {
         }
     }
     symbol::STable* function_table;
-    //try{
-    function_table = st->new_function_scope_child();
-    /*}catch(std::runtime_error& e){
-        throw sem_error::STError(e.what(),this->tok);
-    }*/
+    try{
+        function_table = st->new_function_scope_child();
+    }catch(std::runtime_error& e){
+        throw sem_error::FlowError(e.what(),this->name_tok);
+    }
     function_body->analyze(function_table);
     std::optional<token::Token> error_tok;
     if((error_tok = function_table->unmatched_label())!= std::nullopt){

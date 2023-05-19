@@ -136,11 +136,11 @@ struct CompoundStmt : public Stmt{
 };
 
 struct FunctionDef : public AST{
-    std::string name;
+    token::Token name_tok;
     type::BasicType return_type;
     std::unique_ptr<CompoundStmt> function_body;
-    FunctionDef(std::string name, type::BasicType ret_type, std::unique_ptr<CompoundStmt> body) : 
-        name(name), return_type(ret_type), function_body(std::move(body)) {}
+    FunctionDef(token::Token tok, type::BasicType ret_type, std::unique_ptr<CompoundStmt> body) : 
+        name_tok(tok), return_type(ret_type), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
     value::Value* codegen(std::ostream& output, context::Context& c) const override;

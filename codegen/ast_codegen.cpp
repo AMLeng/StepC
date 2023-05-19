@@ -426,7 +426,7 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)co
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
     assert(return_type == type::make_basic(type::IType::Int));
     AST::print_whitespace(c.depth(), output);
-    output << "define "<<type::ir_type(return_type)<<" @" + name+"(){"<<std::endl;
+    output << "define "<<type::ir_type(return_type)<<" @" + name_tok.value+"(){"<<std::endl;
     c.enter_function(return_type, output);
     function_body->codegen(output, c);
     c.exit_function(output);

@@ -78,7 +78,7 @@ void ForStmt::pretty_print(int depth){
 
 void FunctionDef::pretty_print(int depth){
     AST::print_whitespace(depth);
-    std::cout<< type::to_string(return_type) << " FUNCTION "<<name <<":"<<std::endl;
+    std::cout<< type::to_string(return_type) << " FUNCTION "<<name_tok.value <<":"<<std::endl;
     AST::print_whitespace(depth+1);
     std::cout<< "PARAMS: ()" << std::endl;
     AST::print_whitespace(depth+1);
