@@ -359,6 +359,7 @@ void CaseStmt::analyze(symbol::STable* st){
     if(!st->in_switch()){
         throw sem_error::FlowError("Case statement outside of switch",this->tok);
     }
+    this->label->analyze(st);
     if(!type::is_int(label->type)){
         throw sem_error::TypeError("Case label must have integer type",this->tok);
     }
@@ -373,6 +374,7 @@ void CaseStmt::analyze(symbol::STable* st){
     }catch(std::runtime_error& e){
         throw sem_error::STError("Duplicate case statement in switch",this->label->tok);
     }
+    this->stmt->analyze(st);
 }
 void DefaultStmt::analyze(symbol::STable* st){
     if(!st->in_switch()){
@@ -383,6 +385,7 @@ void DefaultStmt::analyze(symbol::STable* st){
     }catch(std::runtime_error& e){
         throw sem_error::STError("Duplicate default statement in switch",this->tok);
     }
+    this->stmt->analyze(st);
 }
 void SwitchStmt::analyze(symbol::STable* st){
     control_expr->analyze(st);
@@ -392,6 +395,7 @@ void SwitchStmt::analyze(symbol::STable* st){
     this->control_type = type::integer_promotions(this->control_expr->type);
     auto stmt_table = st->new_switch_scope_child();
     switch_body->analyze(stmt_table);
+    case_table = stmt_table->transfer_switch_table();
 }
 void WhileStmt::analyze(symbol::STable* st){
     control_expr->analyze(st);

@@ -26,6 +26,9 @@ STable* STable::new_switch_scope_child(){
     child->switch_cases = std::make_unique<std::set<std::optional<unsigned long long int>>>();
     return child;
 }
+std::unique_ptr<std::set<std::optional<unsigned long long int>>> STable::transfer_switch_table(){
+    return std::move(switch_cases);
+}
 STable* STable::new_function_scope_child(){
     auto child = new_child();
     //Check that we're not already in a function

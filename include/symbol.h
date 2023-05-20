@@ -25,6 +25,7 @@ public:
     STable* new_child();
     bool in_switch() const;
     void add_case(std::optional<unsigned long long int> case_val);
+    std::unique_ptr<std::set<std::optional<unsigned long long int>>> transfer_switch_table();
     STable* new_switch_scope_child();
     STable* new_function_scope_child();
     std::optional<token::Token> unmatched_label() const;

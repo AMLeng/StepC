@@ -56,6 +56,7 @@ public:
         std::unique_ptr<basicblock::Terminator> old_terminator);
     std::vector<std::string> continue_targets;
     std::vector<std::string> break_targets;
+    std::vector<int> switch_numbers;
 };
 } //namespace context
 #endif

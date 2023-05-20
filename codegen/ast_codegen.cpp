@@ -471,14 +471,49 @@ value::Value* DoStmt::codegen(std::ostream& output, context::Context& c)const {
     return nullptr;
 }
 value::Value* CaseStmt::codegen(std::ostream& output, context::Context& c)const {
-    //To do
+    std::string case_val = std::to_string(std::stoull(this->label->literal));
+    std::string case_label = "case."+std::to_string(c.switch_numbers.back())+"."+case_val;
+    c.change_block(case_label, output, nullptr);
+    stmt->codegen(output, c);
     return nullptr;
 }
 value::Value* DefaultStmt::codegen(std::ostream& output, context::Context& c)const {
-    //To do
+    std::string case_label = "case."+std::to_string(c.switch_numbers.back())+".default";
+    c.change_block(case_label, output, nullptr);
+    stmt->codegen(output, c);
     return nullptr;
 }
 value::Value* SwitchStmt::codegen(std::ostream& output, context::Context& c)const {
+    assert(case_table && "Switch statement not analyzed");
+    auto control_value = codegen_convert(control_type, control_expr->codegen(output, c), output, c);
+    const auto instruction_number = c.new_local_name(); 
+    std::string end_label = "switchend."+std::to_string(instruction_number);
+    std::string case_label_head = "case."+std::to_string(instruction_number)+".";
+    std::string default_label = "switchend."+std::to_string(instruction_number);
+    c.switch_numbers.push_back(instruction_number);
+    c.break_targets.push_back(end_label);
+    if(case_table->find(std::nullopt) != case_table->end()){
+        default_label = "case."+std::to_string(instruction_number)+".default";
+    }
+
+    AST::print_whitespace(c.depth(), output);
+    output << "switch "<<type::ir_type(control_type)<<" "<<control_value->get_value()<<", label %";
+    output<<default_label<<" [ "<<std::endl;
+    for(const auto& case_val : *case_table){
+        if(case_val.has_value()){
+            AST::print_whitespace(c.depth()+5, output);
+            output << type::ir_type(control_type)<<" "<<case_val.value()<<", label %";
+            output << case_label_head <<case_val.value()<<std::endl;
+        }
+    }
+    AST::print_whitespace(c.depth(), output);
+    output<<" ] "<<std::endl;
+    output<<"afterswitchcontrol."+std::to_string(instruction_number)<<":"<<std::endl;
+
+    switch_body->codegen(output, c);
+    c.change_block(end_label, output, nullptr);
+    c.break_targets.pop_back();
+    c.switch_numbers.pop_back();
     //To do
     return nullptr;
 }

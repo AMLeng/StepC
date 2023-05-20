@@ -141,7 +141,7 @@ struct DefaultStmt : public Stmt{
     token::Token tok;
     std::unique_ptr<Stmt> stmt;
     DefaultStmt(token::Token tok, std::unique_ptr<Stmt> stmt) 
-        : stmt(std::move(stmt)) {}
+        : tok(tok), stmt(std::move(stmt)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -155,6 +155,8 @@ struct SwitchStmt : public Stmt{
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
+private:
+    std::unique_ptr<std::set<std::optional<unsigned long long int>>> case_table;
 };
 struct CompoundStmt : public Stmt{
     std::vector<std::unique_ptr<BlockItem>> stmt_body;
