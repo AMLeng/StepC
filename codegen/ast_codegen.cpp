@@ -351,6 +351,19 @@ value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     main_method->codegen(output, c);
     return nullptr;
 }
+value::Value* GotoStmt::codegen(std::ostream& output, context::Context& c)const {
+    int instruction_number = c.new_local_name(); 
+    std::string ir_label = ident_tok.value+".label";
+    c.change_block("aftergoto."+std::to_string(instruction_number),output, 
+        std::make_unique<basicblock::UCond_BR>(ir_label));
+    return nullptr;
+}
+value::Value* LabeledStmt::codegen(std::ostream& output, context::Context& c)const {
+    std::string ir_label = ident_tok.value+".label";
+    c.change_block(ir_label, output, nullptr);
+    stmt->codegen(output, c);
+    return nullptr;
+}
 value::Value* NullStmt::codegen(std::ostream& output, context::Context& c)const {
     //Do nothing
     return nullptr;
@@ -413,7 +426,7 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)co
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
     assert(return_type == type::make_basic(type::IType::Int));
     AST::print_whitespace(c.depth(), output);
-    output << "define "<<type::ir_type(return_type)<<" @" + name+"(){"<<std::endl;
+    output << "define "<<type::ir_type(return_type)<<" @" + name_tok.value+"(){"<<std::endl;
     c.enter_function(return_type, output);
     function_body->codegen(output, c);
     c.exit_function(output);
@@ -440,6 +453,135 @@ value::Value* Variable::codegen(std::ostream& output, context::Context& c)const 
     return make_load(var_value,output,c);
 }
 
+value::Value* DoStmt::codegen(std::ostream& output, context::Context& c)const {
+    int instruction_number = c.new_local_name(); 
+    std::string control_label = "docontrol."+std::to_string(instruction_number);
+    std::string body_label = "dobody."+std::to_string(instruction_number);
+    std::string end_label = "doend."+std::to_string(instruction_number);
+    c.continue_targets.push_back(control_label);
+    c.break_targets.push_back(end_label);
+
+    c.change_block(body_label,output,nullptr);
+    body->codegen(output, c);
+    c.change_block(control_label,output,nullptr);
+    auto control_value = codegen_convert(type::from_str("_Bool"),control_expr->codegen(output, c),output, c);
+    c.change_block(end_label,output,std::make_unique<basicblock::Cond_BR>(control_value, body_label,end_label));
+    c.continue_targets.pop_back();
+    c.break_targets.pop_back();
+    return nullptr;
+}
+value::Value* CaseStmt::codegen(std::ostream& output, context::Context& c)const {
+    std::string case_val = std::to_string(std::stoull(this->label->literal));
+    std::string case_label = "case."+std::to_string(c.switch_numbers.back())+"."+case_val;
+    c.change_block(case_label, output, nullptr);
+    stmt->codegen(output, c);
+    return nullptr;
+}
+value::Value* DefaultStmt::codegen(std::ostream& output, context::Context& c)const {
+    std::string case_label = "case."+std::to_string(c.switch_numbers.back())+".default";
+    c.change_block(case_label, output, nullptr);
+    stmt->codegen(output, c);
+    return nullptr;
+}
+value::Value* SwitchStmt::codegen(std::ostream& output, context::Context& c)const {
+    assert(case_table && "Switch statement not analyzed");
+    auto control_value = codegen_convert(control_type, control_expr->codegen(output, c), output, c);
+    const auto instruction_number = c.new_local_name(); 
+    std::string end_label = "switchend."+std::to_string(instruction_number);
+    std::string case_label_head = "case."+std::to_string(instruction_number)+".";
+    std::string default_label = "switchend."+std::to_string(instruction_number);
+    c.switch_numbers.push_back(instruction_number);
+    c.break_targets.push_back(end_label);
+    if(case_table->find(std::nullopt) != case_table->end()){
+        default_label = "case."+std::to_string(instruction_number)+".default";
+    }
+
+    AST::print_whitespace(c.depth(), output);
+    output << "switch "<<type::ir_type(control_type)<<" "<<control_value->get_value()<<", label %";
+    output<<default_label<<" [ "<<std::endl;
+    for(const auto& case_val : *case_table){
+        if(case_val.has_value()){
+            AST::print_whitespace(c.depth()+5, output);
+            output << type::ir_type(control_type)<<" "<<case_val.value()<<", label %";
+            output << case_label_head <<case_val.value()<<std::endl;
+        }
+    }
+    AST::print_whitespace(c.depth(), output);
+    output<<" ] "<<std::endl;
+    output<<"afterswitchcontrol."+std::to_string(instruction_number)<<":"<<std::endl;
+
+    switch_body->codegen(output, c);
+    c.change_block(end_label, output, nullptr);
+    c.break_targets.pop_back();
+    c.switch_numbers.pop_back();
+    //To do
+    return nullptr;
+}
+value::Value* WhileStmt::codegen(std::ostream& output, context::Context& c)const {
+    int instruction_number = c.new_local_name(); 
+    std::string control_label = "whilecontrol."+std::to_string(instruction_number);
+    std::string body_label = "whilebody."+std::to_string(instruction_number);
+    std::string end_label = "whileend."+std::to_string(instruction_number);
+    c.continue_targets.push_back(control_label);
+    c.break_targets.push_back(end_label);
+
+    c.change_block(control_label,output,nullptr);
+    auto control_value = codegen_convert(type::from_str("_Bool"),control_expr->codegen(output, c),output, c);
+    c.change_block(body_label,output,std::make_unique<basicblock::Cond_BR>(control_value, body_label,end_label));
+    body->codegen(output, c);
+    c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(control_label));
+    c.continue_targets.pop_back();
+    c.break_targets.pop_back();
+    return nullptr;
+}
+value::Value* BreakStmt::codegen(std::ostream& output, context::Context& c)const {
+    int instruction_number = c.new_local_name(); 
+    c.change_block("afterbreak."+std::to_string(instruction_number),output, 
+        std::make_unique<basicblock::UCond_BR>(c.break_targets.back()));
+    return nullptr;
+}
+value::Value* ContinueStmt::codegen(std::ostream& output, context::Context& c)const {
+    int instruction_number = c.new_local_name(); 
+    c.change_block("aftercont."+std::to_string(instruction_number),output, 
+        std::make_unique<basicblock::UCond_BR>(c.continue_targets.back()));
+    return nullptr;
+}
+value::Value* ForStmt::codegen(std::ostream& output, context::Context& c)const {
+    //Initialize
+    c.enter_scope();
+    int instruction_number = c.new_local_name(); 
+    std::string control_label = "forcontrol."+std::to_string(instruction_number);
+    std::string body_label = "forbody."+std::to_string(instruction_number);
+    std::string post_label = "forpost."+std::to_string(instruction_number);
+    std::string end_label = "forend."+std::to_string(instruction_number);
+    c.continue_targets.push_back(post_label);
+    c.break_targets.push_back(end_label);
+
+    //Generate code
+    std::visit(overloaded{
+        [&](std::monostate) -> void{},
+        [&](const auto& ast_node) -> void{
+            ast_node->codegen(output, c);
+            },
+    },this->init_clause);
+
+    c.change_block(control_label,output,nullptr);
+    auto control_value = codegen_convert(type::from_str("_Bool"),control_expr->codegen(output, c),output, c);
+    c.change_block(body_label,output,std::make_unique<basicblock::Cond_BR>(control_value, body_label,end_label));
+
+    this->body->codegen(output, c);
+    c.change_block(post_label,output,nullptr);
+    if(this->post_expr.has_value()){
+        this->post_expr.value()->codegen(output, c);
+    }
+    c.change_block(end_label,output,std::make_unique<basicblock::UCond_BR>(control_label));
+
+    //Clean up
+    c.continue_targets.pop_back();
+    c.break_targets.pop_back();
+    c.exit_scope();
+    return nullptr;
+}
 value::Value* DeclList::codegen(std::ostream& output, context::Context& c)const {
     for(const auto& decl : decls){
         decl->codegen(output, c);

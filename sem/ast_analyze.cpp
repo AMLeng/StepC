@@ -3,6 +3,12 @@
 #include "sem_error.h"
 namespace ast{
 
+template <class... Ts>
+struct overloaded : Ts...{
+    using Ts::operator()...;
+};
+
+template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
     //Add symbol to symbol table, check that not already present
@@ -300,9 +306,114 @@ void IfStmt::analyze(symbol::STable* st){
 void ReturnStmt::analyze(symbol::STable* st){
     return_expr->analyze(st);
 }
+void ContinueStmt::analyze(symbol::STable* st){
+    if(!st->in_loop){
+        throw sem_error::FlowError("Continue statement outside of loop",this->tok);
+    }
+}
+void GotoStmt::analyze(symbol::STable* st){
+    try{
+        st->require_label(ident_tok);
+    }catch(std::runtime_error& e){
+        throw sem_error::FlowError("Cannot have goto outside function",this->ident_tok);
+    }
+    //Matched with a call at function end
+}
+void LabeledStmt::analyze(symbol::STable* st){
+    stmt->analyze(st);
+    try{
+        st->add_label(ident_tok.value);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError("Duplicate label name within the same function",this->ident_tok);
+    }
+}
+void BreakStmt::analyze(symbol::STable* st){
+    if(!st->in_loop && !st->in_switch()){
+        throw sem_error::FlowError("Break statement outside of loop or switch",this->tok);
+    }
+}
 void Program::analyze(symbol::STable* st) {
     auto main_table = st->new_child();
     main_method->analyze(main_table);
+}
+void ForStmt::analyze(symbol::STable* st){
+    auto stmt_table = st->new_child();
+
+    std::visit(overloaded{
+        [](std::monostate){/*Do nothing*/},
+        [stmt_table](auto& ast_node){
+            ast_node->analyze(stmt_table);
+            }
+    },this->init_clause);
+    control_expr->analyze(stmt_table);
+    if(!type::is_scalar(this->control_expr->type)){
+        throw sem_error::TypeError("Condition of scalar type required in for statement control expression",this->control_expr->tok);
+    }
+    if(this->post_expr.has_value()){
+        this->post_expr.value()->analyze(stmt_table);
+    }
+    stmt_table->in_loop = true;
+    this->body->analyze(stmt_table);
+}
+void CaseStmt::analyze(symbol::STable* st){
+    if(!st->in_switch()){
+        throw sem_error::FlowError("Case statement outside of switch",this->tok);
+    }
+    this->label->analyze(st);
+    if(!type::is_int(label->type)){
+        throw sem_error::TypeError("Case label must have integer type",this->tok);
+    }
+    unsigned long long int case_val = 42ull;
+    try{
+        case_val = std::stoull(this->label->literal);
+    }catch(std::runtime_error& e){
+        throw sem_error::FlowError("Invalid label value for case",this->label->tok);
+    }
+    try{
+        st->add_case(case_val);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError("Duplicate case statement in switch",this->label->tok);
+    }
+    this->stmt->analyze(st);
+}
+void DefaultStmt::analyze(symbol::STable* st){
+    if(!st->in_switch()){
+        throw sem_error::FlowError("Case statement outside of switch",this->tok);
+    }
+    try{
+        st->add_case(std::nullopt);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError("Duplicate default statement in switch",this->tok);
+    }
+    this->stmt->analyze(st);
+}
+void SwitchStmt::analyze(symbol::STable* st){
+    control_expr->analyze(st);
+    if(!type::is_int(this->control_expr->type)){
+        throw sem_error::TypeError("Condition of integer type required in for switch control expression",this->control_expr->tok);
+    }
+    this->control_type = type::integer_promotions(this->control_expr->type);
+    auto stmt_table = st->new_switch_scope_child();
+    switch_body->analyze(stmt_table);
+    case_table = stmt_table->transfer_switch_table();
+}
+void WhileStmt::analyze(symbol::STable* st){
+    control_expr->analyze(st);
+    if(!type::is_scalar(this->control_expr->type)){
+        throw sem_error::TypeError("Condition of scalar type required in for statement control expression",this->control_expr->tok);
+    }
+    auto stmt_table = st->new_child();
+    stmt_table->in_loop = true;
+    body->analyze(stmt_table);
+}
+void DoStmt::analyze(symbol::STable* st){
+    control_expr->analyze(st);
+    if(!type::is_scalar(this->control_expr->type)){
+        throw sem_error::TypeError("Condition of scalar type required in for statement control expression",this->control_expr->tok);
+    }
+    auto stmt_table = st->new_child();
+    stmt_table->in_loop = true;
+    body->analyze(stmt_table);
 }
 void CompoundStmt::analyze(symbol::STable* st){
     auto stmt_table = st->new_child();
@@ -317,13 +428,23 @@ void DeclList::analyze(symbol::STable* st){
     }
 }
 void FunctionDef::analyze(symbol::STable* st) {
-    if(this->name == "main"){
+    if(this->name_tok.value == "main"){
         if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
             auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
             std::unique_ptr<Expr> ret_expr = std::make_unique<Constant>(fake_token);
             function_body->stmt_body.push_back(std::make_unique<ReturnStmt>(std::move(ret_expr)));
         }
     }
-    function_body->analyze(st);
+    symbol::STable* function_table;
+    try{
+        function_table = st->new_function_scope_child();
+    }catch(std::runtime_error& e){
+        throw sem_error::FlowError(e.what(),this->name_tok);
+    }
+    function_body->analyze(function_table);
+    std::optional<token::Token> error_tok;
+    if((error_tok = function_table->unmatched_label())!= std::nullopt){
+        throw sem_error::STError("Goto with unmatched label",error_tok.value());
+    }
 }
 } //namespace ast

@@ -86,6 +86,37 @@ struct VarDecl : public Decl {
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
+struct DoStmt : public Stmt{
+    std::unique_ptr<Expr> control_expr;
+    std::unique_ptr<Stmt> body;
+    DoStmt(std::unique_ptr<Expr> control, std::unique_ptr<Stmt> body)
+        : control_expr(std::move(control)), body(std::move(body)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct WhileStmt : public Stmt{
+    std::unique_ptr<Expr> control_expr;
+    std::unique_ptr<Stmt> body;
+    WhileStmt(std::unique_ptr<Expr> control, std::unique_ptr<Stmt> body)
+        : control_expr(std::move(control)), body(std::move(body)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct ForStmt : public Stmt{
+    std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>> init_clause;
+    std::unique_ptr<Expr> control_expr;
+    std::optional<std::unique_ptr<Expr>> post_expr;
+    std::unique_ptr<Stmt> body;
+    ForStmt(std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>> init, std::unique_ptr<Expr> control, 
+        std::optional<std::unique_ptr<Expr>> post, std::unique_ptr<Stmt> body)
+        : init_clause(std::move(init)), control_expr(std::move(control)), 
+        post_expr(std::move(post)) , body(std::move(body)){}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct IfStmt : public Stmt{
     std::unique_ptr<Expr> if_condition;
     std::unique_ptr<Stmt> if_body;
@@ -96,25 +127,87 @@ struct IfStmt : public Stmt{
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
-struct CompoundStmt : public Stmt{
-    std::vector<std::unique_ptr<BlockItem>> stmt_body;
+struct CaseStmt : public Stmt{
+    token::Token tok;
+    std::unique_ptr<Constant> label;
+    std::unique_ptr<Stmt> stmt;
+    CaseStmt(token::Token tok, std::unique_ptr<Constant> c, std::unique_ptr<Stmt> stmt) 
+        : tok(tok), label(std::move(c)), stmt(std::move(stmt)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct DefaultStmt : public Stmt{
+    token::Token tok;
+    std::unique_ptr<Stmt> stmt;
+    DefaultStmt(token::Token tok, std::unique_ptr<Stmt> stmt) 
+        : tok(tok), stmt(std::move(stmt)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct SwitchStmt : public Stmt{
+    std::unique_ptr<Expr> control_expr;
+    std::unique_ptr<Stmt> switch_body;
+    type::BasicType control_type;
+    SwitchStmt(std::unique_ptr<Expr> expr, std::unique_ptr<Stmt> body) 
+        :control_expr(std::move(expr)), switch_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+private:
+    std::unique_ptr<std::set<std::optional<unsigned long long int>>> case_table;
+};
+struct CompoundStmt : public Stmt{
+    std::vector<std::unique_ptr<BlockItem>> stmt_body;
     CompoundStmt(std::vector<std::unique_ptr<BlockItem>> stmt_body) : stmt_body(std::move(stmt_body)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
 struct FunctionDef : public AST{
-    std::string name;
+    token::Token name_tok;
     type::BasicType return_type;
     std::unique_ptr<CompoundStmt> function_body;
-    FunctionDef(std::string name, type::BasicType ret_type, std::unique_ptr<CompoundStmt> body) : 
-        name(name), return_type(ret_type), function_body(std::move(body)) {}
+    FunctionDef(token::Token tok, type::BasicType ret_type, std::unique_ptr<CompoundStmt> body) : 
+        name_tok(tok), return_type(ret_type), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct LabeledStmt : public Stmt{
+    token::Token ident_tok;
+    std::unique_ptr<Stmt> stmt;
+    LabeledStmt(token::Token tok, std::unique_ptr<Stmt> stmt) 
+        : ident_tok(tok), stmt(std::move(stmt)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+
+struct GotoStmt : public Stmt{
+    token::Token ident_tok;
+    GotoStmt(token::Token tok) :ident_tok(tok) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct ContinueStmt : public Stmt{
+    token::Token tok;
+    ContinueStmt(token::Token tok) : tok(tok) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct BreakStmt : public Stmt{
+    token::Token tok;
+    BreakStmt(token::Token tok) : tok(tok) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth);
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct ReturnStmt : public Stmt{
     std::unique_ptr<Expr> return_expr;
     ReturnStmt(std::unique_ptr<Expr> ret_expr) : return_expr(std::move(ret_expr)) {}

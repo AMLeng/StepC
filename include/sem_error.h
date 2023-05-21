@@ -16,6 +16,11 @@ class SemError : public std::exception{
         }
 };
 
+class FlowError : public SemError{
+    public:
+        FlowError(std::string_view what_arg,token::Token tok)
+            : SemError(what_arg, tok) {}
+};
 class TypeError : public SemError{
     public:
         TypeError(std::string_view what_arg,token::Token tok)

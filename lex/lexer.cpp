@@ -11,6 +11,15 @@ bool is_keyword(const std::string& word){
     return word == "return"
         || word == "if"
         || word == "else"
+        || word == "for"
+        || word == "do"
+        || word == "while"
+        || word == "continue"
+        || word == "break"
+        || word == "goto"
+        || word == "switch"
+        || word == "case"
+        || word == "default"
         || word == "char"
         || word == "short"
         || word == "int"
@@ -125,7 +134,7 @@ token::Token Lexer::LexingSubmethods::lex_keyword_ident(Lexer& l){
 }
 
 
-token::Token Lexer::read_token_from_stream(){
+token::Token Lexer::read_token_from_stream() {
     ignore_space();
 
     char c = input_stream.peek();
