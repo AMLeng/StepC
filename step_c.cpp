@@ -31,10 +31,10 @@ int main(int argc, char* argv[]){
         return 1;
     }
     auto program_name = file_name.substr(0,file_name.size() - 2);
-    auto llc_command = "llc "+program_name+".ll";
-    auto gpp_command = "g++ -o "+program_name+" "+program_name+".s";
+    auto clang_command = "clang -Wno-override-module -o"+program_name+" "+program_name+".ll";
+    //auto gpp_command = "g++ -o "+program_name+" "+program_name+".s";
     auto rm_llvm_ir = "rm "+program_name+".ll";
-    auto rm_assembly = "rm "+program_name+".s";
+    //auto rm_assembly = "rm "+program_name+".s";
 
     try{
         program_ast->analyze();
@@ -46,8 +46,8 @@ int main(int argc, char* argv[]){
     auto llvm_output = std::ofstream(program_name +".ll");
     //program_ast->pretty_print(0);
     program_ast->codegen(llvm_output, global_context); //Should output program_name .ll
-    system(llc_command.c_str()); //Should output program_name .s
+    system(clang_command.c_str()); //Should output assembly
     system(rm_llvm_ir.c_str()); 
-    system(gpp_command.c_str()); //Should output executable program_name
-    system(rm_assembly.c_str());
+    //system(gpp_command.c_str()); //Should output executable program_name
+    //system(rm_assembly.c_str());
 }

@@ -6,7 +6,7 @@ Inspired by Nora Sandler's adaptation of Abdulaziz Ghuloum's "An Incremental App
 In her project, Nora Sandler directly compiles to assembly initially, and refactors to first compile to 3AC in her [upcoming book](https://norasandler.com/2022/03/29/Write-a-C-Compiler-the-Book.html). In anticipation of StepC becoming increasingly complicated, and in order to take advantage of the optimization pipeline of LLVM, we instead compile to LLVM's IR from the very start. As our approach does not strictly follow either Sandler or Ghuloum's approaches, we document the taks accomplished at each stage at the end of the readme for easy reference.
 
 ## Requirements
-The main prgram "step_c.out" makes system calls to "llc" and "gcc" to compile the produced LLVM IR into an executable. Modifying the step_c.cpp file before building can remove these system calls (and thus those dependencies). StepC is written in C++17, compiled with g++ (and sometimes clang++).
+The main prgram "step_c.out" makes a system call to clang to compile the produced LLVM IR into an executable. Modifying the step_c.cpp file before building can remove that system call (and thus those dependencies). StepC is written in C++17, compiled with g++ (and sometimes clang++).
 
 ## Usage
 Build main executable "step_c.out", in addition to unit tests, with
@@ -39,3 +39,5 @@ In stage 3 and beyond, StepC will generate an executable, and can be tested with
 * Stage 6: Implemented compound statements, if statements, and ternary conditionals. In particular, implemented basic blocks in code generation for flor control. Equivalent to Nora Sandler's stages 6 and 7.
 
 * Stage 7: Implemented remaining binary operators (including compound assignments), as well as prefix/postfix increment and decrement, as well as multiple comma separated variable declarations. Superset of Nora Sandler's stage 4.
+
+* Stage 8: Implemented loops, gotos, switch statements, and labeled statements. Changed system calls from llc and gcc to a single call to clang (since llc seemed to have a bug when called on a switch statement with 4 or more non-default cases). Superset of Nora Sandler's stage 8.
