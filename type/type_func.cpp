@@ -1,11 +1,11 @@
 #include "type_func.h"
 namespace type{
-DerivedType::DerivedType(FuncType&& f) 
-    : type(std::make_unique<FuncType>(std::move(f))){
+DerivedType::DerivedType(FuncType f) 
+    : type(std::make_unique<FuncType>(f)){
        }
 
-DerivedType DerivedType::make_derived(FuncType&& f){
-    return DerivedType(std::move(f));
+DerivedType DerivedType::make_derived(FuncType f){
+    return DerivedType(f);
 }
 
 bool FuncType::has_prototype() const{

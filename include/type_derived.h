@@ -14,10 +14,17 @@ class FuncType;
 //Functions will use value semantics
 class DerivedType{
     std::variant<std::unique_ptr<FuncType>> type;
-    friend bool is_compatible(const DerivedType&, const DerivedType&);
-    DerivedType(FuncType&& f);
+    DerivedType(FuncType f); //Defined in type_func.cpp
 public:
-    DerivedType make_derived(FuncType&& f);
+    DerivedType make_derived(FuncType f); //Defined in type_func.cpp
+
+    DerivedType(const DerivedType& other); //Defined in type.cpp
+    DerivedType& operator=(const DerivedType& other);//Defined in type.cpp
+    DerivedType(DerivedType&& other) = default;
+    DerivedType& operator=(DerivedType&& other) = default;
+    ~DerivedType() = default;
+
+    friend bool is_compatible(const DerivedType&, const DerivedType&);
 };
 
 typedef std::monostate VoidType;

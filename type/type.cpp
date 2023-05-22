@@ -11,6 +11,22 @@ namespace{
 
 
 } //namespace
+DerivedType::DerivedType(const DerivedType& other){
+    this->type = std::visit(overloaded{
+        [](const std::unique_ptr<FuncType>& func_type){
+            return std::make_unique<FuncType>(*func_type);
+        }
+    }, other.type);
+}
+DerivedType& DerivedType::operator=(const DerivedType& other){
+    this->type = std::visit(overloaded{
+        [](const std::unique_ptr<FuncType>& func_type){
+            return std::make_unique<FuncType>(*func_type);
+        }
+    }, other.type);
+    return *this;
+}
+
 
 bool is_compatible(const DerivedType& type1, const DerivedType& type2){
     return std::visit(overloaded{
