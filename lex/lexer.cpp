@@ -20,6 +20,7 @@ bool is_keyword(const std::string& word){
         || word == "switch"
         || word == "case"
         || word == "default"
+        || word == "void"
         || word == "char"
         || word == "short"
         || word == "int"

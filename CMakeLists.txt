@@ -10,7 +10,8 @@ project(IncrementalC
 )
 
 add_library(core lex/lexer.cpp 
-    parse/parse.cpp parse/ast_construct.cpp parse/type.cpp parse/ast_pretty_print.cpp 
+    parse/parse.cpp parse/ast_construct.cpp parse/ast_pretty_print.cpp 
+    type/type_basic.cpp type/type_func.cpp type/type.cpp type/type_derived.cpp
     sem/ast_analyze.cpp sem/symbol.cpp
     codegen/ast_codegen.cpp codegen/context.cpp codegen/basic_block.cpp)
 
