@@ -227,7 +227,7 @@ struct ReturnStmt : public Stmt{
 
 
 struct Expr : virtual public Stmt{
-    type::BasicType type;
+    type::CType type;
     bool analyzed = false;
     token::Token tok;
     Expr(token::Token tok) : tok(tok){}
@@ -264,6 +264,15 @@ struct Constant : public Expr{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct FuncCall : public Expr{
+    std::string func_name;
+    std::vector<std::unique_ptr<Expr>> args;
+    FuncCall(token::Token func_ident, std::vector<std::unique_ptr<Expr>> args) : 
+        Expr(func_ident), func_name(func_ident.value), args(std::move(args)) {}
+    void analyze(symbol::STable* st) override;
+    void pretty_print(int depth) override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct Postfix : public Expr{
     std::unique_ptr<Expr> arg;
     Postfix(token::Token op, std::unique_ptr<Expr> exp) : 
@@ -284,8 +293,8 @@ struct UnaryOp : public Expr{
 struct BinaryOp : public Expr{
     std::unique_ptr<Expr> left;
     std::unique_ptr<Expr> right;
-    type::BasicType new_left_type;
-    type::BasicType new_right_type;
+    type::CType new_left_type;
+    type::CType new_right_type;
     BinaryOp(token::Token op, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right) : 
         Expr(op), left(std::move(left)), right(std::move(right)) { }
     void analyze(symbol::STable* st) override;

@@ -280,7 +280,7 @@ R"(1.1f)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::FType>(c.type) ==  type::FType::Float);
+    REQUIRE(c.type ==  type::CType(type::FType::Float));
     REQUIRE(c.literal == "0x3FF19999A0000000");
 }
 TEST_CASE("parse_double_dec"){
@@ -289,7 +289,7 @@ R"(1.1)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::FType>(c.type) ==  type::FType::Double);
+    REQUIRE(c.type ==  type::CType(type::FType::Double));
     REQUIRE(c.literal == "0x3FF199999999999A");
 }
 TEST_CASE("parse_hex_float"){
@@ -298,7 +298,7 @@ R"(0x1.1999999999999999Ap-64f)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::FType>(c.type) ==  type::FType::Float);
+    REQUIRE(c.type ==  type::CType(type::FType::Float));
     REQUIRE(c.literal == "0x3BF19999A0000000");
 }
 TEST_CASE("parse_hex_float_normal"){
@@ -307,7 +307,7 @@ R"(0x1.19999Ap-64f)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::FType>(c.type) ==  type::FType::Float);
+    REQUIRE(c.type ==  type::CType(type::FType::Float));
     REQUIRE(c.literal == "0x3BF19999A0000000");
 }
 TEST_CASE("parse_hex_float_barely_subnormal"){
@@ -316,7 +316,7 @@ R"(0x1.19999Ap-127F)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::FType>(c.type) ==  type::FType::Float);
+    REQUIRE(c.type ==  type::CType(type::FType::Float));
     REQUIRE(c.literal == "0x3801999980000000");
 }
 TEST_CASE("parse_hex_float_subnormal_2"){
@@ -325,7 +325,7 @@ R"(0x1.19999Ap-129f)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::FType>(c.type) ==  type::FType::Float);
+    REQUIRE(c.type ==  type::CType(type::FType::Float));
     REQUIRE(c.literal == "0x37E1999A00000000");
 }
 TEST_CASE("parse_hex_double"){
@@ -334,7 +334,7 @@ R"(0x1.1999999999999999Ap-64)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::FType>(c.type) ==  type::FType::Double);
+    REQUIRE(c.type ==  type::CType(type::FType::Double));
     REQUIRE(c.literal == "0x3BF199999999999A");
 }
 TEST_CASE("parse_hex_long_double"){
@@ -343,7 +343,7 @@ R"(0x1.19999999999999999Ap-64l)");
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::FType>(c.type) ==  type::FType::LDouble);
+    REQUIRE(c.type ==  type::CType(type::FType::LDouble));
     REQUIRE(c.literal == "0x3BF199999999999A");
 }
 TEST_CASE("parse_decimal_U"){
@@ -351,7 +351,7 @@ TEST_CASE("parse_decimal_U"){
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::IType>(c.type) ==  type::IType::UInt);
+    REQUIRE(c.type ==  type::CType(type::IType::UInt));
     REQUIRE(c.literal == "2532");
 }
 TEST_CASE("parse_decimal_u"){
@@ -359,7 +359,7 @@ TEST_CASE("parse_decimal_u"){
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::IType>(c.type) ==  type::IType::UInt);
+    REQUIRE(c.type ==  type::CType(type::IType::UInt));
     REQUIRE(c.literal == "2532");
 }
 TEST_CASE("parse_decimal_ull"){
@@ -367,7 +367,7 @@ TEST_CASE("parse_decimal_ull"){
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::IType>(c.type) ==  type::IType::ULLong);
+    REQUIRE(c.type ==  type::CType(type::IType::ULLong));
     REQUIRE(c.literal == "2532");
 }
 TEST_CASE("parse_decimal_LLu"){
@@ -375,7 +375,7 @@ TEST_CASE("parse_decimal_LLu"){
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::IType>(c.type) ==  type::IType::ULLong);
+    REQUIRE(c.type ==  type::CType(type::IType::ULLong));
     REQUIRE(c.literal == "2532");
 }
 TEST_CASE("parse_decimal_lu"){
@@ -383,7 +383,7 @@ TEST_CASE("parse_decimal_lu"){
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::IType>(c.type) ==  type::IType::ULong);
+    REQUIRE(c.type ==  type::CType(type::IType::ULong));
     REQUIRE(c.literal == "2532");
 }
 TEST_CASE("parse_dec_int"){
@@ -391,7 +391,7 @@ TEST_CASE("parse_dec_int"){
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::IType>(c.type) ==  type::IType::Int);
+    REQUIRE(c.type ==  type::CType(type::IType::Int));
     REQUIRE(c.literal == "25");
 }
 
@@ -412,7 +412,7 @@ TEST_CASE("parse_unsigned_hex_int_target_dependent"){
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::IType>(c.type) ==  type::IType::UInt);
+    REQUIRE(c.type ==  type::CType(type::IType::UInt));
     REQUIRE(c.literal == "2952790015");
 }
 TEST_CASE("parse_too_large_dec_int_target_dependent"){
@@ -420,7 +420,7 @@ TEST_CASE("parse_too_large_dec_int_target_dependent"){
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::IType>(c.type) ==  type::IType::Long);
+    REQUIRE(c.type ==  type::CType(type::IType::Long));
     REQUIRE(c.literal == "2952790015");
 }
 TEST_CASE("parse_unsigned_hex_long_target_dependent"){
@@ -428,7 +428,7 @@ TEST_CASE("parse_unsigned_hex_long_target_dependent"){
     lexer::Lexer l(ss);
     auto t = l.get_token();
     auto c = ast::Constant(t);
-    REQUIRE(std::get<type::IType>(c.type) ==  type::IType::ULong);
+    REQUIRE(c.type ==  type::CType(type::IType::ULong));
     REQUIRE(c.literal == "11529215046068469759");
 }
 TEST_CASE("parse_too_large_dec_target_dependent"){

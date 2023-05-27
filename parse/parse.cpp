@@ -20,6 +20,8 @@ namespace{
     constexpr int ternary_cond_binding_power = 6;
     //Unary operators should bind more tightly than any normal binary op
     constexpr int unary_op_binding_power = 40;
+    //Higher prescedence than comma, lower than assignment
+    constexpr int func_call_arg_binding_power = 3;
     //left binding is less than right binding for left associativity (+, -)
     //and vice versa for right associativity
     std::map<token::TokenType, std::pair<int, int>> binary_op_binding_power = {{
@@ -39,7 +41,7 @@ namespace{
         {token::TokenType::ModAssign, {5,4}},{token::TokenType::BAAssign, {5,4}},
         {token::TokenType::MultAssign, {5,4}},{token::TokenType::DivAssign, {5,4}},
         {token::TokenType::PlusAssign, {5,4}},{token::TokenType::MinusAssign, {5,4}},
-        {token::TokenType::Comma, {2,3}},
+        {token::TokenType::Comma, {1,2}},
     }};
 
     //Check and throw default unexpected token exception
@@ -144,6 +146,22 @@ std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique
     return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
 }
 
+std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l){
+    auto function_name = l.get_token();
+    check_token_type(function_name, token::TokenType::Identifier);
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    auto args = std::vector<std::unique_ptr<ast::Expr>>{};
+    while(l.peek_token().type != token::TokenType::RParen){
+        args.push_back(parse_expr(l,func_call_arg_binding_power));
+        if(l.peek_token().type == token::TokenType::RParen){
+            break;
+        }
+        check_token_type(l.get_token(), token::TokenType::Comma);
+    }
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    return std::make_unique<ast::FuncCall>(function_name, std::move(args));
+}
+
 std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
     auto op_token = l.get_token();
     if(!token::matches_type(op_token,
@@ -170,7 +188,11 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
             expr_ptr =  parse_unary_op(l);
             break;
         case token::TokenType::Identifier:
-            expr_ptr = parse_lvalue(l);
+            if(l.peek_token(2).type == token::TokenType::LParen){
+                expr_ptr = parse_function_call(l);
+            }else{
+                expr_ptr = parse_lvalue(l);
+            }
             break;
         case token::TokenType::LParen:
             l.get_token();

@@ -50,7 +50,7 @@ namespace{
             case token::TokenType::LParen:
                 {
                     auto param_list = parse_param_list(type, l);
-                    type = type::make_type(param_list.first);
+                    type = param_list.first;
                     return std::make_pair(std::make_pair(ident, type),param_list.second);
                 }
             case token::TokenType::LBrack:
@@ -80,6 +80,9 @@ std::pair<type::FuncType, std::vector<Declarator>> parse_param_list(type::CType 
         }else{
             declarators.push_back(parse_declarator(param_specifiers,l).first);
             params.push_back(declarators.back().second);
+            if(params.back() == type::CType(type::VoidType())){
+                throw sem_error::TypeError("Cannot have variable of void type",declarators.back().first.value());
+            }
             if(declarators.back().first.has_value()){
                 if(names.insert(declarators.back().first.value().value).second == false){
                     throw sem_error::STError("Duplicate variable name in function parameter list",declarators.back().first.value());
@@ -97,7 +100,11 @@ std::pair<type::FuncType, std::vector<Declarator>> parse_param_list(type::CType 
         variadic = true;
     }
     check_token_type(l.get_token(), token::TokenType::RParen);
-    return std::make_pair(type::FuncType(ret_type, params, variadic),declarators);
+    try{
+        return std::make_pair(type::FuncType(ret_type, params, variadic),declarators);
+    }catch(std::runtime_error& e){
+        throw sem_error::TypeError(std::string("Failure to construct Function Type ") +e.what(),l.peek_token());
+    }
 }
 
 

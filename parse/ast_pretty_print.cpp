@@ -175,6 +175,13 @@ void Constant::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<<"CONSTANT "<<literal<<" OF TYPE "<< type::to_string(type) <<std::endl;
 }
+void FuncCall::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<<"FUNCTION CALL OF \""<< tok.value <<"\" ON ARGS"<<std::endl;
+    for(const auto& arg : args){
+        arg->pretty_print(depth+1);
+    }
+}
 void Postfix::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<<"POSTFIX OP "<< tok.type <<" ON EXPR"<<std::endl;

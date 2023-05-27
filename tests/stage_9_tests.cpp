@@ -94,6 +94,16 @@ R"(int main(){
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
 }
+TEST_CASE("error no void argument name"){
+    auto ss = std::stringstream(
+R"(
+int b(void a);
+int main(){
+    return b();
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
+}
 TEST_CASE("error multiple function decl"){
     auto ss = std::stringstream(
 R"(
@@ -206,7 +216,102 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
 }
+TEST_CASE("function call"){
+    auto ss = std::stringstream(
+R"(
+int a(void);
+int main(){
+    return a();
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("function call convert params"){
+    auto ss = std::stringstream(
+R"(
+float sum(float,float);
+int main(){
+    return sum(25, -3);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("function call not defined"){
+    auto ss = std::stringstream(
+R"(
+int putchar(int);
+int main(){
+    putchar(25);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("error function call wrong params"){
+    auto ss = std::stringstream(
+R"(
+int putchar(int);
+int main(){
+    putchar(25, 5);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
+}
 
+TEST_CASE("error function call no decl"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    putchar(25);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
+TEST_CASE("error use void value"){
+    auto ss = std::stringstream(
+R"(
+void a(int);
+int main(){
+    return a(25);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
+}
+TEST_CASE("error function decl void variadic"){
+    auto ss = std::stringstream(
+R"(
+int putchar(void,...);
+int main(){
+    putchar();
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
+}
+TEST_CASE("error function decl void multi arg"){
+    auto ss = std::stringstream(
+R"(
+int putchar(void,int);
+int main(){
+    putchar(25, 5);
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
+}
+TEST_CASE("error function decl void multi arg 2"){
+    auto ss = std::stringstream(
+R"(
+int putchar(void,void);
+int main(){
+    putchar();
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
+}
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here

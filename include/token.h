@@ -2,6 +2,7 @@
 #define _TOKEN_
 #include "location.h"
 #include <string>
+#include <cassert>
 #include <sstream>
 #include <ostream>
 namespace token{

@@ -4,12 +4,43 @@ DerivedType::DerivedType(FuncType f)
     : type(std::make_unique<FuncType>(f)){
        }
 
+FuncType::FuncType(CType ret, std::vector<CType> param, bool variadic)
+    : ret_type(ret), prototype(std::make_optional<FuncPrototype>(param,variadic)) {
+    auto void_type = type::CType{};
+    for(const auto& param_type : param){
+        if(is_compatible(param_type, void_type)){
+            if(param.size() != 1 || variadic){
+                throw std::runtime_error("Function with void arguments cannot have multiple arguments");
+            }
+        }
+    }
+}
+FuncType::FuncType(CType ret)
+    : ret_type(ret), prototype(std::nullopt) {
+     assert(false && "K&R style decls not yet implemented");
+};
 bool FuncType::has_prototype() const{
     return prototype.has_value();
 }
-CType make_type(FuncType f){
-    return make_type(DerivedType(f));
+bool FuncType::params_match(std::vector<CType> arg_types) const{
+    if(!prototype.has_value()){
+        return true;
+    }
+    auto params = prototype.value().param_types;
+    if(params.size() > arg_types.size()){
+        return false;
+    }
+    if(params.size() < arg_types.size() && !prototype.value().variadic){
+        return false;
+    }
+    for(int i=0; i<params.size(); i++){
+        if(!can_convert(arg_types.at(i),params.at(i))){
+            return false;
+        }
+    }
+    return true;
 }
+
 
 bool is_compatible(const FuncType& type1, const FuncType& type2){
     if(!is_compatible(type1.ret_type, type2.ret_type)){
@@ -32,6 +63,30 @@ bool is_compatible(const FuncType& type1, const FuncType& type2){
     }
     return true;
 }
+bool FuncType::operator ==(const FuncType& other) const{
+    if(!(ret_type == other.ret_type)){
+        return false;
+    }
+    if(prototype.has_value() != other.prototype.has_value()){
+        return false;
+    }
+    if(prototype.has_value()){
+        if(prototype->variadic != other.prototype->variadic){
+            return false;
+        }
+        int n = prototype->param_types.size();
+        if(n != other.prototype->param_types.size()){
+            return false;
+        }
+        for(int i=0; i<n; i++){
+            if(!(prototype->param_types.at(i) == other.prototype->param_types.at(i))){
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 std::string FuncType::to_string(const FuncType::FuncPrototype& t){
     std::string s = "(";
     if(t.param_types.size() > 0){

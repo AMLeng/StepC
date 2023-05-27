@@ -13,7 +13,7 @@ struct overloaded : Ts...{
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 
 namespace{
-value::Value* make_command(type::BasicType t, std::string command, value::Value* left, value::Value* right, 
+value::Value* make_command(type::CType t, std::string command, value::Value* left, value::Value* right, 
     std::ostream& output, context::Context& c){
     AST::print_whitespace(c.depth(), output);
     auto new_temp = c.new_temp(t);
@@ -28,7 +28,7 @@ value::Value* make_load(value::Value* local, std::ostream& output, context::Cont
     output << ", " <<type::ir_type(local->get_type())<<"* "<<local->get_value()<<std::endl;
     return result;
 }
-value::Value* make_tmp_reg(type::BasicType t, std::ostream& output, context::Context& c){
+value::Value* make_tmp_reg(type::CType t, std::ostream& output, context::Context& c){
     auto new_tmp = c.new_temp(t);
     AST::print_whitespace(c.depth(), output);
     output << new_tmp->get_value() <<" = alloca "<<type::ir_type(new_tmp->get_type()) <<std::endl;
@@ -43,7 +43,7 @@ void make_store(value::Value* val, value::Value* reg, std::ostream& output, cont
 
 std::string convert_command(type::IType target, type::IType source){
     if(type::can_represent(target, source)){
-        if(type::is_signed_int(type::make_basic(source))){
+        if(type::is_signed_int(source)){
             return "sext";
         }else{
             return "zext";
@@ -53,7 +53,7 @@ std::string convert_command(type::IType target, type::IType source){
     }
 }
 std::string convert_command(type::IType target, type::FType source){
-    if(type::is_signed_int(type::make_basic(target))){
+    if(type::is_signed_int(target)){
         //IF IT CAN'T FIT, POTENTIAL SOURCE OF Undefined Behavior!!!!!!!!!
         return "fptosi";
     }else{
@@ -63,7 +63,7 @@ std::string convert_command(type::IType target, type::FType source){
 }
 
 std::string convert_command(type::FType target, type::IType source){
-    if(type::is_signed_int(type::make_basic(source))){
+    if(type::is_signed_int(source)){
         return "sitofp";
     }else{
         return "uitofp";
@@ -77,8 +77,9 @@ std::string convert_command(type::FType target, type::FType source){
     }
 }
 
-value::Value* codegen_convert(type::BasicType target_type, value::Value* val, 
+value::Value* codegen_convert(type::CType original_target_type, value::Value* val, 
         std::ostream& output, context::Context& c){
+    type::BasicType target_type = std::get<type::BasicType>(original_target_type);
     if(target_type == type::from_str("_Bool")){
         std::string command = std::visit(overloaded{
                 [](type::IType){return "icmp ne";},
@@ -86,7 +87,7 @@ value::Value* codegen_convert(type::BasicType target_type, value::Value* val,
                 }, val->get_type());
 
         AST::print_whitespace(c.depth(), output);
-        auto new_tmp = c.new_temp(type::make_basic(type::IType::Bool));
+        auto new_tmp = c.new_temp(type::IType::Bool);
         output << new_tmp->get_value() <<" = "<<command<<" "<<type::ir_type(val->get_type());
         output << std::visit(overloaded{
             [](type::IType){return " 0, ";},
@@ -123,13 +124,13 @@ value::Value* assignment_codegen(const ast::BinaryOp* node, std::ostream& output
             result = make_command(node->new_left_type,std::visit(overloaded{
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
-                }, node->type) , loaded_value,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)) , loaded_value,right_register,output,c);
             break;
         case token::TokenType::MinusAssign:
             result = make_command(node->new_left_type, std::visit(overloaded{
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
-                }, node->type), loaded_value,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)) , loaded_value,right_register,output,c);
             break;
         case token::TokenType::DivAssign:
             result = make_command(node->new_left_type,std::visit(overloaded{
@@ -137,13 +138,13 @@ value::Value* assignment_codegen(const ast::BinaryOp* node, std::ostream& output
                     if(type::is_signed_int(t)){return "sdiv";}
                     else{return "udiv";}},
                 [](type::FType){return "fdiv";},
-                }, node->type) , loaded_value,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)) , loaded_value,right_register,output,c);
             break;
         case token::TokenType::MultAssign:
             result = make_command(node->new_left_type,std::visit(overloaded{
                 [](type::IType){return "mul";},
                 [](type::FType){return "fmul";},
-                }, node->type) , loaded_value,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)) , loaded_value,right_register,output,c);
             break;
         case token::TokenType::ModAssign:
             result = make_command(node->new_left_type,std::visit(overloaded{
@@ -153,7 +154,7 @@ value::Value* assignment_codegen(const ast::BinaryOp* node, std::ostream& output
                 [](type::FType){
                     assert(false && "C does not allow mod to take floating point arguments");
                     return "frem";},
-                }, node->type) , loaded_value,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)) , loaded_value,right_register,output,c);
             break;
         case token::TokenType::LSAssign:
             right_register = codegen_convert(node->new_left_type, right_register, output, c);
@@ -191,9 +192,9 @@ value::Value* short_circuit_codegen(const ast::BinaryOp* node, std::ostream& out
     std::string end_label = "logical_op_end."+std::to_string(instruction_number);
 
     auto left_register = node->left->codegen(output, c);
-    left_register = codegen_convert(type::make_basic(type::IType::Bool),left_register, output, c);
+    left_register = codegen_convert(type::IType::Bool,left_register, output, c);
 
-    auto new_tmp = make_tmp_reg(type::make_basic(type::IType::Bool), output, c);
+    auto new_tmp = make_tmp_reg(type::IType::Bool, output, c);
     make_store(left_register, new_tmp, output, c);
 
     switch(node->tok.type){
@@ -209,7 +210,7 @@ value::Value* short_circuit_codegen(const ast::BinaryOp* node, std::ostream& out
             assert(false && "Unknown binary assignment op during codegen");
     }
     auto right_register = node->right->codegen(output, c);
-    right_register = codegen_convert(type::make_basic(type::IType::Bool),right_register, output, c);
+    right_register = codegen_convert(type::IType::Bool,right_register, output, c);
     value::Value* no_sc_result = nullptr;
     switch(node->tok.type){
         case token::TokenType::And:
@@ -239,19 +240,19 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
             result = make_command(node->type, std::visit(overloaded{
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
-                }, node->type), left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)), left_register,right_register,output,c);
             break;
         case token::TokenType::Plus:
             result = make_command(node->type,std::visit(overloaded{
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
-                }, node->type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)), left_register,right_register,output,c);
             break;
         case token::TokenType::Mult:
             result = make_command(node->type,std::visit(overloaded{
                 [](type::IType){return "mul";},
                 [](type::FType){return "fmul";},
-                }, node->type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)), left_register,right_register,output,c);
             break;
         case token::TokenType::Div:
             result = make_command(node->type,std::visit(overloaded{
@@ -259,7 +260,7 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
                     if(type::is_signed_int(t)){return "sdiv";}
                     else{return "udiv";}},
                 [](type::FType){return "fdiv";},
-                }, node->type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)), left_register,right_register,output,c);
             break;
         case token::TokenType::Mod:
             result = make_command(node->type,std::visit(overloaded{
@@ -269,19 +270,19 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
                 [](type::FType){
                     assert(false && "C does not allow mod to take floating point arguments");
                     return "frem";},
-                }, node->type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->type)), left_register,right_register,output,c);
             break;
         case token::TokenType::Equal:
             result = make_command(type::from_str("_Bool"),std::visit(overloaded{
                 [](type::IType){return "icmp eq";},
                 [](type::FType){return "fcmp oeq";},
-                }, node->new_left_type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->new_left_type)), left_register,right_register,output,c);
             break;
         case token::TokenType::NEqual:
             result = make_command(type::from_str("_Bool"),std::visit(overloaded{
                 [](type::IType){return "icmp ne";},
                 [](type::FType){return "fcmp one";},
-                }, node->new_left_type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->new_left_type)), left_register,right_register,output,c);
             break;
         case token::TokenType::Less:
             result = make_command(type::from_str("_Bool"),std::visit(overloaded{
@@ -289,7 +290,7 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
                     if(type::is_signed_int(t)){return "icmp slt";}
                     else{return "icmp ult";}},
                 [](type::FType){return "fcmp olt";},
-                }, node->new_left_type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->new_left_type)), left_register,right_register,output,c);
             break;
         case token::TokenType::Greater:
             result = make_command(type::from_str("_Bool"),std::visit(overloaded{
@@ -297,7 +298,7 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
                     if(type::is_signed_int(t)){return "icmp sgt";}
                     else{return "icmp ugt";}},
                 [](type::FType){return "fcmp ogt";},
-                }, node->new_left_type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->new_left_type)), left_register,right_register,output,c);
             break;
         case token::TokenType::LEq:
             result = make_command(type::from_str("_Bool"),std::visit(overloaded{
@@ -305,7 +306,7 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
                     if(type::is_signed_int(t)){return "icmp sle";}
                     else{return "icmp ule";}},
                 [](type::FType){return "fcmp ole";},
-                }, node->new_left_type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->new_left_type)), left_register,right_register,output,c);
             break;
         case token::TokenType::GEq:
             result = make_command(type::from_str("_Bool"),std::visit(overloaded{
@@ -313,7 +314,7 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
                     if(type::is_signed_int(t)){return "icmp sge";}
                     else{return "icmp uge";}},
                 [](type::FType){return "fcmp oge";},
-                }, node->new_left_type) , left_register,right_register,output,c);
+                }, std::get<type::BasicType>(node->new_left_type)), left_register,right_register,output,c);
             break;
         case token::TokenType::LShift:
             //LLVM IR requires both arguments to the shift to be the same integer type
@@ -373,7 +374,7 @@ value::Value* NullStmt::codegen(std::ostream& output, context::Context& c)const 
 value::Value* Conditional::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto condition = cond->codegen(output, c);
-    condition = codegen_convert(type::make_basic(type::IType::Bool),condition, output, c);
+    condition = codegen_convert(type::IType::Bool,condition, output, c);
     auto new_tmp = make_tmp_reg(this->type, output, c);
 
     int instruction_number = c.new_local_name(); 
@@ -395,7 +396,7 @@ value::Value* Conditional::codegen(std::ostream& output, context::Context& c)con
 
 value::Value* IfStmt::codegen(std::ostream& output, context::Context& c)const {
     auto condition = if_condition->codegen(output, c);
-    condition = codegen_convert(type::make_basic(type::IType::Bool),condition, output, c);
+    condition = codegen_convert(type::IType::Bool,condition, output, c);
     int instruction_number = c.new_local_name(); 
     std::string true_label = "iftrue."+std::to_string(instruction_number);
     std::string end_label = "ifend."+std::to_string(instruction_number);
@@ -427,9 +428,9 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)co
 }
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
     assert(std::holds_alternative<type::BasicType>(this->type.ret_type) && "Not basic type");
-    assert(std::get<type::BasicType>(type.ret_type) == type::make_basic(type::IType::Int));
+    assert(type.ret_type == type::CType(type::IType::Int));
     AST::print_whitespace(c.depth(), output);
-    output << "define "<<type::ir_type(std::get<type::BasicType>(this->type.ret_type))<<" @" + this->tok.value+"(){"<<std::endl;
+    output << "define "<<type::ir_type(this->type.ret_type)<<" @" + this->tok.value+"(){"<<std::endl;
     c.enter_function(type.ret_type, output);
     function_body->codegen(output, c);
     c.exit_function(output);
@@ -444,7 +445,7 @@ value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)con
 value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c)const {
     auto return_value = return_expr->codegen(output, c);
     assert(std::holds_alternative<type::BasicType>(c.return_type()) && "Not basic type");
-    return_value = codegen_convert(std::get<type::BasicType>(c.return_type()),std::move(return_value), output, c);
+    return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
     int instruction_number = c.new_local_name(); 
     c.change_block("afterret."+std::to_string(instruction_number),output, 
         std::make_unique<basicblock::RET>(return_value));
@@ -610,6 +611,11 @@ value::Value* Constant::codegen(std::ostream& output, context::Context& c)const 
     assert(this->analyzed && "This AST node has not had analysis run on it");
     return c.add_literal(this->literal, this->type);
 }
+value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const {
+    assert(false && "not yet implemented");
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    return nullptr;
+}
 
 value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
@@ -627,14 +633,14 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
             command = std::visit(overloaded{
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
-                }, this->type);
+                }, std::get<type::BasicType>(this->type));
             
             AST::print_whitespace(c.depth(), output);
             auto var_temp = c.new_temp(this->type);
             output << var_temp->get_value()<<" = "<<command<<" "<<t<<" "<<new_temp->get_value()<<std::visit(overloaded{
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
-                }, this->type) <<std::endl;
+                }, std::get<type::BasicType>(this->type)) <<std::endl;
             make_store(var_temp,var_reg, output, c);
         }
             return new_temp;
@@ -647,14 +653,14 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
             command = std::visit(overloaded{
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
-                }, this->type);
+                }, std::get<type::BasicType>(this->type));
             
             AST::print_whitespace(c.depth(), output);
             auto var_temp = c.new_temp(this->type);
             output << var_temp->get_value()<<" = "<<command<<" "<<t<<" "<<new_temp->get_value()<<std::visit(overloaded{
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
-                }, this->type) <<std::endl;
+                }, std::get<type::BasicType>(this->type)) <<std::endl;
             make_store(var_temp,var_reg, output, c);
         }
             return new_temp;
@@ -744,7 +750,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 }, operand->get_type());
 
             AST::print_whitespace(c.depth(), output);
-            auto intermediate_bool = c.new_temp(type::make_basic(type::IType::Bool));
+            auto intermediate_bool = c.new_temp(type::IType::Bool);
             output << intermediate_bool->get_value() <<" = "<<command<<" "<<type::ir_type(operand->get_type());
             output << std::visit(overloaded{
                 [](type::IType){return " 0, ";},

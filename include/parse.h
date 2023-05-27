@@ -8,6 +8,7 @@ std::unique_ptr<ast::Constant> parse_constant(lexer::Lexer& l);
 std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::Lexer& l);
 std::unique_ptr<ast::BinaryOp> parse_binary_op(lexer::Lexer& l, std::unique_ptr<ast::Expr> left, int min_bind_power);
 std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power = 0);
+std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l);
 std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg);
 std::unique_ptr<ast::IfStmt> parse_if_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l);

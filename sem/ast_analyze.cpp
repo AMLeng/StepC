@@ -47,6 +47,30 @@ void Conditional::analyze(symbol::STable* st){
     }
     this->type = type::usual_arithmetic_conversions(this->true_expr->type, this->false_expr->type);
 }
+void FuncCall::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    //Check that the function actually exists in a symbol table
+    if(!st->has_symbol(this->func_name)){
+        throw sem_error::STError("Function not found in symbol table",this->tok);
+    }
+    auto arg_types = std::vector<type::CType>{};
+    for(auto& expr : args){
+        expr->analyze(st);
+        arg_types.push_back(expr->type);
+    }
+    if(arg_types.size() == 0){
+        arg_types.push_back(type::CType());
+    }
+    try{
+        auto f_type = std::get<type::DerivedType>(st->symbol_type(this->func_name)).get<type::FuncType>();
+        if(f_type.has_prototype() && !f_type.params_match(arg_types)){
+            throw sem_error::TypeError("Cannot call function of type "+type::to_string(f_type)+" on types of provided arguments",this->tok);
+        }
+        this->type = f_type.ret_type;
+    }catch(std::runtime_error& e){ //Won't catch the STError
+        throw sem_error::STError("Function call with identifier not referring to a function",this->tok);
+    }
+}
 void Postfix::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
@@ -436,7 +460,7 @@ void FunctionDecl::analyze(symbol::STable* st){
     this->analyzed = true;
     //Add to global symbol table
     try{
-        st->add_symbol(this->name,type::make_type(this->type));
+        st->add_symbol(this->name,this->type);
     }catch(std::runtime_error& e){
         throw sem_error::STError(e.what(),this->tok);
     }
@@ -444,7 +468,7 @@ void FunctionDecl::analyze(symbol::STable* st){
 void FunctionDef::analyze(symbol::STable* st) {
     this->analyzed = true;
     try{
-        st->add_symbol(this->name,type::make_type(this->type), true);
+        st->add_symbol(this->name,this->type, true);
     }catch(std::runtime_error& e){
         throw sem_error::STError(e.what(),this->tok);
     }

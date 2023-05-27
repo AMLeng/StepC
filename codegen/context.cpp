@@ -30,18 +30,18 @@ value::Value* Context::prev_temp(int i) const{
 int Context::new_local_name(){
     return total_locals++;
 }
-value::Value* Context::new_temp(type::BasicType t){
+value::Value* Context::new_temp(type::CType t){
     auto new_tmp_ptr = std::make_unique<value::Value>("%"+std::to_string(instructions),t);
     current_scope->tmp_map.push_back(std::move(new_tmp_ptr));
     instructions++;
     return prev_temp(0);
 }
-value::Value* Context::add_literal(std::string literal, type::BasicType type){
+value::Value* Context::add_literal(std::string literal, type::CType type){
     //Doesn't matter if already present
     current_scope->literal_map.emplace(literal,std::make_unique<value::Value>(literal,type));
     return current_scope->literal_map.at(literal).get();
 }
-value::Value* Context::add_local(std::string name, type::BasicType type){
+value::Value* Context::add_local(std::string name, type::CType type){
     std::string value = "%" + name +"."+std::to_string(total_locals);
     assert(current_scope->sym_map.find(name) == current_scope->sym_map.end() && "Symbol already present in table");
     current_scope->sym_map.emplace(name,std::make_unique<value::Value>(value, type));

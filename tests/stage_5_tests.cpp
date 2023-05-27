@@ -249,10 +249,10 @@ R"(
     auto decl_list = parse::parse_decl_list(l);
     auto var_decl_p = dynamic_cast<ast::VarDecl*>(decl_list->decls.back().get());
     REQUIRE(var_decl_p);
-    REQUIRE(var_decl_p->type == type::from_str("_Bool"));
+    REQUIRE(type::CType(var_decl_p->type) == type::CType(type::from_str("_Bool")));
     auto global_st = symbol::STable();
     decl_list->analyze(&global_st);
-    REQUIRE(var_decl_p->assignment.value()->left->type == type::from_str("_Bool"));
+    REQUIRE(var_decl_p->assignment.value()->left->type == type::CType(type::from_str("_Bool")));
 }
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)

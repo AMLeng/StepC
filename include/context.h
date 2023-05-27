@@ -39,11 +39,11 @@ class Context{
 public:
     Context();
     value::Value* prev_temp(int i) const;
-    value::Value* new_temp(type::BasicType t);
+    value::Value* new_temp(type::CType t);
     int new_local_name();
-    value::Value* add_literal(std::string literal, type::BasicType type);
-    value::Value* add_global(std::string name, type::BasicType type);//Not implemented yet
-    value::Value* add_local(std::string name, type::BasicType type);
+    value::Value* add_literal(std::string literal, type::CType type);
+    value::Value* add_global(std::string name, type::CType type);//Not implemented yet
+    value::Value* add_local(std::string name, type::CType type);
     bool has_symbol(std::string name) const;
     value::Value* get_value(std::string name) const;
     void enter_scope();
