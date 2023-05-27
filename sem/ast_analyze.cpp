@@ -13,7 +13,7 @@ void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
     //Add symbol to symbol table, check that not already present
     try{
-        st->add_symbol(this->name,this->type);
+        st->add_symbol(this->name,this->type, this->assignment.has_value());
     }catch(std::runtime_error& e){
         throw sem_error::STError(e.what(),this->tok);
     }
@@ -442,7 +442,12 @@ void FunctionDecl::analyze(symbol::STable* st){
     }
 }
 void FunctionDef::analyze(symbol::STable* st) {
-    FunctionDecl::analyze(st);
+    this->analyzed = true;
+    try{
+        st->add_symbol(this->name,type::make_type(this->type), true);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
     if(this->tok.value == "main"){
         if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
             auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};

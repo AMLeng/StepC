@@ -10,6 +10,17 @@
 #include <utility>
 
 
+TEST_CASE("parse single function decl "){
+    auto ss = std::stringstream(
+R"(
+int b(int p1, double p2);
+int main(){
+    return 5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    //program_pointer->pretty_print(0);
+}
 TEST_CASE("parse function decl with param names"){
     auto ss = std::stringstream(
 R"(
@@ -110,6 +121,86 @@ TEST_CASE("error function decl not at global scope"){
 R"(
 int main(){
     int b(int a);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
+TEST_CASE("parse global var"){
+    auto ss = std::stringstream(
+R"(
+int a;
+int main(){
+    a = 3;
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("parse global var 2"){
+    auto ss = std::stringstream(
+R"(
+int a = 4;
+int main(){
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("parse global var multiple decl"){
+    auto ss = std::stringstream(
+R"(
+int a;
+int a = 3;
+int main(){
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("error global var no multiple def"){
+    auto ss = std::stringstream(
+R"(
+int a = 4;
+int a = 3;
+int main(){
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
+TEST_CASE("error missing semicolon in decl"){
+    auto ss = std::stringstream(
+R"(
+int a
+int main(){
+    return a;
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+}
+TEST_CASE("error global var variable conflict"){
+    auto ss = std::stringstream(
+R"(
+int a(int);
+int a;
+int main(){
+    return a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
+TEST_CASE("error variable main"){
+    auto ss = std::stringstream(
+R"(
+int main;
+int main(){
+    return 5;
 })");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);

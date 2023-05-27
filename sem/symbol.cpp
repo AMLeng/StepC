@@ -85,7 +85,7 @@ void STable::add_label(const std::string& name){
         function_labels->insert_or_assign(name,std::nullopt);
     }
 }
-void STable::add_symbol(std::string name, type::CType type){
+void STable::add_symbol(std::string name, type::CType type, bool has_def){
     //Scope checking
     if(std::holds_alternative<type::DerivedType>(type)){
         std::get<type::DerivedType>(type).visit(overloaded{
@@ -98,17 +98,20 @@ void STable::add_symbol(std::string name, type::CType type){
     }
     //Symbol checking
     if(sym_map.find(name) != sym_map.end()){
-        auto existing_type = sym_map.at(name);
+        auto existing_decl = sym_map.at(name);
         if(this->parent != nullptr){
             throw std::runtime_error("Symbol "+name+" of incompatible type already present in symbol table at non-global scope");
         }
-        if(!type::is_compatible(existing_type, type)){
+        if(has_def && existing_decl.second){
+            throw std::runtime_error("Symbol "+name+" already defined at global scope");
+        }
+        if(!type::is_compatible(existing_decl.first, type)){
             throw std::runtime_error("Global symbol "+name+" of incompatible type already present in symbol table");
         }else{
             //type = type::make_composite(type, existing_type);
         }
     }
-    sym_map.emplace(name,type);
+    sym_map.emplace(name,std::make_pair(type,has_def));
 }
 bool STable::has_symbol(std::string name){
     STable* to_search = this;
@@ -120,11 +123,12 @@ bool STable::has_symbol(std::string name){
     }
     return false;
 }
+
 type::CType STable::symbol_type(std::string name){
     STable* to_search = this;
     while(to_search != nullptr){
         if(to_search->sym_map.find(name) != to_search->sym_map.end()){
-            return to_search->sym_map.at(name);
+            return to_search->sym_map.at(name).first;
         }
         to_search = to_search->parent;
     }

@@ -70,7 +70,7 @@ std::pair<type::FuncType, std::vector<Declarator>> parse_param_list(type::CType 
     auto params = std::vector<type::CType>{};
     auto names = std::set<std::string>{};
     while(true){
-        if(l.peek_token().type == token::TokenType::RParen){
+        if(l.peek_token().type == token::TokenType::RParen){ //K & R syntax with empty param list
             break;
         }
         type::CType param_specifiers = parse_specifiers(l);
@@ -121,11 +121,13 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
 std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, Declarator decl, std::vector<Declarator> params){
     check_token_type(l.peek_token(), token::TokenType::LBrace);
     auto function_body = parse_compound_stmt(l);
-
     return std::make_unique<ast::FunctionDef>(decl.first.value(), std::get<type::DerivedType>(decl.second).get<type::FuncType>(), std::move(function_body));
 }
 
 std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
+    while(l.peek_token().type == token::TokenType::Semicolon){
+        l.get_token();
+    }
     auto specifiers = parse_specifiers(l);
     auto declarator_param_pair = parse_declarator(specifiers, l);
     if(l.peek_token().type == token::TokenType::LBrace){
@@ -135,6 +137,7 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
     decls.push_back(parse_init_decl(l,specifiers, declarator_param_pair.first));
     while(true){
         if(token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
+            l.get_token();
             break;
         }
         check_token_type(l.get_token(), token::TokenType::Comma);
