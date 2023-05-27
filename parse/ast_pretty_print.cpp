@@ -16,7 +16,11 @@ void AST::print_whitespace(int depth, std::ostream& output){
 }
 
 void Program::pretty_print(int depth){
-    main_method->pretty_print(depth);
+    AST::print_whitespace(depth);
+    std::cout<< "PROGRAM WITH:" << std::endl;
+    for(const auto& decl : decls){
+        decl -> pretty_print(depth);
+    }
 }
 void CompoundStmt::pretty_print(int depth){
     for(const auto& stmt : stmt_body){
@@ -85,12 +89,9 @@ void ForStmt::pretty_print(int depth){
 
 
 void FunctionDef::pretty_print(int depth){
+    FunctionDecl::pretty_print(depth);
     AST::print_whitespace(depth);
-    std::cout<< type::to_string(return_type) << " FUNCTION "<<name_tok.value <<":"<<std::endl;
-    AST::print_whitespace(depth+1);
-    std::cout<< "PARAMS: ()" << std::endl;
-    AST::print_whitespace(depth+1);
-    std::cout<< "BODY: " << std::endl;
+    std::cout<< "FUNCTION DEF BODY: " << std::endl;
     function_body->pretty_print(depth + 2);
 }
 void Conditional::pretty_print(int depth){
@@ -158,6 +159,10 @@ void ReturnStmt::pretty_print(int depth){
 void Variable::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<<"VARIABLE \""<<variable_name<<"\" OF TYPE "<<type::to_string(type)<<std::endl;
+}
+void FunctionDecl::pretty_print(int depth){
+    AST::print_whitespace(depth);
+    std::cout<<"FUNCTION DECL \""<<name<<"\" OF TYPE "<< type::to_string(type) <<std::endl;
 }
 void VarDecl::pretty_print(int depth){
     AST::print_whitespace(depth);

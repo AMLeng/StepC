@@ -48,8 +48,50 @@ namespace{
             throw parse_error::ParseError("Expected " + token::string_name(type), tok);
         }
     }
+    type::CType convert_specifiers(std::multiset<std::string> specifiers){
+        if(specifiers.size() == 0){
+            throw std::runtime_error("Failed to parse declaration specifiers");
+        }
+        type::CType t;
+        if(specifiers.size() == 1 && specifiers.find("void") != specifiers.end()){
+            return t;
+        }
+        try{
+            return type::from_str_multiset(specifiers);
+        }catch(std::runtime_error& e){
+            throw;
+        }
+    }
 }//namespace
+bool is_specifier(const token::Token& tok){
+    return tok.value == "void"
+        || tok.value == "char"
+        || tok.value == "short"
+        || tok.value == "int"
+        || tok.value == "long"
+        || tok.value == "float"
+        || tok.value == "double"
+        || tok.value == "signed"
+        || tok.value == "unsigned"
+        || tok.value == "_Bool";
+}
 
+type::CType parse_specifiers(lexer::Lexer& l){
+    auto specifier_list = std::multiset<std::string>{};
+    auto next_tok = l.peek_token();
+    while(next_tok.type == token::TokenType::Keyword){
+        if(!is_specifier(next_tok)){
+            throw parse_error::ParseError("Expected specifier keyword",next_tok);
+        }
+        specifier_list.insert(l.get_token().value);
+        next_tok = l.peek_token();
+    }
+    try{
+        return convert_specifiers(specifier_list);
+    }catch(std::runtime_error& e){
+        throw sem_error::TypeError(e.what(), l.peek_token());
+    }
+}
 //Definitions for parsing methods
 std::unique_ptr<ast::Constant> parse_constant(lexer::Lexer& l){
     auto constant_value = l.get_token();
@@ -218,47 +260,10 @@ std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l){
     check_token_type(semicolon, token::TokenType::Semicolon);
     return std::make_unique<ast::ReturnStmt>(std::move(ret_value));
 }
-std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
-    auto keyword_list = std::multiset<std::string>{};
-    auto first_keyword = l.peek_token();
-    while(l.peek_token().type == token::TokenType::Keyword){
-        keyword_list.insert(l.get_token().value);
-    }
-    if(keyword_list.size() == 0){
-        throw parse_error::ParseError("Parsing decl that did not start with a keyword", first_keyword);
-    }
-    type::BasicType t;
-    check_token_type(l.peek_token(), token::TokenType::Identifier);
-    try{
-        t = type::from_str_multiset(keyword_list);
-    }catch(std::runtime_error& e){
-        throw sem_error::TypeError(e.what(), first_keyword);
-    }
-    auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
-    do{
-        auto var_name = l.get_token();
-        check_token_type(var_name, token::TokenType::Identifier);
-        auto next_tok = l.peek_token();
-        if(token::matches_type(next_tok, token::TokenType::Assign)){
-            std::unique_ptr<ast::LValue> var = std::make_unique<ast::Variable>(var_name);
-            auto assign = parse_binary_op(l,std::move(var),
-                    binary_op_binding_power.at(token::TokenType::Assign).second);
-            decls.push_back(std::make_unique<ast::VarDecl>(var_name, t, std::move(assign)));
-        }else{
-            decls.push_back(std::make_unique<ast::VarDecl>(var_name, t));
-        }
-        if(token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
-            break;
-        }
-        check_token_type(l.get_token(), token::TokenType::Comma);
-    }while(true);
-    return std::make_unique<ast::DeclList>(std::move(decls));
-}
 
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
     auto next_token = l.peek_token();
-    if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, 
-        "return", "if", "for", "do", "while", "continue", "break", "goto", "switch", "case", "default")){
+    if(next_token.type == token::TokenType::Keyword && is_specifier(next_token)){
         return parse_decl_list(l);
     }
     return parse_stmt(l);
@@ -297,6 +302,9 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     }
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "default")){
         return parse_default_stmt(l);
+    }
+    if(next_token.type == token::TokenType::Keyword){
+        throw parse_error::ParseError("Unknown keyword in statement beginning", next_token);
     }
     if(next_token.type == token::TokenType::LBrace){
         return parse_compound_stmt(l);
@@ -436,33 +444,49 @@ std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::RBrace);
     return std::make_unique<ast::CompoundStmt>(std::move(stmt_body));
 }
-
-std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l){
-    auto ret_type = l.get_token();
-    if(ret_type.type != token::TokenType::Keyword && ret_type.type != token::TokenType::Identifier){
-        throw parse_error::ParseError("Invalid function return type", ret_type);
+std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, type::CType specifiers, Declarator declarator){
+    auto var_name = declarator.first.value();
+    check_token_type(var_name, token::TokenType::Identifier);
+    if(l.peek_token().type == token::TokenType::Assign){
+        return std::visit(overloaded{
+                [&var_name](type::VoidType vt) -> std::unique_ptr<ast::Decl>{
+                throw sem_error::TypeError("Invalid type 'void'", var_name);
+                },[&var_name,&l,bind = binary_op_binding_power.at(token::TokenType::Assign).second](
+                        type::BasicType bt) -> std::unique_ptr<ast::Decl>{
+                auto assign = parse_binary_op(l,std::make_unique<ast::Variable>(var_name),bind);
+                return std::make_unique<ast::VarDecl>(var_name, bt, std::move(assign));
+                },[&var_name](type::DerivedType dt) -> std::unique_ptr<ast::Decl>{
+                return dt.visit(overloaded{
+                        [&var_name](type::FuncType ft) -> std::unique_ptr<ast::Decl>{
+                        throw sem_error::TypeError("Invalid assignment to function type", var_name);
+                        }
+                        });
+                }}, declarator.second);
+    }else{
+        return std::visit(overloaded{
+                [&var_name](type::VoidType vt) -> std::unique_ptr<ast::Decl>{
+                throw sem_error::TypeError("Invalid type 'void'", var_name);
+                },[&var_name](type::BasicType bt)-> std::unique_ptr<ast::Decl>{
+                return std::make_unique<ast::VarDecl>(var_name, bt);
+                },[&var_name](type::DerivedType dt)-> std::unique_ptr<ast::Decl>{
+                return dt.visit(overloaded{
+                        [&var_name](type::FuncType ft) -> std::unique_ptr<ast::Decl>{
+                        return std::make_unique<ast::FunctionDecl>(var_name, ft);
+                        }
+                        });
+                }}, declarator.second);
     }
-    auto name = l.get_token();
-    if(name.type != token::TokenType::Identifier){
-        throw parse_error::ParseError("Invalid function name", name);
-    }
-
-    check_token_type(l.get_token(), token::TokenType::LParen);
-    check_token_type(l.get_token(), token::TokenType::RParen);
-    check_token_type(l.peek_token(), token::TokenType::LBrace);
-
-    auto function_body = parse_compound_stmt(l);
-
-    return std::make_unique<ast::FunctionDef>(name, type::from_str(ret_type.value), std::move(function_body));
 }
 
+
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l){
-    auto main_method = parse_function_def(l);
-    auto next = l.get_token();
-    if(next.type != token::TokenType::END){
-        throw parse_error::ParseError("Expected end of file", next);
+    auto next = l.peek_token();
+    auto global_decls = std::vector<std::unique_ptr<ast::ExtDecl>>{};
+    while(next.type != token::TokenType::END){
+        global_decls.push_back(parse_ext_decl(l));
+        next = l.peek_token();
     }
-    return std::make_unique<ast::Program>(std::move(main_method));
+    return std::make_unique<ast::Program>(std::move(global_decls));
 }
 
 } //namespace parse

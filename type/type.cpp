@@ -11,6 +11,15 @@ namespace{
 
 
 } //namespace
+CType make_type(VoidType v){
+    return v;
+}
+CType make_type(BasicType b){
+    return b;
+}
+CType make_type(DerivedType d){
+    return d;
+}
 DerivedType::DerivedType(const DerivedType& other){
     this->type = std::visit(overloaded{
         [](const std::unique_ptr<FuncType>& func_type){
@@ -50,5 +59,22 @@ bool is_compatible(const CType& type1, const CType& type2){
                             && is_compatible(type1, std::get<DerivedType>(type2));},
     }, type1);
 }
-
+std::string to_string(const DerivedType& arg){
+    try{
+        return std::visit(overloaded{
+                [](const std::unique_ptr<FuncType>& type)->std::string{
+                return to_string(*type);
+            }
+        }, arg.type);
+    }catch(std::exception& e){
+        throw std::runtime_error("Failed to convert DerivedType to string");
+    }
+}
+std::string to_string(const CType& type){
+    return std::visit(overloaded{
+        [](VoidType v)->std::string{return "void";},
+        [](BasicType t)->std::string{return to_string(t);},
+        [](const DerivedType& t){return to_string(t);},
+    }, type);
+}
 } //namespace type

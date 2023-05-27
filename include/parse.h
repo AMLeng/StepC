@@ -4,8 +4,6 @@
 #include "ast.h"
 #include <memory>
 namespace parse{
-
-
 std::unique_ptr<ast::Constant> parse_constant(lexer::Lexer& l);
 std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::Lexer& l);
 std::unique_ptr<ast::BinaryOp> parse_binary_op(lexer::Lexer& l, std::unique_ptr<ast::Expr> left, int min_bind_power);
@@ -26,12 +24,19 @@ std::unique_ptr<ast::ContinueStmt> parse_continue_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::BreakStmt> parse_break_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::GotoStmt> parse_goto_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::LabeledStmt> parse_labeled_stmt(lexer::Lexer& l);
-std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l);
 std::unique_ptr<ast::Variable> parse_variable(lexer::Lexer& l);
 std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l);
 std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l);
-std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l);
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l);
 
+typedef std::pair<std::optional<token::Token>, type::CType> Declarator;
+std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, type::CType specifiers, Declarator declarator);
+type::CType parse_specifiers(lexer::Lexer& l);
+
+//In parse_decl.cpp
+std::pair<type::FuncType, std::vector<Declarator>> parse_param_list(type::CType ret_type, lexer::Lexer& l);
+std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, Declarator decl, std::vector<Declarator> params);
+std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l);
+std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l);
 } //namespace parse
 #endif

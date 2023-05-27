@@ -28,7 +28,11 @@ void Variable::analyze(symbol::STable* st) {
     if(!st->has_symbol(this->variable_name)){
         throw sem_error::STError("Variable not found in symbol table",this->tok);
     }
-    this->type=st->symbol_type(this->variable_name);
+    auto type_in_table = st->symbol_type(this->variable_name);
+    if(!std::holds_alternative<type::BasicType>(type_in_table)){
+        throw sem_error::STError("Symbol table entry not of basic type",this->tok);
+    }
+    this->type = std::get<type::BasicType>(type_in_table);
 }
 void Conditional::analyze(symbol::STable* st){
     this->analyzed = true;
@@ -333,8 +337,9 @@ void BreakStmt::analyze(symbol::STable* st){
     }
 }
 void Program::analyze(symbol::STable* st) {
-    auto main_table = st->new_child();
-    main_method->analyze(main_table);
+    for(auto& decl : decls){
+        decl->analyze(st);
+    }
 }
 void ForStmt::analyze(symbol::STable* st){
     auto stmt_table = st->new_child();
@@ -427,8 +432,18 @@ void DeclList::analyze(symbol::STable* st){
         decl->analyze(st);
     }
 }
+void FunctionDecl::analyze(symbol::STable* st){
+    this->analyzed = true;
+    //Add to global symbol table
+    try{
+        st->add_symbol(this->name,type::make_type(this->type));
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
+}
 void FunctionDef::analyze(symbol::STable* st) {
-    if(this->name_tok.value == "main"){
+    FunctionDecl::analyze(st);
+    if(this->tok.value == "main"){
         if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
             auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
             std::unique_ptr<Expr> ret_expr = std::make_unique<Constant>(fake_token);
@@ -439,7 +454,7 @@ void FunctionDef::analyze(symbol::STable* st) {
     try{
         function_table = st->new_function_scope_child();
     }catch(std::runtime_error& e){
-        throw sem_error::FlowError(e.what(),this->name_tok);
+        throw sem_error::FlowError(e.what(),this->tok);
     }
     function_body->analyze(function_table);
     std::optional<token::Token> error_tok;

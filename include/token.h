@@ -14,7 +14,7 @@ enum class TokenType{
     Colon, Question, And, Or,
     Equal,NEqual,Greater,Less,LEq,GEq,
     BitwiseNot,BitwiseAnd,BitwiseOr,BitwiseXor, LShift,RShift,
-    Comma,Plusplus, Minusminus,
+    Comma,Plusplus, Minusminus, Ellipsis,
     END, COMMENT
 };
 
@@ -149,6 +149,8 @@ inline std::string string_name(TokenType type){
             return "colon ':'";
         case TokenType::Question:
             return "question mark '?'";
+        case TokenType::Ellipsis:
+            return "ellipsis '...'";
         case TokenType::COMMENT:
             return "comment";
         case TokenType::END:

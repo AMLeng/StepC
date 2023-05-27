@@ -214,7 +214,7 @@ TEST_CASE("variable redef"){
 R"(int main(){
     long unsigned a = 4;
     int a = (a + 2)*0.5;
-    return ~b;
+    return ~a;
 })");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);

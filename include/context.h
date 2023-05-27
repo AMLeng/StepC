@@ -28,7 +28,7 @@ class Context{
             return children.back().get();
         }
     };
-    std::unique_ptr<type::BasicType> ret_type;
+    std::unique_ptr<type::CType> ret_type;
     const std::unique_ptr<Scope> global_scope;
     Scope* current_scope;
     int total_locals;
@@ -48,10 +48,10 @@ public:
     value::Value* get_value(std::string name) const;
     void enter_scope();
     void exit_scope();
-    void enter_function(type::BasicType t, std::ostream& output);
+    void enter_function(type::CType t, std::ostream& output);
     void exit_function(std::ostream& output, std::unique_ptr<basicblock::Terminator> t = nullptr);
     int depth() const;
-    type::BasicType return_type() const;
+    type::CType return_type() const;
     void change_block(std::string block_label, std::ostream& output, 
         std::unique_ptr<basicblock::Terminator> old_terminator);
     std::vector<std::string> continue_targets;

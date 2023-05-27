@@ -443,7 +443,11 @@ std::string to_string(FType type){
 }
 
 std::string to_string(BasicType type){
+    try{
     return std::visit([](auto t){return to_string(t);},type);
+    }catch(std::exception& e){
+        throw std::runtime_error("Failed to convert BasicType to string");
+    }
 }
 std::string ir_type(BasicType type){
     return std::visit([](auto t){return ir_type(t);},type);

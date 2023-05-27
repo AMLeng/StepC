@@ -1,5 +1,11 @@
 #include "symbol.h"
 namespace symbol{
+template <class... Ts>
+struct overloaded : Ts...{
+    using Ts::operator()...;
+};
+
+template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 std::set<std::optional<unsigned long long int>>* STable::get_switch() const{
     if(switch_cases != nullptr) return switch_cases.get();
     if(parent == nullptr) return nullptr;
@@ -79,9 +85,28 @@ void STable::add_label(const std::string& name){
         function_labels->insert_or_assign(name,std::nullopt);
     }
 }
-void STable::add_symbol(std::string name, type::BasicType type){
+void STable::add_symbol(std::string name, type::CType type){
+    //Scope checking
+    if(std::holds_alternative<type::DerivedType>(type)){
+        std::get<type::DerivedType>(type).visit(overloaded{
+            [this](type::FuncType& ftype){
+                if(this->parent != nullptr){
+                    throw std::runtime_error("Cannot declare function unless at global scope");
+                }
+            },
+        });
+    }
+    //Symbol checking
     if(sym_map.find(name) != sym_map.end()){
-        throw std::runtime_error("Symbol "+name+" already present in symbol table");
+        auto existing_type = sym_map.at(name);
+        if(this->parent != nullptr){
+            throw std::runtime_error("Symbol "+name+" of incompatible type already present in symbol table at non-global scope");
+        }
+        if(!type::is_compatible(existing_type, type)){
+            throw std::runtime_error("Global symbol "+name+" of incompatible type already present in symbol table");
+        }else{
+            //type = type::make_composite(type, existing_type);
+        }
     }
     sym_map.emplace(name,type);
 }
@@ -95,7 +120,7 @@ bool STable::has_symbol(std::string name){
     }
     return false;
 }
-type::BasicType STable::symbol_type(std::string name){
+type::CType STable::symbol_type(std::string name){
     STable* to_search = this;
     while(to_search != nullptr){
         if(to_search->sym_map.find(name) != to_search->sym_map.end()){

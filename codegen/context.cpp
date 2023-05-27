@@ -78,8 +78,8 @@ void Context::exit_scope(){
     current_scope = current_scope->parent;
     current_scope->children.pop_back();
 }
-void Context::enter_function(type::BasicType t, std::ostream& output){
-    ret_type = std::make_unique<type::BasicType>(t);
+void Context::enter_function(type::CType t, std::ostream& output){
+    ret_type = std::make_unique<type::CType>(t);
     total_locals = 0; 
     enter_block("0",output);
     instructions = 1; //Instruction 0 is the block label
@@ -97,7 +97,7 @@ void Context::exit_function(std::ostream& output, std::unique_ptr<basicblock::Te
 int Context::depth() const{
     return current_scope->current_depth;
 }
-type::BasicType Context::return_type() const{
+type::CType Context::return_type() const{
     assert(ret_type);
     return *ret_type;
 }

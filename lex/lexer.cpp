@@ -157,6 +157,14 @@ token::Token Lexer::read_token_from_stream() {
     std::string token_value = "";
     if(c == '.'){
         advance_input(token_value, c);
+        if(c == '.'){
+            advance_input(token_value, c);
+            if(c == '.'){
+                advance_input(token_value, c);
+                return create_token(token::TokenType::Ellipsis, token_value, starting_position, current_pos, current_line);
+            }
+            throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
+        }
         if(std::isdigit(c)){
             return Lexer::LexingSubmethods::lex_decimal_fractional(*this, c, token_value, starting_position);
         }

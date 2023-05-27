@@ -17,7 +17,7 @@ private:
     std::unique_ptr<std::set<std::optional<unsigned long long int>>> switch_cases;
     std::unique_ptr<std::map<std::string,std::optional<token::Token>>> function_labels;
     std::vector<std::unique_ptr<STable>> children;
-    std::map<std::string, type::BasicType> sym_map;
+    std::map<std::string, type::CType> sym_map;
     STable(STable* p) : parent(p), in_loop(p->in_loop), switch_cases(nullptr),function_labels(nullptr) {}
     std::set<std::optional<unsigned long long int>>* get_switch() const;
 public:
@@ -31,9 +31,9 @@ public:
     std::optional<token::Token> unmatched_label() const;
     void require_label(const token::Token& tok);
     void add_label(const std::string& name);
-    void add_symbol(std::string name, type::BasicType type);
+    void add_symbol(std::string name, type::CType type);
     bool has_symbol(std::string name);
-    type::BasicType symbol_type(std::string name);
+    type::CType symbol_type(std::string name);
 };
 }//namespace symbol
 #endif

@@ -348,7 +348,9 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
 
 
 value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
-    main_method->codegen(output, c);
+    for(const auto& decl : decls){
+        decl->codegen(output, c);
+    }
     return nullptr;
 }
 value::Value* GotoStmt::codegen(std::ostream& output, context::Context& c)const {
@@ -424,10 +426,11 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)co
     return nullptr;
 }
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
-    assert(return_type == type::make_basic(type::IType::Int));
+    assert(std::holds_alternative<type::BasicType>(this->type.ret_type) && "Not basic type");
+    assert(std::get<type::BasicType>(type.ret_type) == type::make_basic(type::IType::Int));
     AST::print_whitespace(c.depth(), output);
-    output << "define "<<type::ir_type(return_type)<<" @" + name_tok.value+"(){"<<std::endl;
-    c.enter_function(return_type, output);
+    output << "define "<<type::ir_type(std::get<type::BasicType>(this->type.ret_type))<<" @" + this->tok.value+"(){"<<std::endl;
+    c.enter_function(type.ret_type, output);
     function_body->codegen(output, c);
     c.exit_function(output);
     AST::print_whitespace(c.depth(), output);
@@ -440,7 +443,8 @@ value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)con
 
 value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c)const {
     auto return_value = return_expr->codegen(output, c);
-    return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
+    assert(std::holds_alternative<type::BasicType>(c.return_type()) && "Not basic type");
+    return_value = codegen_convert(std::get<type::BasicType>(c.return_type()),std::move(return_value), output, c);
     int instruction_number = c.new_local_name(); 
     c.change_block("afterret."+std::to_string(instruction_number),output, 
         std::make_unique<basicblock::RET>(return_value));
@@ -586,6 +590,9 @@ value::Value* DeclList::codegen(std::ostream& output, context::Context& c)const 
     for(const auto& decl : decls){
         decl->codegen(output, c);
     }
+    return nullptr;
+}
+value::Value* FunctionDecl::codegen(std::ostream& output, context::Context& c)const {
     return nullptr;
 }
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
