@@ -154,7 +154,12 @@ void ContinueStmt::pretty_print(int depth){
 void ReturnStmt::pretty_print(int depth){
     AST::print_whitespace(depth);
     std::cout<< "RETURN:"<<std::endl;
-    return_expr->pretty_print(depth+1);
+    if(return_expr.has_value()){
+        return_expr.value()->pretty_print(depth+1);
+    }else{
+        AST::print_whitespace(depth+1);
+        std::cout<< "\"void\""<<std::endl;
+    }
 }
 void Variable::pretty_print(int depth){
     AST::print_whitespace(depth);

@@ -37,6 +37,7 @@ public:
     ~DerivedType() = default;
 
     bool operator==(const DerivedType& other) const;
+    bool operator!=(const DerivedType& other) const;
     friend bool is_compatible(const DerivedType&, const DerivedType&);
     friend std::string to_string(const DerivedType& type);
     friend bool can_convert(const DerivedType& type1, const DerivedType& type2);
@@ -57,6 +58,10 @@ public:
             throw std::runtime_error("DerivedType holding incorrect type");
         }
     }
+    template <typename T>
+    bool holds_alternative() const{
+        return std::holds_alternative<std::unique_ptr<T>>(type);
+    }
 };
 class FuncType{
     struct FuncPrototype{
@@ -69,6 +74,7 @@ class FuncType{
     std::optional<FuncPrototype> prototype;
 public:
     bool operator ==(const FuncType& other) const;
+    bool operator !=(const FuncType& other) const;
     friend bool is_compatible(const FuncType& type1, const FuncType& type2);
     friend std::string to_string(const FuncType& type);
     CType ret_type;
@@ -102,6 +108,21 @@ BasicType from_str(const std::string& type);
 bool promote_one_rank(IType& type);
 IType to_unsigned(IType type); 
 bool can_represent(IType type, unsigned long long int value);
+
+template<typename T>
+bool is_type(const CType& type){
+    if(!std::holds_alternative<DerivedType>(type)){
+        return false;
+    }
+    return std::get<DerivedType>(type).holds_alternative<T>();
+}
+template<>
+bool is_type<BasicType>(const CType& type);
+template<>
+bool is_type<VoidType>(const CType& type);
+template<>
+bool is_type<DerivedType>(const CType& type);
+
 //bool can_represent(BasicType target, BasicType source);
 //bool is_complete(CType type);
 }

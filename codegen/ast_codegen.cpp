@@ -427,8 +427,10 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)co
     return nullptr;
 }
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
-    assert(std::holds_alternative<type::BasicType>(this->type.ret_type) && "Not basic type");
-    assert(type.ret_type == type::CType(type::IType::Int));
+    assert(!std::holds_alternative<type::DerivedType>(this->type.ret_type) && "Cannot yet return derived types");
+    if(this->tok.value == "main"){
+        assert(type.ret_type == type::CType(type::IType::Int));
+    }
     AST::print_whitespace(c.depth(), output);
     output << "define "<<type::ir_type(this->type.ret_type)<<" @" + this->tok.value+"(){"<<std::endl;
     c.enter_function(type.ret_type, output);
@@ -443,7 +445,10 @@ value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)con
 }
 
 value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c)const {
-    auto return_value = return_expr->codegen(output, c);
+    value::Value* return_value = nullptr;
+    if(return_expr.has_value()){
+        return_value = return_expr.value()->codegen(output, c);
+    }
     assert(std::holds_alternative<type::BasicType>(c.return_type()) && "Not basic type");
     return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
     int instruction_number = c.new_local_name(); 
@@ -594,6 +599,7 @@ value::Value* DeclList::codegen(std::ostream& output, context::Context& c)const 
     return nullptr;
 }
 value::Value* FunctionDecl::codegen(std::ostream& output, context::Context& c)const {
+    assert(false && "Not implemented");
     return nullptr;
 }
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {

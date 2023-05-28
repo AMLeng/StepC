@@ -138,6 +138,9 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
     auto specifiers = parse_specifiers(l);
     auto declarator_param_pair = parse_declarator(specifiers, l);
     if(l.peek_token().type == token::TokenType::LBrace){
+        if(!type::is_type<type::FuncType>(declarator_param_pair.first.second)){
+            throw parse_error::ParseError("Expected function definition", l.peek_token());
+        }
         return parse_function_def(l, declarator_param_pair.first, declarator_param_pair.second.value());
     }
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};

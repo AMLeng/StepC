@@ -332,9 +332,16 @@ void IfStmt::analyze(symbol::STable* st){
     }
 }
 void ReturnStmt::analyze(symbol::STable* st){
-    return_expr->analyze(st);
-    if(!type::can_convert(this->return_expr->type,st->return_type())){
-        throw sem_error::TypeError("Invalid return type",this->return_expr->tok);
+    auto ret_type = type::CType(type::VoidType());
+    if(return_expr.has_value()){
+        return_expr.value()->analyze(st);
+        if(type::is_type<type::VoidType>(return_expr.value()->type)){
+            throw sem_error::TypeError("Cannot have expression with void type in return statement",this->return_expr.value()->tok);
+        }
+        ret_type = this->return_expr.value()->type;
+    }
+    if(!type::can_convert(ret_type,st->return_type())){
+        throw sem_error::TypeError("Invalid return type",this->return_expr.value()->tok);
     }
 }
 void ContinueStmt::analyze(symbol::STable* st){
@@ -476,6 +483,9 @@ void FunctionDef::analyze(symbol::STable* st) {
         throw sem_error::STError(e.what(),this->tok);
     }
     if(this->tok.value == "main"){
+        if(this->type.ret_type != type::CType(type::IType::Int)){
+            throw sem_error::TypeError("Main method must return int",this->tok);
+        }
         if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
             auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
             std::unique_ptr<Expr> ret_expr = std::make_unique<Constant>(fake_token);

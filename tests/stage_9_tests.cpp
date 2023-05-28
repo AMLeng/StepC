@@ -312,6 +312,35 @@ int main(){
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
 }
+TEST_CASE("empty return in void function"){
+    auto ss = std::stringstream(
+R"(
+void a(){
+    return;
+}
+)");
+    lexer::Lexer l(ss);
+    auto program = parse::construct_ast(l);
+    program->analyze();
+}
+TEST_CASE("function def missing paren"){
+    auto ss = std::stringstream(
+R"(
+void a{
+    return;
+}
+)");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+}
+TEST_CASE("main must return int"){
+    auto ss = std::stringstream(
+R"(
+void main(){
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l)->analyze(), sem_error::TypeError);
+}
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here

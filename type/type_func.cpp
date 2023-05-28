@@ -86,6 +86,9 @@ bool FuncType::operator ==(const FuncType& other) const{
     }
     return true;
 }
+bool FuncType::operator !=(const FuncType& other) const{
+    return !this->operator==(other);
+}
 
 std::string FuncType::to_string(const FuncType::FuncPrototype& t){
     std::string s = "(";

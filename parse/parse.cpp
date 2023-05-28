@@ -277,9 +277,12 @@ std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l){
     if(!token::matches_keyword(return_keyword, "return")){
         throw parse_error::ParseError("Expected keyword \"return\"", return_keyword);
     }
+    if(l.peek_token().type == token::TokenType::Semicolon){
+        l.get_token();
+        return std::make_unique<ast::ReturnStmt>(std::nullopt);
+    }
     auto ret_value = parse_expr(l);
-    auto semicolon = l.get_token();
-    check_token_type(semicolon, token::TokenType::Semicolon);
+    check_token_type(l.get_token(), token::TokenType::Semicolon);
     return std::make_unique<ast::ReturnStmt>(std::move(ret_value));
 }
 

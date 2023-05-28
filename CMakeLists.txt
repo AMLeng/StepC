@@ -10,7 +10,7 @@ project(IncrementalC
 )
 
 add_library(type
-    type/type_basic.cpp type/type_func.cpp type/type.cpp 
+    type/type_basic.cpp type/type_func.cpp type/type_derived.cpp type/type.cpp 
 )
 add_library(core lex/lexer.cpp 
     parse/parse.cpp parse/parse_decl.cpp parse/ast_construct.cpp parse/ast_pretty_print.cpp 
