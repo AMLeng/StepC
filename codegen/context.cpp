@@ -21,19 +21,21 @@ void Context::exit_block(std::ostream& output, std::unique_ptr<basicblock::Termi
     current_block = nullptr;
 }
 
-Context::Context() : ret_type(nullptr), global_scope(std::make_unique<Scope>()){
-    current_scope = global_scope.get();
+Context::Context() : global_sym_map(), current_function(nullptr), current_scope(nullptr), current_block(nullptr){
 }
 value::Value* Context::prev_temp(int i) const{
+    assert(current_function && current_scope && "Cannot look up local temp variable outside of function");
     return current_scope->tmp_map.at(current_scope->tmp_map.size() - i - 1).get();
 }
 int Context::new_local_name(){
-    return total_locals++;
+    assert(current_function && current_scope && "Cannot create local variable outside of function");
+    return current_function->total_locals++;
 }
 value::Value* Context::new_temp(type::CType t){
-    auto new_tmp_ptr = std::make_unique<value::Value>("%"+std::to_string(instructions),t);
+    assert(current_function && current_scope && "Cannot have local temp variable outside of function");
+    auto new_tmp_ptr = std::make_unique<value::Value>("%"+std::to_string(current_function->instructions),t);
     current_scope->tmp_map.push_back(std::move(new_tmp_ptr));
-    instructions++;
+    current_function->instructions++;
     return prev_temp(0);
 }
 value::Value* Context::add_literal(std::string literal, type::CType type){
@@ -42,11 +44,19 @@ value::Value* Context::add_literal(std::string literal, type::CType type){
     return current_scope->literal_map.at(literal).get();
 }
 value::Value* Context::add_local(std::string name, type::CType type){
-    std::string value = "%" + name +"."+std::to_string(total_locals);
+    assert(current_function && current_scope && "Cannot add local variable outside of function");
+    std::string value = "%" + name +"."+std::to_string(current_function->total_locals);
     assert(current_scope->sym_map.find(name) == current_scope->sym_map.end() && "Symbol already present in table");
     current_scope->sym_map.emplace(name,std::make_unique<value::Value>(value, type));
-    total_locals++;
+    current_function->total_locals++;
     return current_scope->sym_map.at(name).get();
+}
+value::Value* Context::add_global(std::string name, type::CType type, bool defined){
+    std::string value = "@" + name; //No name mangling
+    assert(global_sym_map.find(name) == global_sym_map.end() 
+        && global_sym_map.at(name).second && defined && "Redefinition of global symbol");
+    global_sym_map.emplace(name,std::make_pair(std::make_unique<value::Value>(value, type), defined));
+    return global_sym_map.at(name).first.get();
 }
 bool Context::has_symbol(std::string name) const{
     auto p = current_scope;
@@ -66,12 +76,12 @@ value::Value* Context::get_value(std::string name) const{
         }
         p = p->parent;
     }
+    return global_sym_map.at(name).first.get();
     assert(false && "Failed symbol table lookup in context");
     return nullptr;
 }
 void Context::enter_scope(){
     current_scope = current_scope->new_child();
-
 }
 void Context::exit_scope(){
     assert(current_scope->parent != nullptr && "Tried to leave global scope");
@@ -79,12 +89,13 @@ void Context::exit_scope(){
     current_scope->children.pop_back();
 }
 void Context::enter_function(type::CType t, std::ostream& output){
-    ret_type = std::make_unique<type::CType>(t);
-    total_locals = 0; 
+    assert(!current_scope && !current_function && "Cannot enter function from local scope");
+    current_function = std::make_unique<FunctionScope>(t);
+    current_scope = current_function.get();
     enter_block("0",output);
-    instructions = 1; //Instruction 0 is the block label
 }
 void Context::exit_function(std::ostream& output, std::unique_ptr<basicblock::Terminator> t){
+    assert(current_function && "Cannot exit function if not in function");
     if(t){
         current_block->add_terminator(std::move(t));
     }
@@ -92,14 +103,17 @@ void Context::exit_function(std::ostream& output, std::unique_ptr<basicblock::Te
         current_block->add_terminator(std::make_unique<basicblock::Unreachable>());
     }
     exit_block(output, nullptr);
-    ret_type = nullptr;
+    current_function = nullptr;
 }
 int Context::depth() const{
+    if(!current_scope){
+        return 0;
+    }
     return current_scope->current_depth;
 }
 type::CType Context::return_type() const{
-    assert(ret_type);
-    return *ret_type;
+    assert(current_function && "Cannot check return type when not in function");
+    return current_function->ret_type;
 }
 void Context::change_block(std::string block_label, std::ostream& output, 
     std::unique_ptr<basicblock::Terminator> old_terminator){

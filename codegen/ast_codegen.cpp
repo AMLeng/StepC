@@ -448,9 +448,9 @@ value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c)cons
     value::Value* return_value = nullptr;
     if(return_expr.has_value()){
         return_value = return_expr.value()->codegen(output, c);
+        assert(type::is_type<type::BasicType>(c.return_type()) && "Can't return derived types yet");
+        return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
     }
-    assert(std::holds_alternative<type::BasicType>(c.return_type()) && "Not basic type");
-    return_value = codegen_convert(c.return_type(),std::move(return_value), output, c);
     int instruction_number = c.new_local_name(); 
     c.change_block("afterret."+std::to_string(instruction_number),output, 
         std::make_unique<basicblock::RET>(return_value));
@@ -618,7 +618,7 @@ value::Value* Constant::codegen(std::ostream& output, context::Context& c)const 
     return c.add_literal(this->literal, this->type);
 }
 value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const {
-    assert(false && "not yet implemented");
+    assert(false && "Not implemented");
     assert(this->analyzed && "This AST node has not had analysis run on it");
     return nullptr;
 }
