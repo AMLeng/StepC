@@ -23,7 +23,6 @@ typedef std::variant<VoidType, BasicType, DerivedType> CType;
 //CType make_type(DerivedType);
 
 bool is_compatible(const DerivedType&, const DerivedType&); //Defined in type.cpp
-bool can_convert(const CType& , const CType&); //Defined in type.cpp
 
 }
 #endif

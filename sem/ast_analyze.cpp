@@ -32,7 +32,7 @@ void Variable::analyze(symbol::STable* st) {
     if(!std::holds_alternative<type::BasicType>(type_in_table)){
         throw sem_error::STError("Symbol table entry not of basic type",this->tok);
     }
-    this->type = std::get<type::BasicType>(type_in_table);
+    this->type = type_in_table;
 }
 void Conditional::analyze(symbol::STable* st){
     this->analyzed = true;
@@ -333,6 +333,9 @@ void IfStmt::analyze(symbol::STable* st){
 }
 void ReturnStmt::analyze(symbol::STable* st){
     return_expr->analyze(st);
+    if(!type::can_convert(this->return_expr->type,st->return_type())){
+        throw sem_error::TypeError("Invalid return type",this->return_expr->tok);
+    }
 }
 void ContinueStmt::analyze(symbol::STable* st){
     if(!st->in_loop){
@@ -481,7 +484,7 @@ void FunctionDef::analyze(symbol::STable* st) {
     }
     symbol::STable* function_table;
     try{
-        function_table = st->new_function_scope_child();
+        function_table = st->new_function_scope_child(this->type.ret_type);
     }catch(std::runtime_error& e){
         throw sem_error::FlowError(e.what(),this->tok);
     }

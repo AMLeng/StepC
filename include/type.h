@@ -80,6 +80,7 @@ public:
 
 std::string to_string(const CType& type);
 bool is_compatible(const CType& , const CType&); //Defined in type.cpp
+bool can_convert(const CType& , const CType&); //Defined in type.cpp
 
 BasicType from_str_multiset(const std::multiset<std::string>& keywords);
 BasicType usual_arithmetic_conversions(CType type1, CType type2);

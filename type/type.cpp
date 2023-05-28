@@ -153,7 +153,6 @@ std::string ir_type(const CType& type){
             return to_string(t);},
     }, type);
 }
-template FuncType DerivedType::get<FuncType>();
 
 
 } //namespace type

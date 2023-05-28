@@ -35,24 +35,27 @@ STable* STable::new_switch_scope_child(){
 std::unique_ptr<std::set<std::optional<unsigned long long int>>> STable::transfer_switch_table(){
     return std::move(switch_cases);
 }
-STable* STable::new_function_scope_child(){
+STable* STable::new_function_scope_child(type::CType t){
     auto child = new_child();
     //Check that we're not already in a function
     auto to_check = child;
     do{
         to_check = to_check->parent;
-        if(to_check->function_labels != nullptr){
+        if(to_check->function_data != nullptr){
             throw std::runtime_error("Can't define function inside another function");
         }
     }while(to_check->parent != nullptr);
-    child->function_labels = std::make_unique<std::map<std::string,std::optional<token::Token>>>();
+    child->function_data = std::make_unique<FunctionData>(t);
     return child;
 }
 std::optional<token::Token> STable::unmatched_label() const{
-    if(function_labels == nullptr){
+    if(function_data == nullptr){
+        if(parent == nullptr){
+            throw std::runtime_error("Can't have label outside of function");
+        }
         return parent->unmatched_label();
     }else{
-        for(const auto& map_pair : *function_labels){
+        for(const auto& map_pair : function_data->function_labels){
             if(map_pair.second){
                 return map_pair.second;
             }
@@ -61,28 +64,29 @@ std::optional<token::Token> STable::unmatched_label() const{
     }
 }
 void STable::require_label(const token::Token& tok){
-    if(function_labels == nullptr){
+    if(function_data == nullptr){
         if(parent == nullptr){
             throw std::runtime_error("Can't have label outside of function");
         }
         parent->require_label(tok);
     }else{
-        if(function_labels->find(tok.value) == function_labels->end()){
-            function_labels->emplace(tok.value,tok);
+        if(function_data->function_labels.find(tok.value) == function_data->function_labels.end()){
+            function_data->function_labels.emplace(tok.value,tok);
         }
     }
 }
 void STable::add_label(const std::string& name){
-    if(function_labels == nullptr){
+    if(function_data == nullptr){
         if(parent == nullptr){
             throw std::runtime_error("Can't have label outside of function");
         }
         parent->add_label(name);
     }else{
-        if(function_labels->find(name) != function_labels->end() && function_labels->at(name) == std::nullopt){
+        if(function_data->function_labels.find(name) != function_data->function_labels.end() 
+            && function_data->function_labels.at(name) == std::nullopt){
             throw std::runtime_error("Label "+name+" already present in symbol table for this function");
         }
-        function_labels->insert_or_assign(name,std::nullopt);
+        function_data->function_labels.insert_or_assign(name,std::nullopt);
     }
 }
 void STable::add_symbol(std::string name, type::CType type, bool has_def){
@@ -134,5 +138,15 @@ type::CType STable::symbol_type(std::string name){
     }
     throw std::runtime_error("Symbol "+name+" not found in symbol table");
     __builtin_unreachable();
+}
+type::CType STable::return_type(){
+    if(function_data == nullptr){
+        if(parent == nullptr){
+            throw std::runtime_error("Can't find return type when not in function");
+        }
+        return parent->return_type();
+    }else{
+        return function_data->return_type;
+    }
 }
 } //namespace symbol
