@@ -69,13 +69,11 @@ BasicType integer_promotions(const CType& type){
     }
 }
 std::string ir_type(const CType& type){
-    return std::visit(overloaded{
+    return std::visit(make_visitor<std::string>(
         [](VoidType v)->std::string{return "void";},
-        [](BasicType t)->std::string{return ir_type(t);},
-        [](const DerivedType& t){
-            assert(false && "Have not implemented ir type conversions for derived types");
-            return to_string(t);},
-    }, type);
+        [](BasicType bt)->std::string{return ir_type(bt);},
+        [](const FuncType& ft){return ir_type(ft);}
+    ), type);
 }
 
 } //namespace type

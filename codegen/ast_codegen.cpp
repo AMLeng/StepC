@@ -106,8 +106,22 @@ void global_basic_type_codegen(const std::string& name, type::BasicType t, value
     }
 }
 void global_func_type_codegen(const std::string& name, const type::FuncType& t, std::ostream& output){
-    output <<"Put function decl here for "<<name<<std::endl;
-    assert(false && "function declaration codegen not yet implemented");
+    output << "declare "<<type::ir_type(t.return_type())<<" "<<name<<"(";
+    if(t.has_prototype()){
+        auto pt_list = t.param_types();
+        if(pt_list.size() > 0){
+            for(int i=0; i<pt_list.size()-1; i++){
+                output<< ir_type(pt_list.at(i))<<" noundef,";
+            }
+            output<< ir_type(pt_list.back())<<" noundef";
+            if(t.is_variadic()){
+                output<<",...";
+            }
+        }
+    }else{
+        output<<"...";
+    }
+    output<<")";
 }
 
 
@@ -204,13 +218,13 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)co
     return nullptr;
 }
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
-    assert(!std::holds_alternative<type::DerivedType>(this->type.ret_type) && "Cannot yet return derived types");
+    assert(!std::holds_alternative<type::DerivedType>(this->type.return_type()) && "Cannot yet return derived types");
     if(this->tok.value == "main"){
-        assert(type.ret_type == type::CType(type::IType::Int));
+        assert(type.return_type() == type::CType(type::IType::Int));
     }
     AST::print_whitespace(c.depth(), output);
-    output << "define "<<type::ir_type(this->type.ret_type)<<" @" + this->tok.value+"(){"<<std::endl;
-    c.enter_function(type.ret_type, output);
+    output << "define "<<type::ir_type(this->type.return_type())<<" @" + this->tok.value+"(){"<<std::endl;
+    c.enter_function(type.return_type(), output);
     function_body->codegen(output, c);
     c.exit_function(output);
     AST::print_whitespace(c.depth(), output);

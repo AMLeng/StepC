@@ -31,8 +31,8 @@ class DerivedType{
 public:
     DerivedType(FuncType f); //Defined in type_func.cpp
 
-    DerivedType(const DerivedType& other); //Defined in type.cpp
-    DerivedType& operator=(const DerivedType& other);//Defined in type.cpp
+    DerivedType(const DerivedType& other); 
+    DerivedType& operator=(const DerivedType& other);
     DerivedType(DerivedType&& other) = default;
     DerivedType& operator=(DerivedType&& other) = default;
     ~DerivedType() = default;
@@ -73,15 +73,19 @@ class FuncType{
     };
     static std::string to_string(const FuncType::FuncPrototype& );
     std::optional<FuncPrototype> prototype;
+    CType ret_type;
 public:
+    FuncType(CType ret, std::vector<CType> param, bool variadic);
+    explicit FuncType(CType ret);
     bool operator ==(const FuncType& other) const;
     bool operator !=(const FuncType& other) const;
     friend bool is_compatible(const FuncType& type1, const FuncType& type2);
     friend std::string to_string(const FuncType& type);
-    CType ret_type;
-    FuncType(CType ret, std::vector<CType> param, bool variadic);
-    explicit FuncType(CType ret);
+    friend std::string ir_type(const FuncType& type);
     bool has_prototype() const; 
+    bool is_variadic() const; 
+    std::vector<CType> param_types() const; 
+    CType return_type() const; 
     bool params_match(std::vector<CType> arg_types) const;
 };
 

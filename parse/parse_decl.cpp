@@ -65,6 +65,9 @@ namespace{
 
 std::pair<type::FuncType, std::vector<Declarator>> parse_param_list(type::CType ret_type, lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::LParen);
+    if(l.peek_token().type == token::TokenType::Ellipsis){
+        throw parse_error::ParseError("Named parameter required before \"...\"", l.peek_token());
+    }
     bool variadic = false;
     auto declarators = std::vector<Declarator>{};
     auto params = std::vector<type::CType>{};

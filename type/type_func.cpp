@@ -98,9 +98,11 @@ std::string FuncType::to_string(const FuncType::FuncPrototype& t){
             s+= ",";
         }
         s += type::to_string(t.param_types.back());
-    }
-    if(t.variadic){
-        s+=",...";
+        if(t.variadic){
+            s+=",...";
+        }
+    }else{
+        s+= "void";
     }
     s += ")";
     return s;
@@ -111,6 +113,39 @@ std::string to_string(const FuncType& t){
     }else{
         return to_string(t.ret_type) + "()";
     }
+}
+std::string ir_type(const FuncType& type){
+    std::string s = ir_type(type.ret_type)+"(";
+    if(type.prototype.has_value()){
+        auto t = type.prototype.value();
+        if(t.param_types.size() > 0){
+            for(int i=0; i<t.param_types.size()-1; i++){
+                s += ir_type(t.param_types.at(i));
+                s+= ",";
+            }
+            s += ir_type(t.param_types.back());
+            if(t.variadic){
+                s+=",...";
+            }
+        }
+    }else{
+        s+="...";
+    }
+    s+=")";
+    return s;
+}
+bool FuncType::is_variadic() const{
+    return has_prototype() && prototype.value().variadic;
+}
+std::vector<CType> FuncType::param_types() const{
+    if(has_prototype()){
+        return prototype.value().param_types;
+    }else{
+        throw std::runtime_error("Cannot get param types for function type without prototype");
+    }
+}
+CType FuncType::return_type() const{
+    return ret_type;
 }
 
 }//namespace type

@@ -341,6 +341,15 @@ void main(){
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(parse::construct_ast(l)->analyze(), sem_error::TypeError);
 }
+TEST_CASE("variadic function decl no args"){
+    auto ss = std::stringstream(
+R"(
+int a(...);
+int main(){
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+}
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here

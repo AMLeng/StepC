@@ -72,7 +72,7 @@ void FuncCall::analyze(symbol::STable* st) {
         if(f_type.has_prototype() && !f_type.params_match(arg_types)){
             throw sem_error::TypeError("Cannot call function of type "+type::to_string(f_type)+" on types of provided arguments",this->tok);
         }
-        this->type = f_type.ret_type;
+        this->type = f_type.return_type();
     }catch(std::runtime_error& e){ //Won't catch the STError
         throw sem_error::STError("Function call with identifier not referring to a function",this->tok);
     }
@@ -495,7 +495,7 @@ void FunctionDef::analyze(symbol::STable* st) {
         throw sem_error::STError(e.what(),this->tok);
     }
     if(this->tok.value == "main"){
-        if(this->type.ret_type != type::CType(type::IType::Int)){
+        if(this->type.return_type() != type::CType(type::IType::Int)){
             throw sem_error::TypeError("Main method must return int",this->tok);
         }
         if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
@@ -506,7 +506,7 @@ void FunctionDef::analyze(symbol::STable* st) {
     }
     symbol::STable* function_table;
     try{
-        function_table = st->new_function_scope_child(this->type.ret_type);
+        function_table = st->new_function_scope_child(this->type.return_type());
     }catch(std::runtime_error& e){
         throw sem_error::FlowError(e.what(),this->tok);
     }
