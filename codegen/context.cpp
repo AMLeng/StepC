@@ -40,8 +40,8 @@ value::Value* Context::new_temp(type::CType t){
 }
 value::Value* Context::add_literal(std::string literal, type::CType type){
     //Doesn't matter if already present
-    current_scope->literal_map.emplace(literal,std::make_unique<value::Value>(literal,type));
-    return current_scope->literal_map.at(literal).get();
+    literal_map.emplace(literal,std::make_unique<value::Value>(literal,type));
+    return literal_map.at(literal).get();
 }
 value::Value* Context::add_local(std::string name, type::CType type){
     assert(current_function && current_scope && "Cannot add local variable outside of function");
@@ -53,10 +53,22 @@ value::Value* Context::add_local(std::string name, type::CType type){
 }
 value::Value* Context::add_global(std::string name, type::CType type, bool defined){
     std::string value = "@" + name; //No name mangling
-    assert(global_sym_map.find(name) == global_sym_map.end() 
-        && global_sym_map.at(name).second && defined && "Redefinition of global symbol");
-    global_sym_map.emplace(name,std::make_pair(std::make_unique<value::Value>(value, type), defined));
+    assert(!(global_sym_map.find(name) != global_sym_map.end() 
+        && global_sym_map.at(name).second && defined) && "Redefinition of global symbol");
+    auto emplace_pair = global_sym_map.emplace(name,std::make_pair(std::make_unique<value::Value>(value, type), defined));
+    if(!emplace_pair.second){ //If emplace failed because already present
+        global_sym_map.at(name).second = global_sym_map.at(name).second || defined;
+    }
     return global_sym_map.at(name).first.get();
+}
+std::vector<value::Value*> Context::undefined_globals() const{
+    auto undefined_symbols = std::vector<value::Value*>{};
+    for(const auto& map_pair : global_sym_map){
+        if(!map_pair.second.second){
+            undefined_symbols.push_back(map_pair.second.first.get());
+        }
+    }
+    return undefined_symbols;
 }
 bool Context::has_symbol(std::string name) const{
     auto p = current_scope;
@@ -66,7 +78,7 @@ bool Context::has_symbol(std::string name) const{
         }
         p = p->parent;
     }
-    return false;
+    return global_sym_map.find(name) != global_sym_map.end();
 }
 value::Value* Context::get_value(std::string name) const{
     auto p = current_scope;
@@ -74,6 +86,7 @@ value::Value* Context::get_value(std::string name) const{
         if(p->sym_map.find(name) != p->sym_map.end()){
             return p->sym_map.at(name).get();
         }
+        if(p->current_depth == 1){assert(!p->parent);}
         p = p->parent;
     }
     return global_sym_map.at(name).first.get();
@@ -110,6 +123,9 @@ int Context::depth() const{
         return 0;
     }
     return current_scope->current_depth;
+}
+bool Context::in_function() const{
+    return current_function != nullptr;
 }
 type::CType Context::return_type() const{
     assert(current_function && "Cannot check return type when not in function");

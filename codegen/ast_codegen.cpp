@@ -94,12 +94,40 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
     right_register = codegen_utility::convert(node->new_right_type, std::move(right_register), output, c);
     return codegen_utility::bin_op_codegen(left_register, right_register, node->tok.type, node->type, output, c);
 }
+void global_basic_type_codegen(const std::string& name, type::BasicType t, value::Value* def, std::ostream& output, context::Context& c){
+    output << name <<" = dso_local global "<<type::ir_type(t)<<" ";
+    if(def){
+        output << def->get_value() << std::endl;
+    }else{
+        output << std::visit(overloaded{
+                [](type::IType){return "0";},
+                [](type::FType){return "0.0";},
+                }, t) << std::endl;
+    }
+}
+void global_func_type_codegen(const std::string& name, const type::FuncType& t, std::ostream& output){
+    output <<"Put function decl here for "<<name<<std::endl;
+    assert(false && "function declaration codegen not yet implemented");
+}
+
+
+void global_decl_codegen(value::Value* value, std::ostream& output, context::Context& c, value::Value* def = nullptr){
+    std::visit(type::make_visitor<void>(
+        [&](const type::BasicType& bt){global_basic_type_codegen(value->get_value(),bt, def, output, c);}, 
+        [](const type::VoidType& vt){assert(false && "Cannot have variable of void type");}, 
+        [&value, &output](const type::FuncType& ft){global_func_type_codegen(value->get_value(), ft, output);}
+    ), value->get_type());
+}
 } //namespace
 
 
 value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     for(const auto& decl : decls){
         decl->codegen(output, c);
+    }
+    auto undefined_symbols = c.undefined_globals();
+    for(const auto& value : undefined_symbols){
+        global_decl_codegen(value, output, c);
     }
     return nullptr;
 }
@@ -348,16 +376,26 @@ value::Value* DeclList::codegen(std::ostream& output, context::Context& c)const 
     return nullptr;
 }
 value::Value* FunctionDecl::codegen(std::ostream& output, context::Context& c)const {
-    assert(false && "Not implemented");
+    assert(!c.in_function() && "Can't declare function in local scope");
+    c.add_global(this->name, this->type);
     return nullptr;
 }
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    auto variable = c.add_local(name, type);
-    AST::print_whitespace(c.depth(), output);
-    output << variable->get_value() <<" = alloca "<<type::ir_type(variable->get_type()) <<std::endl;
-    if(this->assignment.has_value()){
-        this->assignment.value()->codegen(output, c);
+    if(c.in_function()){
+        auto variable = c.add_local(name, type);
+        AST::print_whitespace(c.depth(), output);
+        output << variable->get_value() <<" = alloca "<<type::ir_type(variable->get_type()) <<std::endl;
+        if(this->assignment.has_value()){
+            this->assignment.value()->codegen(output, c);
+        }
+    }else{
+        auto value = c.add_global(this->name, this->type, assignment.has_value());
+        if(assignment.has_value()){
+            auto const_value = dynamic_cast<ast::Constant*>(assignment.value()->right.get());
+            assert(const_value && "Global var must be initalized by literal");
+            global_decl_codegen(value, output, c, const_value->codegen(output,c));
+        }
     }
     return nullptr;
 }

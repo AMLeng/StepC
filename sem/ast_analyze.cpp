@@ -20,6 +20,12 @@ void VarDecl::analyze(symbol::STable* st) {
     //If we have a declaration attached
     if(this->assignment.has_value()){
         this->assignment.value()->analyze(st);
+        if(!st->in_function()){
+            //If not in function, is global and needs to be
+            if(!dynamic_cast<ast::Constant*>(this->assignment.value()->right.get())){
+                throw sem_error::FlowError("Global variable def must be constant",this->assignment.value()->tok);
+            }
+        }
     }
 }
 void Variable::analyze(symbol::STable* st) {
@@ -468,6 +474,9 @@ void DeclList::analyze(symbol::STable* st){
 }
 void FunctionDecl::analyze(symbol::STable* st){
     this->analyzed = true;
+    if(st->in_function()){
+        throw sem_error::FlowError("Function declaration inside function",this->tok);
+    }
     //Add to global symbol table
     try{
         st->add_symbol(this->name,this->type);
@@ -477,6 +486,9 @@ void FunctionDecl::analyze(symbol::STable* st){
 }
 void FunctionDef::analyze(symbol::STable* st) {
     this->analyzed = true;
+    if(st->in_function()){
+        throw sem_error::FlowError("Function definition inside function",this->tok);
+    }
     try{
         st->add_symbol(this->name,this->type, true);
     }catch(std::runtime_error& e){

@@ -19,6 +19,15 @@ STable* STable::new_child(){
 bool STable::in_switch() const{
     return get_switch() != nullptr;
 }
+bool STable::in_function() const{
+    auto to_check = this;
+    do{
+        if(to_check->function_data != nullptr){
+            return true;
+        }
+    }while((to_check = to_check->parent) != nullptr);
+    return false;
+}
 void STable::add_case(std::optional<unsigned long long int> case_val){
     auto current_switch = get_switch();
     assert(current_switch && "Can't add case outside of switch statement");
@@ -38,13 +47,9 @@ std::unique_ptr<std::set<std::optional<unsigned long long int>>> STable::transfe
 STable* STable::new_function_scope_child(type::CType t){
     auto child = new_child();
     //Check that we're not already in a function
-    auto to_check = child;
-    do{
-        to_check = to_check->parent;
-        if(to_check->function_data != nullptr){
-            throw std::runtime_error("Can't define function inside another function");
-        }
-    }while(to_check->parent != nullptr);
+    if(child->in_function()){
+        throw std::runtime_error("Can't define function inside another function");
+    }
     child->function_data = std::make_unique<FunctionData>(t);
     return child;
 }

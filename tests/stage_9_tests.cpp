@@ -134,7 +134,7 @@ int main(){
 })");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
-    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::FlowError);
 }
 TEST_CASE("parse global var"){
     auto ss = std::stringstream(

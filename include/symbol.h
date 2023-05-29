@@ -29,6 +29,7 @@ public:
     STable() = default;
     STable* new_child();
     bool in_switch() const;
+    bool in_function() const;
     void add_case(std::optional<unsigned long long int> case_val);
     std::unique_ptr<std::set<std::optional<unsigned long long int>>> transfer_switch_table();
     STable* new_switch_scope_child();
