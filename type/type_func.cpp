@@ -1,4 +1,4 @@
-#include "type_func.h"
+#include "type/type_func.h"
 namespace type{
 DerivedType::DerivedType(FuncType f) 
     : type(std::make_unique<FuncType>(f)){

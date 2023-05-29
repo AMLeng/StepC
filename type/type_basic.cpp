@@ -1,5 +1,5 @@
 #include "type.h"
-#include "type_basic.h"
+#include "type/type_basic.h"
 #include <cassert>
 #include <map>
 #include <climits>

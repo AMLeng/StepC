@@ -1,6 +1,6 @@
 #ifndef _TYPE_DERIVED_
 #define _TYPE_DERIVED_
-#include "type_basic.h"
+#include "type/type_basic.h"
 #include "type.h"
 #include <variant>
 #include <memory>

@@ -1,7 +1,7 @@
 #ifndef _TYPE_FUNC_
 #define _TYPE_FUNC_
-#include "type_basic.h"
-#include "type_derived.h"
+#include "type/type_basic.h"
+#include "type/type_derived.h"
 #include <variant>
 #include <vector>
 #include <optional>

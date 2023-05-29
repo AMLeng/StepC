@@ -1,5 +1,5 @@
-#include "type_derived.h"
-#include "type_func.h"
+#include "type/type_derived.h"
+#include "type/type_func.h"
 #include "type.h"
 namespace type{
 

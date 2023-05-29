@@ -8,6 +8,7 @@
 #include <functional>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 namespace type{
 enum class IType {
     Char, SChar, UChar, 
@@ -140,8 +141,7 @@ type_visitor<ReturnType, Ts...> make_visitor(Ts... args){
 template<typename T>
 bool is_type(const CType& type){
     return std::visit(make_visitor<bool>(
-        [](const T& t){return true;},
-        [](const auto&){return false;}
+        [](const auto& type){return std::is_convertible_v<std::decay_t<decltype(type)>,T>;}
     ), type);
 }
 
