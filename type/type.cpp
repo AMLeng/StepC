@@ -3,12 +3,6 @@
 #include "type_func.h"
 #include "type.h"
 namespace type{
-template <class... Ts>
-struct overloaded : Ts...{
-    using Ts::operator()...;
-};
-
-template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 
 namespace{
 
@@ -82,18 +76,6 @@ std::string ir_type(const CType& type){
             assert(false && "Have not implemented ir type conversions for derived types");
             return to_string(t);},
     }, type);
-}
-template<>
-bool is_type<BasicType>(const CType& type){
-    return std::holds_alternative<BasicType>(type);
-}
-template<>
-bool is_type<VoidType>(const CType& type){
-    return std::holds_alternative<VoidType>(type);
-}
-template<>
-bool is_type<DerivedType>(const CType& type){
-    return std::holds_alternative<DerivedType>(type);
 }
 
 } //namespace type

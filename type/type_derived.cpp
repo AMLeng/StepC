@@ -2,12 +2,6 @@
 #include "type_func.h"
 #include "type.h"
 namespace type{
-template <class... Ts>
-struct overloaded : Ts...{
-    using Ts::operator()...;
-};
-
-template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 
 namespace{
 

@@ -43,7 +43,7 @@ public:
     friend bool can_convert(const DerivedType& type1, const DerivedType& type2);
 
     template <typename Visitor>
-    auto visit(Visitor&& v){
+    auto visit(Visitor&& v) const{
         return std::visit([&v](auto&& pointer){
             return std::invoke(v,*pointer);
         }
@@ -51,7 +51,7 @@ public:
     }
 
     template <typename T>
-    T get(){
+    T get() const{
         try{
             return *std::get<std::unique_ptr<T>>(type);
         }catch(std::exception& e){
@@ -109,21 +109,42 @@ bool promote_one_rank(IType& type);
 IType to_unsigned(IType type); 
 bool can_represent(IType type, unsigned long long int value);
 
-template<typename T>
-bool is_type(const CType& type){
-    if(!std::holds_alternative<DerivedType>(type)){
-        return false;
-    }
-    return std::get<DerivedType>(type).holds_alternative<T>();
-}
-template<>
-bool is_type<BasicType>(const CType& type);
-template<>
-bool is_type<VoidType>(const CType& type);
-template<>
-bool is_type<DerivedType>(const CType& type);
 
 //bool can_represent(BasicType target, BasicType source);
 //bool is_complete(CType type);
+
+template <class... Ts> struct overloaded : Ts...{using Ts::operator()...;};
+template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
+
+template<typename ReturnType, typename...Ts>
+struct type_visitor{
+    overloaded<Ts...> inner_visitor;
+    template <typename T>
+    ReturnType operator()(const T& a){
+        return inner_visitor(a);
+    }
+    ReturnType operator()(const BasicType& a){
+        return std::visit(inner_visitor,a);
+    }
+    ReturnType operator()(const DerivedType& a){
+        return a.visit(inner_visitor);
+    }
+};
+
+template<typename ReturnType, typename ...Ts>
+type_visitor<ReturnType, Ts...> make_visitor(Ts... args){
+    return type_visitor<ReturnType, Ts...>{args...};
+}
+
+
+template<typename T>
+bool is_type(const CType& type){
+    return std::visit(make_visitor<bool>(
+        [](const T& t){return true;},
+        [](const auto&){return false;}
+    ), type);
+}
+
+
 }
 #endif
