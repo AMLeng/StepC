@@ -87,7 +87,7 @@ public:
 
 std::string to_string(const CType& type);
 bool is_compatible(const CType& , const CType&); //Defined in type.cpp
-bool can_convert(const CType& , const CType&); //Defined in type.cpp
+bool can_convert(const CType& from, const CType& to); //Defined in type.cpp
 
 BasicType from_str_multiset(const std::multiset<std::string>& keywords);
 BasicType usual_arithmetic_conversions(CType type1, CType type2);
@@ -122,13 +122,27 @@ struct type_visitor{
     overloaded<Ts...> inner_visitor;
     template <typename T>
     ReturnType operator()(const T& a){
-        return inner_visitor(a);
+        if constexpr(std::is_convertible_v<std::invoke_result_t<overloaded<Ts...>,T>,ReturnType>){
+            return inner_visitor(a);
+        }else{
+            inner_visitor(a);
+            throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
+        }
     }
-    ReturnType operator()(const BasicType& a){
-        return std::visit(inner_visitor,a);
+    ReturnType operator()(const BasicType& basic_type){
+        if constexpr(std::is_convertible_v<decltype(std::visit(inner_visitor,basic_type)),ReturnType>){
+            return std::visit(inner_visitor,basic_type);
+        }else{
+            std::visit(inner_visitor,basic_type);
+            throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
+        }
     }
-    ReturnType operator()(const DerivedType& a){
-        return a.visit(inner_visitor);
+    ReturnType operator()(const DerivedType& derived_type){
+        if constexpr(std::is_convertible_v<decltype(derived_type.visit(inner_visitor)),ReturnType>){
+            return derived_type.visit(inner_visitor);
+        }else{
+            throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
+        }
     }
 };
 

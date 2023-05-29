@@ -437,17 +437,21 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
             auto var_reg = c.get_value(variable->variable_name);
             auto var_temp = codegen_utility::make_load(var_reg, output, c);
             var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
-            command = std::visit(overloaded{
+            command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
-                }, var_temp->get_type());
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), var_temp->get_type());
             
             AST::print_whitespace(c.depth(), output);
             new_temp = c.new_temp(this->type);
-            output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(overloaded{
+            output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
-                }, var_temp->get_type()) <<std::endl;
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), var_temp->get_type()) <<std::endl;
             codegen_utility::make_store(new_temp,var_reg, output, c);
         }
             return new_temp;
@@ -458,17 +462,21 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
             auto var_reg = c.get_value(variable->variable_name);
             auto var_temp = codegen_utility::make_load(var_reg, output, c);
             var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
-            command = std::visit(overloaded{
+            command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
-                }, var_temp->get_type());
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), var_temp->get_type());
             
             AST::print_whitespace(c.depth(), output);
             new_temp = c.new_temp(this->type);
-            output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(overloaded{
+            output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
-                }, var_temp->get_type()) <<std::endl;
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), var_temp->get_type()) <<std::endl;
             codegen_utility::make_store(new_temp,var_reg, output, c);
         }
             return new_temp;
@@ -477,17 +485,21 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
         case token::TokenType::Minus:
             operand =  codegen_utility::convert(this->type, std::move(operand), output, c);
             //sub or fsub
-            command = std::visit(overloaded{
+            command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
-                }, operand->get_type());
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), operand->get_type());
             
             AST::print_whitespace(c.depth(), output);
             new_temp = c.new_temp(this->type);
-            output << new_temp->get_value()<<" = "<<command<<" "<<t<<std::visit(overloaded{
+            output << new_temp->get_value()<<" = "<<command<<" "<<t<<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return " 0, ";},
                 [](type::FType){return " 0.0, ";},
-                }, operand->get_type()) <<operand->get_value() <<std::endl;
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), operand->get_type()) <<operand->get_value() <<std::endl;
             return new_temp;
         case token::TokenType::BitwiseNot:
             operand =  codegen_utility::convert(this->type, std::move(operand), output, c);
@@ -499,18 +511,22 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
         {
             assert(t == "i32");
             //icmp or fcmp
-            command = std::visit(overloaded{
+            command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "icmp eq";},
                 [](type::FType){return "fcmp oeq";},
-                }, operand->get_type());
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), operand->get_type());
 
             AST::print_whitespace(c.depth(), output);
             auto intermediate_bool = c.new_temp(type::IType::Bool);
             output << intermediate_bool->get_value() <<" = "<<command<<" "<<type::ir_type(operand->get_type());
-            output << std::visit(overloaded{
+            output << std::visit(type::make_visitor<std::string>(
                 [](type::IType){return " 0, ";},
                 [](type::FType){return " 0.0, ";},
-                }, operand->get_type()) << operand->get_value() <<std::endl;
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), operand->get_type()) << operand->get_value() <<std::endl;
 
             new_temp = codegen_utility::convert(this->type, intermediate_bool, output, c);
         }

@@ -15,8 +15,8 @@ public:
     std::string get_value_name() const{
         return value.substr(1);
     }
-    type::BasicType get_type() const{
-        return std::get<type::BasicType>(type);
+    type::CType get_type() const{
+        return type;
     }
 };
 } //namespace value
