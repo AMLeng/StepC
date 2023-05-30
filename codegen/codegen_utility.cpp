@@ -106,7 +106,7 @@ value::Value* make_load(value::Value* local, std::ostream& output, context::Cont
     output << ", " <<type::ir_type(local->get_type())<<"* "<<local->get_value()<<std::endl;
     return result;
 }
-value::Value* make_tmp_reg(type::CType t, std::ostream& output, context::Context& c){
+value::Value* make_tmp_alloca(type::CType t, std::ostream& output, context::Context& c){
     auto new_tmp = c.new_temp(t);
     print_whitespace(c.depth(), output);
     output << new_tmp->get_value() <<" = alloca "<<type::ir_type(new_tmp->get_type()) <<std::endl;

@@ -17,7 +17,7 @@ value::Value* make_command(type::CType t, std::string command, value::Value* lef
     std::ostream& output, context::Context& c);
 
 value::Value* make_load(value::Value* local, std::ostream& output, context::Context& c);
-value::Value* make_tmp_reg(type::CType t, std::ostream& output, context::Context& c);
+value::Value* make_tmp_alloca(type::CType t, std::ostream& output, context::Context& c);
 void make_store(value::Value* val, value::Value* reg, std::ostream& output, context::Context& c);
 
 value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::TokenType op_type, type::CType result_type,

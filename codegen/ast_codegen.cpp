@@ -52,7 +52,7 @@ value::Value* short_circuit_codegen(const ast::BinaryOp* node, std::ostream& out
     auto left_register = node->left->codegen(output, c);
     left_register = codegen_utility::convert(type::IType::Bool,left_register, output, c);
 
-    auto new_tmp = codegen_utility::make_tmp_reg(type::IType::Bool, output, c);
+    auto new_tmp = codegen_utility::make_tmp_alloca(type::IType::Bool, output, c);
     codegen_utility::make_store(left_register, new_tmp, output, c);
 
     switch(node->tok.type){
@@ -136,6 +136,7 @@ void global_decl_codegen(value::Value* value, std::ostream& output, context::Con
 
 
 value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
+    output<<R"(target triple = "x86_64-unknown-linux-gnu")"<<std::endl;
     for(const auto& decl : decls){
         decl->codegen(output, c);
     }
@@ -166,7 +167,7 @@ value::Value* Conditional::codegen(std::ostream& output, context::Context& c)con
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto condition = cond->codegen(output, c);
     condition = codegen_utility::convert(type::IType::Bool,condition, output, c);
-    auto new_tmp = codegen_utility::make_tmp_reg(this->type, output, c);
+    auto new_tmp = codegen_utility::make_tmp_alloca(this->type, output, c);
 
     int instruction_number = c.new_local_name(); 
     std::string true_label = "condtrue."+std::to_string(instruction_number);
@@ -419,9 +420,39 @@ value::Value* Constant::codegen(std::ostream& output, context::Context& c)const 
     return c.add_literal(this->literal, this->type);
 }
 value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const {
-    assert(false && "Not implemented");
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    return nullptr;
+    auto function = c.get_value(this->func_name);
+    auto ft =std::get<type::DerivedType>(function->get_type()).get<type::FuncType>();
+
+    auto arg_values = std::vector<value::Value*>{};
+    for(auto& expr : this->args){
+        arg_values.push_back(expr->codegen(output, c));
+    }
+    if(ft.return_type() == type::CType(type::VoidType())){
+        print_whitespace(c.depth(), output);
+        output << "call "<<type::ir_type(ft.return_type());
+        output <<" "<<function->get_value()<<"(";
+        if(arg_values.size() > 0){
+            for(int i=0; i<arg_values.size() - 1; i++){
+                output<<type::ir_type(arg_values.at(i)->get_type())<<" noundef "<<arg_values.at(i)->get_value()<<", ";
+            }
+            output<<type::ir_type(arg_values.back()->get_type())<<" noundef "<<arg_values.back()->get_value();
+        }
+        return nullptr;
+    }else{
+        auto return_val = c.new_temp(ft.return_type());
+        print_whitespace(c.depth(), output);
+        output << return_val->get_value() <<" = call "<<type::ir_type(return_val->get_type());
+        output <<" "<<function->get_value()<<"(";
+        if(arg_values.size() > 0){
+            for(int i=0; i<arg_values.size() - 1; i++){
+                output<<type::ir_type(arg_values.at(i)->get_type())<<" noundef "<<arg_values.at(i)->get_value()<<", ";
+            }
+            output<<type::ir_type(arg_values.back()->get_type())<<" noundef "<<arg_values.back()->get_value();
+        }
+        output<<")"<<std::endl;
+        return return_val;
+    }
 }
 
 value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
