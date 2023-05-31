@@ -16,6 +16,9 @@ STable* STable::new_child(){
     children.push_back(std::make_unique<STable>(std::move(child)));
     return children.back().get();
 }
+STable* STable::most_recent_child(){
+    return children.back().get();
+}
 bool STable::in_switch() const{
     return get_switch() != nullptr;
 }

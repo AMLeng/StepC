@@ -28,6 +28,7 @@ private:
 public:
     STable() = default;
     STable* new_child();
+    STable* most_recent_child();
     bool in_switch() const;
     bool in_function() const;
     void add_case(std::optional<unsigned long long int> case_val);

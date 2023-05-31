@@ -511,10 +511,10 @@ void FunctionDef::analyze(symbol::STable* st) {
     }catch(std::runtime_error& e){
         throw sem_error::FlowError(e.what(),this->tok);
     }
-    for(const auto& decl : params){
-        decl->analyze(st);
-    }
     function_body->analyze(function_table);
+    for(const auto& decl : params){
+        decl->analyze(function_table->most_recent_child());
+    }
     std::optional<token::Token> error_tok;
     if((error_tok = function_table->unmatched_label())!= std::nullopt){
         throw sem_error::STError("Goto with unmatched label",error_tok.value());
