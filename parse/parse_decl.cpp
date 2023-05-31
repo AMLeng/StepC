@@ -130,8 +130,34 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
 }
 std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, Declarator decl, std::vector<Declarator> params){
     check_token_type(l.peek_token(), token::TokenType::LBrace);
+    auto param_decls = std::vector<std::unique_ptr<ast::Decl>>{};
+    for(const auto& param_declarator: params){
+        auto param_decl = std::visit(type::make_visitor<std::unique_ptr<ast::Decl>>(
+            [&](const type::BasicType& bt){
+                if(param_declarator.first.has_value()){
+                    return std::make_unique<ast::VarDecl>(param_declarator.first.value(),bt);
+                }else{
+                    throw sem_error::STError("Cannot have missing parameter name in function def", l.peek_token());
+                }
+            },
+            [&](const type::VoidType& vt){
+                if(param_declarator.first.has_value()){
+                    throw sem_error::TypeError("Cannot have void type with parameter name", param_declarator.first.value());
+                }
+                if(params.size() >1){
+                    throw sem_error::TypeError("Cannot have void type in function with multiple parameters",l.peek_token());
+                }
+                return nullptr;
+            },
+            [&l](const type::FuncType& ft){throw sem_error::TypeError("Cannot have function as parameter type", l.peek_token());}
+        ),param_declarator.second);
+        if(param_decl != nullptr){
+            param_decls.push_back(std::move(param_decl));
+        }
+    }
     auto function_body = parse_compound_stmt(l);
-    return std::make_unique<ast::FunctionDef>(decl.first.value(), std::get<type::DerivedType>(decl.second).get<type::FuncType>(), std::move(function_body));
+    return std::make_unique<ast::FunctionDef>(decl.first.value(), std::get<type::DerivedType>(decl.second).get<type::FuncType>(), 
+        std::move(param_decls), std::move(function_body));
 }
 
 std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){

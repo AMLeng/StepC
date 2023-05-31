@@ -219,17 +219,28 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)co
     return nullptr;
 }
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
-    assert(!std::holds_alternative<type::DerivedType>(this->type.return_type()) && "Cannot yet return derived types");
+    auto f_type = std::get<type::DerivedType>(this->type).get<type::FuncType>();
+    assert(!std::holds_alternative<type::DerivedType>(f_type.return_type()) && "Cannot yet return derived types");
     if(this->tok.value == "main"){
-        assert(type.return_type() == type::CType(type::IType::Int));
+        assert(f_type.return_type() == type::CType(type::IType::Int));
     }
+    auto func_value = c.add_global(this->name, this->type, true);
     AST::print_whitespace(c.depth(), output);
-    output << "define "<<type::ir_type(this->type.return_type())<<" @" + this->tok.value+"(){"<<std::endl;
-    c.enter_function(type.return_type(), output);
+    output << "define dso_local "<<type::ir_type(f_type.return_type())<<" "<<func_value->get_value();
+
+    auto param_types = std::vector<type::CType>{};
+    for(const auto& p : params){
+        param_types.push_back(p->type);
+    }
+    c.enter_function(f_type.return_type(), param_types, output); 
+    for(int i = 0; i < params.size(); i++){
+        auto memory_var = params.at(i)->codegen(output, c);
+        auto passed_val = c.prev_temp(params.size()-1-i);
+        assert(passed_val != nullptr && "Could not find temp variable for passed value");
+        codegen_utility::make_store(passed_val,memory_var, output, c);
+    }
     function_body->codegen(output, c);
     c.exit_function(output);
-    AST::print_whitespace(c.depth(), output);
-    output << "}"<<std::endl;
     //Ultimately return value with
     //full function signature type
     //Once we add function argument/function types
@@ -404,6 +415,7 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
         if(this->assignment.has_value()){
             this->assignment.value()->codegen(output, c);
         }
+        return variable;
     }else{
         auto value = c.add_global(this->name, this->type, assignment.has_value());
         if(assignment.has_value()){
@@ -411,8 +423,8 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
             assert(const_value && "Global var must be initalized by literal");
             global_decl_codegen(value, output, c, const_value->codegen(output,c));
         }
+        return value;
     }
-    return nullptr;
 }
 
 value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {

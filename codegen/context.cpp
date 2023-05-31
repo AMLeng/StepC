@@ -101,11 +101,19 @@ void Context::exit_scope(){
     current_scope = current_scope->parent;
     current_scope->children.pop_back();
 }
-void Context::enter_function(type::CType t, std::ostream& output){
+void Context::enter_function(type::CType t, const std::vector<type::CType>& params, std::ostream& output){
     assert(!current_scope && !current_function && "Cannot enter function from local scope");
     current_function = std::make_unique<FunctionScope>(t);
     current_scope = current_function.get();
-    enter_block("0",output);
+    output<<"(";
+    if(params.size() > 0){
+        for(int i=0; i<params.size()-1; i++){
+            output << type::ir_type(params.at(i)) <<" noundef "<<new_temp(params.at(i))->get_value()<<",";
+        }
+        output << type::ir_type(params.back()) <<" noundef "<<new_temp(params.back())->get_value();
+    }
+    output<<"){"<<std::endl;
+    enter_block("function.enter",output);
 }
 void Context::exit_function(std::ostream& output, std::unique_ptr<basicblock::Terminator> t){
     assert(current_function && "Cannot exit function if not in function");
@@ -117,6 +125,9 @@ void Context::exit_function(std::ostream& output, std::unique_ptr<basicblock::Te
     }
     exit_block(output, nullptr);
     current_function = nullptr;
+    current_scope = nullptr;
+    //AST::print_whitespace(this->depth(), output);
+    output << "}"<<std::endl;
 }
 int Context::depth() const{
     if(!current_scope){

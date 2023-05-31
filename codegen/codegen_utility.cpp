@@ -112,10 +112,10 @@ value::Value* make_tmp_alloca(type::CType t, std::ostream& output, context::Cont
     output << new_tmp->get_value() <<" = alloca "<<type::ir_type(new_tmp->get_type()) <<std::endl;
     return new_tmp;
 }
-void make_store(value::Value* val, value::Value* reg, std::ostream& output, context::Context& c){
+void make_store(value::Value* val, value::Value* mem, std::ostream& output, context::Context& c){
     print_whitespace(c.depth(), output);
     output << "store "<<type::ir_type(val->get_type())<<" "<<val->get_value();
-    output<<", "<<type::ir_type(reg->get_type())<<"* "<<reg->get_value()<<std::endl;
+    output<<", "<<type::ir_type(mem->get_type())<<"* "<<mem->get_value()<<std::endl;
 }
 
 

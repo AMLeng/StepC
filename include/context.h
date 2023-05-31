@@ -28,7 +28,7 @@ class Context{
             Scope() : parent(nullptr), current_depth(0){}
     };
     struct FunctionScope : public Scope{
-        FunctionScope(type::CType t) : Scope(), ret_type(t),total_locals(0), instructions(1){
+        FunctionScope(type::CType t) : Scope(), ret_type(t),total_locals(0), instructions(0){
             current_depth = 1;
         }
         type::CType ret_type;
@@ -55,7 +55,7 @@ public:
     value::Value* get_value(std::string name) const;
     void enter_scope();
     void exit_scope();
-    void enter_function(type::CType t, std::ostream& output);
+    void enter_function(type::CType t, const std::vector<type::CType>& params, std::ostream& output);
     void exit_function(std::ostream& output, std::unique_ptr<basicblock::Terminator> t = nullptr);
     bool in_function() const;
     int depth() const;

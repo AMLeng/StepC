@@ -48,5 +48,5 @@ int main(int argc, char* argv[]){
     program_ast->codegen(llvm_output, global_context); //Should output program_name .ll
     }
     std::system(clang_command.c_str()); //Should output binary
-    system(rm_llvm_ir.c_str()); 
+    //system(rm_llvm_ir.c_str()); 
 }

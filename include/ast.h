@@ -63,7 +63,8 @@ struct NullStmt : public Stmt{
 struct Decl : virtual public AST{
     const std::string name;
     const token::Token tok;
-    Decl(token::Token tok) : tok(tok), name(tok.value) {}
+    const type::CType type;
+    Decl(token::Token tok, type::CType type) : tok(tok), name(tok.value), type(type) {}
     virtual ~Decl() = 0;
 };
 struct ExtDecl : virtual public AST{
@@ -78,9 +79,8 @@ struct DeclList : public BlockItem, public ExtDecl{
 };
 struct FunctionDecl : public Decl{
     bool analyzed = false;
-    const type::FuncType type;
     FunctionDecl(token::Token name_tok, type::FuncType type) 
-        : Decl(name_tok), type(type) {}
+        : Decl(name_tok, type){}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -88,11 +88,10 @@ struct FunctionDecl : public Decl{
 
 struct VarDecl : public Decl {
     bool analyzed = false;
-    const type::BasicType type;
     std::optional<std::unique_ptr<BinaryOp>> assignment;
     //Type qualifiers and storage class specifiers to be implemented later
     VarDecl(token::Token tok, type::BasicType type,std::optional<std::unique_ptr<BinaryOp>> assignment = std::nullopt) 
-        : Decl(tok), type(type), assignment(std::move(assignment)) {}
+        : Decl(tok,type), assignment(std::move(assignment)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -178,9 +177,10 @@ struct CompoundStmt : public Stmt{
 };
 
 struct FunctionDef : public ExtDecl, public FunctionDecl{
+    std::vector<std::unique_ptr<Decl>> params;
     std::unique_ptr<CompoundStmt> function_body;
-    FunctionDef(token::Token tok, type::FuncType type, std::unique_ptr<CompoundStmt> body) : 
-        FunctionDecl(tok, type), function_body(std::move(body)) {}
+    FunctionDef(token::Token tok, type::FuncType type, std::vector<std::unique_ptr<Decl>> param_decls, std::unique_ptr<CompoundStmt> body) : 
+        FunctionDecl(tok, type), params(std::move(param_decls)), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
