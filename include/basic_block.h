@@ -12,6 +12,12 @@ public:
     virtual std::string get_instruction() = 0;
     virtual ~Terminator() = 0;
 };
+class DefaultRet : public Terminator{
+    type::CType type;
+public:
+    DefaultRet(type::CType t) : type(t){}
+    std::string get_instruction() override;
+};
 
 class RET : public Terminator{
     value::Value* ret_val;

@@ -499,11 +499,11 @@ void FunctionDef::analyze(symbol::STable* st) {
         if(f_type.return_type() != type::CType(type::IType::Int)){
             throw sem_error::TypeError("Main method must return int",this->tok);
         }
-        if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
+        /*if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
             auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
             std::unique_ptr<Expr> ret_expr = std::make_unique<Constant>(fake_token);
             function_body->stmt_body.push_back(std::make_unique<ReturnStmt>(std::move(ret_expr)));
-        }
+        }*/
     }
     symbol::STable* function_table;
     try{

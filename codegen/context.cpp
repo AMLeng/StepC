@@ -1,5 +1,6 @@
 #include "ast.h"
 #include "context.h"
+#include "type.h"
 #include <cassert>
 #include <vector>
 namespace context{
@@ -121,7 +122,7 @@ void Context::exit_function(std::ostream& output, std::unique_ptr<basicblock::Te
         current_block->add_terminator(std::move(t));
     }
     if(!current_block->has_terminator()){
-        current_block->add_terminator(std::make_unique<basicblock::Unreachable>());
+        current_block->add_terminator(std::make_unique<basicblock::DefaultRet>(current_function->ret_type));
     }
     exit_block(output, nullptr);
     current_function = nullptr;
