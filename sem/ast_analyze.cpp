@@ -511,6 +511,9 @@ void FunctionDef::analyze(symbol::STable* st) {
     }catch(std::runtime_error& e){
         throw sem_error::FlowError(e.what(),this->tok);
     }
+    for(const auto& decl : params){
+        decl->analyze(function_table);
+    }
     function_body->analyze(function_table);
     for(const auto& decl : params){
         decl->analyze(function_table->most_recent_child());
