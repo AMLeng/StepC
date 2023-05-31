@@ -49,9 +49,18 @@ namespace{
         switch(next_tok.type){
             case token::TokenType::LParen:
                 {
-                    auto param_list = parse_param_list(type, l);
-                    type = param_list.first;
-                    return std::make_pair(std::make_pair(ident, type),param_list.second);
+                    if(token::matches_type(l.peek_token(2), token::TokenType::Identifier, token::TokenType::RParen)){//K&R style ident list
+                        check_token_type(l.get_token(), token::TokenType::LParen);
+                        if(l.peek_token().type != token::TokenType::RParen){
+                            throw parse_error::ParseError("Cannot parse K&R style declaration ident list", l.peek_token());
+                        }
+                        l.get_token();
+                        return std::make_pair(std::make_pair(ident, type::FuncType(type)),std::vector<Declarator>{});
+                    }else{
+                        auto param_list = parse_param_list(type, l);
+                        type = param_list.first;
+                        return std::make_pair(std::make_pair(ident, type),param_list.second);
+                    }
                 }
             case token::TokenType::LBrack:
                 throw parse_error::ParseError("Expected identifier or left parenthesis", next_tok);
@@ -73,7 +82,7 @@ std::pair<type::FuncType, std::vector<Declarator>> parse_param_list(type::CType 
     auto params = std::vector<type::CType>{};
     auto names = std::set<std::string>{};
     while(true){
-        if(l.peek_token().type == token::TokenType::RParen){ //K & R syntax with empty param list
+        if(l.peek_token().type == token::TokenType::RParen){
             break;
         }
         type::CType param_specifiers = parse_specifiers(l);
@@ -103,6 +112,7 @@ std::pair<type::FuncType, std::vector<Declarator>> parse_param_list(type::CType 
         variadic = true;
     }
     check_token_type(l.get_token(), token::TokenType::RParen);
+    assert(params.size() > 0 && "K&R style definitions with no parameters should not end up here");
     try{
         return std::make_pair(type::FuncType(ret_type, params, variadic),declarators);
     }catch(std::runtime_error& e){

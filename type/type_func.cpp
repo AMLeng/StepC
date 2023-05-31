@@ -17,7 +17,6 @@ FuncType::FuncType(CType ret, std::vector<CType> param, bool variadic)
 }
 FuncType::FuncType(CType ret)
     : ret_type(ret), prototype(std::nullopt) {
-     assert(false && "K&R style decls not yet implemented");
 };
 bool FuncType::has_prototype() const{
     return prototype.has_value();
@@ -29,7 +28,7 @@ bool FuncType::params_match(std::vector<CType> arg_types) const{
     auto params = prototype.value().param_types;
     if(params.size() > arg_types.size()){
         return false;
-    }
+    } 
     if(params.size() < arg_types.size() && !prototype.value().variadic){
         return false;
     }

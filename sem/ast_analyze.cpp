@@ -69,7 +69,7 @@ void FuncCall::analyze(symbol::STable* st) {
     }
     try{
         auto f_type = std::get<type::DerivedType>(st->symbol_type(this->func_name)).get<type::FuncType>();
-        if(f_type.has_prototype() && !f_type.params_match(arg_types)){
+        if(!f_type.params_match(arg_types)){
             throw sem_error::TypeError("Cannot call function of type "+type::to_string(f_type)+" on types of provided arguments",this->tok);
         }
         this->type = f_type.return_type();

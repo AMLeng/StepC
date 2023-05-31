@@ -132,6 +132,7 @@ void global_decl_codegen(value::Value* value, std::ostream& output, context::Con
         [&value, &output](const type::FuncType& ft){global_func_type_codegen(value->get_value(), ft, output);}
     ), value->get_type());
 }
+
 } //namespace
 
 
@@ -440,31 +441,22 @@ value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const 
     for(auto& expr : this->args){
         arg_values.push_back(expr->codegen(output, c));
     }
-    if(ft.return_type() == type::CType(type::VoidType())){
-        print_whitespace(c.depth(), output);
-        output << "call "<<type::ir_type(ft.return_type());
-        output <<" "<<function->get_value()<<"(";
-        if(arg_values.size() > 0){
-            for(int i=0; i<arg_values.size() - 1; i++){
-                output<<type::ir_type(arg_values.at(i)->get_type())<<" noundef "<<arg_values.at(i)->get_value()<<", ";
-            }
-            output<<type::ir_type(arg_values.back()->get_type())<<" noundef "<<arg_values.back()->get_value();
-        }
-        return nullptr;
-    }else{
-        auto return_val = c.new_temp(ft.return_type());
-        print_whitespace(c.depth(), output);
-        output << return_val->get_value() <<" = call "<<type::ir_type(return_val->get_type());
-        output <<" "<<function->get_value()<<"(";
-        if(arg_values.size() > 0){
-            for(int i=0; i<arg_values.size() - 1; i++){
-                output<<type::ir_type(arg_values.at(i)->get_type())<<" noundef "<<arg_values.at(i)->get_value()<<", ";
-            }
-            output<<type::ir_type(arg_values.back()->get_type())<<" noundef "<<arg_values.back()->get_value();
-        }
-        output<<")"<<std::endl;
-        return return_val;
+    value::Value* return_val = nullptr;
+    print_whitespace(c.depth(), output);
+    if(ft.return_type() != type::CType(type::VoidType())){
+        return_val = c.new_temp(ft.return_type());
+        output << return_val->get_value() <<" = ";
     }
+    output << "call "<<type::ir_type(ft.return_type());
+    output <<" "<<function->get_value()<<"(";
+    if(arg_values.size() > 0){
+        for(int i=0; i<arg_values.size() - 1; i++){
+            output<<type::ir_type(arg_values.at(i)->get_type())<<" noundef "<<arg_values.at(i)->get_value()<<", ";
+        }
+        output<<type::ir_type(arg_values.back()->get_type())<<" noundef "<<arg_values.back()->get_value();
+    }
+    output<<")"<<std::endl;
+    return return_val;
 }
 
 value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
