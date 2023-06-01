@@ -13,13 +13,19 @@ void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
     //Add symbol to symbol table, check that not already present
     try{
-        st->add_symbol(this->name,this->type);
+        st->add_symbol(this->name,this->type, this->assignment.has_value());
     }catch(std::runtime_error& e){
         throw sem_error::STError(e.what(),this->tok);
     }
     //If we have a declaration attached
     if(this->assignment.has_value()){
         this->assignment.value()->analyze(st);
+        if(!st->in_function()){
+            //If not in function, is global and needs to be
+            if(!dynamic_cast<ast::Constant*>(this->assignment.value()->right.get())){
+                throw sem_error::FlowError("Global variable def must be constant",this->assignment.value()->tok);
+            }
+        }
     }
 }
 void Variable::analyze(symbol::STable* st) {
@@ -28,7 +34,11 @@ void Variable::analyze(symbol::STable* st) {
     if(!st->has_symbol(this->variable_name)){
         throw sem_error::STError("Variable not found in symbol table",this->tok);
     }
-    this->type=st->symbol_type(this->variable_name);
+    auto type_in_table = st->symbol_type(this->variable_name);
+    if(!std::holds_alternative<type::BasicType>(type_in_table)){
+        throw sem_error::STError("Symbol table entry not of basic type",this->tok);
+    }
+    this->type = type_in_table;
 }
 void Conditional::analyze(symbol::STable* st){
     this->analyzed = true;
@@ -42,6 +52,30 @@ void Conditional::analyze(symbol::STable* st){
         throw sem_error::UnknownError("Ternary conditional returning non arithmetic type no yet implemented",this->tok);
     }
     this->type = type::usual_arithmetic_conversions(this->true_expr->type, this->false_expr->type);
+}
+void FuncCall::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    //Check that the function actually exists in a symbol table
+    if(!st->has_symbol(this->func_name)){
+        throw sem_error::STError("Function not found in symbol table",this->tok);
+    }
+    auto arg_types = std::vector<type::CType>{};
+    for(auto& expr : args){
+        expr->analyze(st);
+        arg_types.push_back(expr->type);
+    }
+    if(arg_types.size() == 0){
+        arg_types.push_back(type::CType());
+    }
+    try{
+        auto f_type = std::get<type::DerivedType>(st->symbol_type(this->func_name)).get<type::FuncType>();
+        if(!f_type.params_match(arg_types)){
+            throw sem_error::TypeError("Cannot call function of type "+type::to_string(f_type)+" on types of provided arguments",this->tok);
+        }
+        this->type = f_type.return_type();
+    }catch(std::runtime_error& e){ //Won't catch the STError
+        throw sem_error::STError("Function call with identifier not referring to a function",this->tok);
+    }
 }
 void Postfix::analyze(symbol::STable* st) {
     this->analyzed = true;
@@ -304,7 +338,19 @@ void IfStmt::analyze(symbol::STable* st){
     }
 }
 void ReturnStmt::analyze(symbol::STable* st){
-    return_expr->analyze(st);
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "Return statement outside of block");
+    auto ret_type = type::CType(type::VoidType());
+    if(return_expr.has_value()){
+        return_expr.value()->analyze(st);
+        if(type::is_type<type::VoidType>(return_expr.value()->type)){
+            throw sem_error::TypeError("Cannot have expression with void type in return statement",this->return_expr.value()->tok);
+        }
+        ret_type = this->return_expr.value()->type;
+    }
+    if(!type::can_convert(ret_type,bt->return_type())){
+        throw sem_error::TypeError("Invalid return type",this->return_expr.value()->tok);
+    }
 }
 void ContinueStmt::analyze(symbol::STable* st){
     if(!st->in_loop){
@@ -312,32 +358,37 @@ void ContinueStmt::analyze(symbol::STable* st){
     }
 }
 void GotoStmt::analyze(symbol::STable* st){
-    try{
-        st->require_label(ident_tok);
-    }catch(std::runtime_error& e){
-        throw sem_error::FlowError("Cannot have goto outside function",this->ident_tok);
-    }
-    //Matched with a call at function end
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "Goto statement outside of block");
+    bt->require_label(ident_tok);
+    //Matched with a call at function end to check that the label got supplied
 }
 void LabeledStmt::analyze(symbol::STable* st){
     stmt->analyze(st);
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "Labeled statement outside of block");
     try{
-        st->add_label(ident_tok.value);
+        bt->add_label(ident_tok.value);
     }catch(std::runtime_error& e){
         throw sem_error::STError("Duplicate label name within the same function",this->ident_tok);
     }
 }
 void BreakStmt::analyze(symbol::STable* st){
-    if(!st->in_loop && !st->in_switch()){
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "Break statement outside of block");
+    if(!st->in_loop && !bt->in_switch()){
         throw sem_error::FlowError("Break statement outside of loop or switch",this->tok);
     }
 }
 void Program::analyze(symbol::STable* st) {
-    auto main_table = st->new_child();
-    main_method->analyze(main_table);
+    for(auto& decl : decls){
+        decl->analyze(st);
+    }
 }
 void ForStmt::analyze(symbol::STable* st){
-    auto stmt_table = st->new_child();
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "For statement outside of block");
+    auto stmt_table = bt->new_block_scope_child();
 
     std::visit(overloaded{
         [](std::monostate){/*Do nothing*/},
@@ -356,7 +407,9 @@ void ForStmt::analyze(symbol::STable* st){
     this->body->analyze(stmt_table);
 }
 void CaseStmt::analyze(symbol::STable* st){
-    if(!st->in_switch()){
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "Case statement outside of block");
+    if(!bt->in_switch()){
         throw sem_error::FlowError("Case statement outside of switch",this->tok);
     }
     this->label->analyze(st);
@@ -370,18 +423,20 @@ void CaseStmt::analyze(symbol::STable* st){
         throw sem_error::FlowError("Invalid label value for case",this->label->tok);
     }
     try{
-        st->add_case(case_val);
+        bt->add_case(case_val);
     }catch(std::runtime_error& e){
         throw sem_error::STError("Duplicate case statement in switch",this->label->tok);
     }
     this->stmt->analyze(st);
 }
 void DefaultStmt::analyze(symbol::STable* st){
-    if(!st->in_switch()){
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "Case statement outside of block");
+    if(!bt->in_switch()){
         throw sem_error::FlowError("Case statement outside of switch",this->tok);
     }
     try{
-        st->add_case(std::nullopt);
+        bt->add_case(std::nullopt);
     }catch(std::runtime_error& e){
         throw sem_error::STError("Duplicate default statement in switch",this->tok);
     }
@@ -392,8 +447,10 @@ void SwitchStmt::analyze(symbol::STable* st){
     if(!type::is_int(this->control_expr->type)){
         throw sem_error::TypeError("Condition of integer type required in for switch control expression",this->control_expr->tok);
     }
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "Case statement outside of block");
     this->control_type = type::integer_promotions(this->control_expr->type);
-    auto stmt_table = st->new_switch_scope_child();
+    auto stmt_table = bt->new_switch_scope_child();
     switch_body->analyze(stmt_table);
     case_table = stmt_table->transfer_switch_table();
 }
@@ -402,7 +459,9 @@ void WhileStmt::analyze(symbol::STable* st){
     if(!type::is_scalar(this->control_expr->type)){
         throw sem_error::TypeError("Condition of scalar type required in for statement control expression",this->control_expr->tok);
     }
-    auto stmt_table = st->new_child();
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "While statement outside of block");
+    auto stmt_table = bt->new_block_scope_child();
     stmt_table->in_loop = true;
     body->analyze(stmt_table);
 }
@@ -411,12 +470,16 @@ void DoStmt::analyze(symbol::STable* st){
     if(!type::is_scalar(this->control_expr->type)){
         throw sem_error::TypeError("Condition of scalar type required in for statement control expression",this->control_expr->tok);
     }
-    auto stmt_table = st->new_child();
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "Case statement outside of block");
+    auto stmt_table = bt->new_block_scope_child();
     stmt_table->in_loop = true;
     body->analyze(stmt_table);
 }
 void CompoundStmt::analyze(symbol::STable* st){
-    auto stmt_table = st->new_child();
+    auto bt = dynamic_cast<symbol::BlockTable*>(st);
+    assert(bt && "Case statement outside of block");
+    auto stmt_table = bt->new_block_scope_child();
     for(auto& stmt : stmt_body){
         stmt->analyze(stmt_table);
     }
@@ -427,21 +490,46 @@ void DeclList::analyze(symbol::STable* st){
         decl->analyze(st);
     }
 }
+void FunctionDecl::analyze(symbol::STable* st){
+    this->analyzed = true;
+    if(st->in_function()){
+        /*if(this->type is marked with storage specifier other than extern){
+            throw sem_error::TypeError("Non extern function declaration inside function",this->tok);
+        }*/
+        st->add_extern_decl(this->name, this->type);
+    }
+    //Add to global symbol table
+    try{
+        st->add_symbol(this->name,this->type);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
+}
 void FunctionDef::analyze(symbol::STable* st) {
-    if(this->name_tok.value == "main"){
-        if(function_body->stmt_body.size() == 0 || !dynamic_cast<ReturnStmt*>(function_body->stmt_body.back().get())){
-            auto fake_token = token::Token{token::TokenType::IntegerLiteral, "0",{-1,-1,-1,-1},"COMPILER GENERATED TOKEN, SOURCE LINE NOT AVAILABLE"};
-            std::unique_ptr<Expr> ret_expr = std::make_unique<Constant>(fake_token);
-            function_body->stmt_body.push_back(std::make_unique<ReturnStmt>(std::move(ret_expr)));
+    this->analyzed = true;
+    auto f_type = std::get<type::DerivedType>(this->type).get<type::FuncType>();
+    if(st->in_function()){
+        throw sem_error::FlowError("Function definition inside function",this->tok);
+    }
+    try{
+        st->add_symbol(this->name,this->type, true);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
+    if(this->tok.value == "main"){
+        if(f_type.return_type() != type::CType(type::IType::Int)){
+            throw sem_error::TypeError("Main method must return int",this->tok);
         }
     }
-    symbol::STable* function_table;
-    try{
-        function_table = st->new_function_scope_child();
-    }catch(std::runtime_error& e){
-        throw sem_error::FlowError(e.what(),this->name_tok);
+    auto global = dynamic_cast<symbol::GlobalTable*>(st);
+    auto function_table = global->new_function_scope_child(f_type.return_type());
+    for(const auto& decl : params){
+        decl->analyze(function_table);
     }
     function_body->analyze(function_table);
+    for(const auto& decl : params){
+        decl->analyze(function_table->most_recent_child());
+    }
     std::optional<token::Token> error_tok;
     if((error_tok = function_table->unmatched_label())!= std::nullopt){
         throw sem_error::STError("Goto with unmatched label",error_tok.value());

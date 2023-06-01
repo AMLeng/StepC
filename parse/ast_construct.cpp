@@ -10,9 +10,8 @@
 #include <limits>
 namespace ast{
 namespace{
-void finish_literal_int_parse(type::BasicType& original_type, std::string& original_value, token::Token tok){
-    assert(type::is_int(original_type));
-    type::IType int_type = std::get<type::IType>(original_type);
+void finish_literal_int_parse(type::CType& original_type, std::string& original_value, token::Token tok){
+    type::IType int_type = std::get<type::IType>(std::get<type::BasicType>(original_type));
 
     //Consider unsigned if either originally unsigned or is not decimal literal
     bool consider_unsigned = type::is_unsigned_int(original_type) || (original_value.at(0) == '0');
@@ -26,11 +25,11 @@ void finish_literal_int_parse(type::BasicType& original_type, std::string& origi
     original_value = std::to_string(value);
     do{
         if(type::can_represent(int_type, value)){
-            original_type = type::make_basic(int_type);
+            original_type = int_type;
             return;
         }
         if(consider_unsigned && type::can_represent(type::to_unsigned(int_type),value)){
-            original_type = type::make_basic(type::to_unsigned(int_type));
+            original_type = type::to_unsigned(int_type);
             return;
         }
     }while(type::promote_one_rank(int_type));
@@ -132,7 +131,7 @@ Constant::Constant(const token::Token& tok) : Expr(tok){
                     assert(std::isdigit(literal.back()));
 
             }
-            literal = float_to_hex(literal, type);
+            literal = float_to_hex(literal, std::get<type::BasicType>(type));
             break;
         default:
             assert(false && "Unknown literal type");

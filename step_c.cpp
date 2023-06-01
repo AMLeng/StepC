@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <cassert>
+#include <cstdlib>
 
 int main(int argc, char* argv[]){
     assert(argc == 2);
@@ -31,10 +32,8 @@ int main(int argc, char* argv[]){
         return 1;
     }
     auto program_name = file_name.substr(0,file_name.size() - 2);
-    auto clang_command = "clang -Wno-override-module -o"+program_name+" "+program_name+".ll";
-    //auto gpp_command = "g++ -o "+program_name+" "+program_name+".s";
+    auto clang_command = "clang -o"+program_name+" "+program_name+".ll";
     auto rm_llvm_ir = "rm "+program_name+".ll";
-    //auto rm_assembly = "rm "+program_name+".s";
 
     try{
         program_ast->analyze();
@@ -43,11 +42,11 @@ int main(int argc, char* argv[]){
         std::cout<<e.what()<<std::endl;
         return 1;
     }
-    auto llvm_output = std::ofstream(program_name +".ll");
     //program_ast->pretty_print(0);
+    {
+    auto llvm_output = std::ofstream(program_name +".ll");
     program_ast->codegen(llvm_output, global_context); //Should output program_name .ll
-    system(clang_command.c_str()); //Should output assembly
+    }
+    std::system(clang_command.c_str()); //Should output binary
     system(rm_llvm_ir.c_str()); 
-    //system(gpp_command.c_str()); //Should output executable program_name
-    //system(rm_assembly.c_str());
 }

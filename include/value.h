@@ -4,16 +4,18 @@
 #include "type.h"
 namespace value{
 class Value{
-    //The name of the corresponding SSA register
+    //The name of the corresponding SSA register, with global or local indicator
     const std::string value;
-    //ir type
-    const type::BasicType type;
+    const type::CType type;
 public:
-    Value(std::string value, type::BasicType type) : value(value), type(type) {}
+    Value(std::string value, type::CType type) : value(value), type(type) {}
     std::string get_value() const{
         return value;
     }
-    type::BasicType get_type() const{
+    /*std::string get_value_name() const{
+        return value.substr(1);
+    }*/
+    type::CType get_type() const{
         return type;
     }
 };

@@ -1,9 +1,16 @@
 #include "type.h"
-#include "sem_error.h"
+#include "type/type_basic.h"
 #include <cassert>
 #include <map>
 #include <climits>
 #include <limits>
+#include <exception>
+#include <string>
+#include <iostream>
+#include <utility>
+#include <variant>
+#include <cassert>
+#include <set>
 namespace type{
 
 namespace{
@@ -239,8 +246,8 @@ BasicType usual_arithmetic_conversions(BasicType type1, BasicType type2){
     if(type1 == f || type2 == f){
         return f;
     }
-    type1 = integer_promotions(std::get<IType>(type1));
-    type2 = integer_promotions(std::get<IType>(type2));
+    type1 = integer_promotions(type1);
+    type2 = integer_promotions(type2);
     if(type1 == type2){
         return type1;
     }
@@ -335,6 +342,9 @@ bool promote_one_rank(FType& type){
     }
     __builtin_unreachable();
     assert(false);
+}
+bool promote_one_rank(BasicType& type){
+    return std::visit([](auto& t){return promote_one_rank(t);},type);
 }
 
 //Checking
@@ -443,7 +453,11 @@ std::string to_string(FType type){
 }
 
 std::string to_string(BasicType type){
+    try{
     return std::visit([](auto t){return to_string(t);},type);
+    }catch(std::exception& e){
+        throw std::runtime_error("Failed to convert BasicType to string");
+    }
 }
 std::string ir_type(BasicType type){
     return std::visit([](auto t){return ir_type(t);},type);

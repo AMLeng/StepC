@@ -9,6 +9,14 @@ std::string RET::get_instruction(){
         return "ret void";
     }
 }
+std::string DefaultRet::get_instruction(){
+    return std::visit(type::make_visitor<std::string>(
+        [](const type::IType& i){return "ret "+type::ir_type(i)+" 0";},
+        [](const type::FType& f){return "ret "+type::ir_type(f)+" 0.0";},
+        [](const type::VoidType& v){return "ret void";},
+        [](const type::FuncType& func){throw std::runtime_error("Cannot have function type as return value");}
+    ), type);
+}
 Cond_BR::Cond_BR(value::Value* cond, std::string tl, std::string fl) :
     cond(cond), t_label(tl), f_label(fl){
     assert(cond && "Tried to create conditional branch with no condition");
