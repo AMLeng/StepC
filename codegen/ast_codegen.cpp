@@ -403,7 +403,6 @@ value::Value* DeclList::codegen(std::ostream& output, context::Context& c)const 
     return nullptr;
 }
 value::Value* FunctionDecl::codegen(std::ostream& output, context::Context& c)const {
-    assert(!c.in_function() && "Can't declare function in local scope");
     c.add_global(this->name, this->type);
     return nullptr;
 }

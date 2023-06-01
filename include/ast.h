@@ -40,7 +40,7 @@ struct Program : public AST{
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
     void analyze(){
-        auto global_st = symbol::STable();
+        auto global_st = symbol::GlobalTable();
         this->analyze(&global_st);
     }
 };

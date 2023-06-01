@@ -41,3 +41,5 @@ In stage 3 and beyond, StepC will generate an executable, and can be tested with
 * Stage 7: Implemented remaining binary operators (including compound assignments), as well as prefix/postfix increment and decrement, as well as multiple comma separated variable declarations. Superset of Nora Sandler's stage 4.
 
 * Stage 8: Implemented loops, gotos, switch statements, and labeled statements. Changed system calls from llc and gcc to a single call to clang (since llc seemed to have a bug when called on a switch statement with 4 or more non-default cases). Superset of Nora Sandler's stage 8.
+
+* Stage 9: Implemented function calls, function definitions/declarations, and global variables. Upgraded type system to include derived and void types. Essentially Nora Sandler's stages 9 and 10

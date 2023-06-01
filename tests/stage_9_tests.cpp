@@ -126,7 +126,7 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
 }
-TEST_CASE("error function decl not at global scope"){
+TEST_CASE("function decl not at global scope"){
     auto ss = std::stringstream(
 R"(
 int main(){
@@ -134,7 +134,7 @@ int main(){
 })");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
-    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::FlowError);
+    program_pointer->analyze();
 }
 TEST_CASE("parse global var"){
     auto ss = std::stringstream(
