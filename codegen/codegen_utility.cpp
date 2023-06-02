@@ -71,6 +71,21 @@ value::Value* convert(type::BasicType target_type, value::Value* val,
     output << val->get_value() << " to " << type::ir_type(target_type) << std::endl;
     return new_tmp;
 }
+value::Value* convert(type::PointerType target_type, value::Value* val, 
+        std::ostream& output, context::Context& c){
+    return std::visit(type::make_visitor<value::Value*>(
+    [&](const type::PointerType& pt){
+    },
+    [&](const type::IType& it){
+        print_whitespace(c.depth(), output);
+        auto new_tmp = c.new_temp(target_type);
+        output << new_tmp->get_value() <<" = inttoptr " << type::ir_type(it) <<" "<<val->get_value()<<" to "<<type::ir_type(target_type)<<std::endl;
+    },
+    [&](const auto& t){
+        assert(false && "Tried to convert non-pointer, non-integer type to pointer type");
+        }
+    ), val->get_type());
+}
 
 } //namespace
 
@@ -88,7 +103,8 @@ value::Value* convert(type::CType target_type, value::Value* val,
     return std::visit(type::make_visitor<value::Value*>(
         [&](const type::BasicType& bt){return convert(bt, val, output, c);},
         [&](const type::VoidType& vt){throw std::runtime_error("Unable to convert value to void type");},
-        [&](const type::FuncType& ft){throw std::runtime_error("Unable to convert value to function type");}
+        [&](const type::FuncType& ft){throw std::runtime_error("Unable to convert value to function type");},
+        [&](const type::PointerType& pt){throw std::runtime_error("Unable to convert value to function type");}
     ),target_type);
 }
 value::Value* make_command(type::CType t, std::string command, value::Value* left, value::Value* right, 

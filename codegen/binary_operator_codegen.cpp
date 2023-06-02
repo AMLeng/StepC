@@ -10,6 +10,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Pointer subtraction not yet implemented");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
@@ -18,6 +19,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Pointer addition not yet implemented");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
@@ -26,6 +28,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [](type::IType){return "mul";},
                 [](type::FType){return "fmul";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
@@ -36,6 +39,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     else{return "udiv";}},
                 [](type::FType){return "fdiv";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
@@ -47,6 +51,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [](type::FType){
                     assert(false && "C does not allow mod to take floating point arguments");
                     return "frem";},
+                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
@@ -56,6 +61,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [](type::IType){return "icmp eq";},
                 [](type::FType){return "fcmp oeq";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Pointer equality not yet implemented (should be by difference)");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
@@ -64,6 +70,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [](type::IType){return "icmp ne";},
                 [](type::FType){return "fcmp one";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Pointer comparison not yet implemented");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
@@ -74,6 +81,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     else{return "icmp ult";}},
                 [](type::FType){return "fcmp olt";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Pointer comparison not yet implemented");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
@@ -84,6 +92,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     else{return "icmp ugt";}},
                 [](type::FType){return "fcmp ogt";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Pointer comparison not yet implemented");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
@@ -94,6 +103,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     else{return "icmp ule";}},
                 [](type::FType){return "fcmp ole";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Pointer comparison not yet implemented");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
@@ -104,6 +114,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     else{return "icmp uge";}},
                 [](type::FType){return "fcmp oge";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Pointer comparison not yet implemented");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;

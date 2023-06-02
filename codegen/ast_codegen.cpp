@@ -129,6 +129,7 @@ void global_decl_codegen(value::Value* value, std::ostream& output, context::Con
     std::visit(type::make_visitor<void>(
         [&](const type::BasicType& bt){global_basic_type_codegen(value->get_value(),bt, def, output, c);}, 
         [](const type::VoidType& vt){assert(false && "Cannot have variable of void type");}, 
+        [](const type::PointerType& pt){assert(false && "Have not yet implemented variables of pointer type");}, 
         [&value, &output](const type::FuncType& ft){global_func_type_codegen(value->get_value(), ft, output);}
     ), value->get_type());
 }
@@ -527,6 +528,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), var_temp->get_type());
             
@@ -536,6 +538,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), var_temp->get_type()) <<std::endl;
             codegen_utility::make_store(new_temp,var_reg, output, c);
@@ -552,6 +555,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), var_temp->get_type());
             
@@ -561,6 +565,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), var_temp->get_type()) <<std::endl;
             codegen_utility::make_store(new_temp,var_reg, output, c);
@@ -575,6 +580,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), operand->get_type());
             
@@ -584,6 +590,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::IType){return " 0, ";},
                 [](type::FType){return " 0.0, ";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), operand->get_type()) <<operand->get_value() <<std::endl;
             return new_temp;
@@ -601,6 +608,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::IType){return "icmp eq";},
                 [](type::FType){return "fcmp oeq";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), operand->get_type());
 
@@ -611,6 +619,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::IType){return " 0, ";},
                 [](type::FType){return " 0.0, ";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), operand->get_type()) << operand->get_value() <<std::endl;
 

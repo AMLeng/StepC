@@ -72,7 +72,8 @@ std::string ir_type(const CType& type){
     return std::visit(make_visitor<std::string>(
         [](VoidType v)->std::string{return "void";},
         [](BasicType bt)->std::string{return ir_type(bt);},
-        [](const FuncType& ft){return ir_type(ft);}
+        [](const FuncType& ft){return ir_type(ft);},
+        [](const PointerType& ft){return ir_type(ft);}
     ), type);
 }
 

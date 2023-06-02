@@ -159,7 +159,8 @@ std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, Declarator
                 }
                 return nullptr;
             },
-            [&l](const type::FuncType& ft){throw sem_error::TypeError("Cannot have function as parameter type", l.peek_token());}
+            [&l](const type::FuncType& ft){throw sem_error::TypeError("Cannot have function as parameter type", l.peek_token());},
+            [&l](const type::PointerType& pt){throw sem_error::TypeError("Have not yet implemented pointer as parameter type", l.peek_token());}
         ),param_declarator.second);
         if(param_decl != nullptr){
             param_decls.push_back(std::move(param_decl));

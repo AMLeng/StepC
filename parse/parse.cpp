@@ -473,33 +473,28 @@ std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, type::CType specifie
     auto var_name = declarator.first.value();
     check_token_type(var_name, token::TokenType::Identifier);
     if(l.peek_token().type == token::TokenType::Assign){
-        return std::visit(overloaded{
-                [&var_name](type::VoidType vt) -> std::unique_ptr<ast::Decl>{
-                throw sem_error::TypeError("Invalid type 'void'", var_name);
-                },[&var_name,&l,bind = binary_op_binding_power.at(token::TokenType::Assign).second](
-                        type::BasicType bt) -> std::unique_ptr<ast::Decl>{
-                auto assign = parse_binary_op(l,std::make_unique<ast::Variable>(var_name),bind);
-                return std::make_unique<ast::VarDecl>(var_name, bt, std::move(assign));
-                },[&var_name](type::DerivedType dt) -> std::unique_ptr<ast::Decl>{
-                return dt.visit(overloaded{
-                        [&var_name](type::FuncType ft) -> std::unique_ptr<ast::Decl>{
-                        throw sem_error::TypeError("Invalid assignment to function type", var_name);
-                        }
-                        });
-                }}, declarator.second);
+        return std::visit(type::make_visitor<std::unique_ptr<ast::Decl>>(
+                [&var_name](type::VoidType vt){
+                    throw sem_error::TypeError("Invalid type 'void'", var_name);},
+                [&var_name,&l,bind = binary_op_binding_power.at(token::TokenType::Assign).second](type::BasicType bt){
+                    auto assign = parse_binary_op(l,std::make_unique<ast::Variable>(var_name),bind);
+                    return std::make_unique<ast::VarDecl>(var_name, bt, std::move(assign));},
+                 [&var_name](type::PointerType ft) -> std::unique_ptr<ast::Decl>{
+                     throw sem_error::TypeError("Assignment to pointer type not implemented", var_name);},
+                 [&var_name](type::FuncType ft) -> std::unique_ptr<ast::Decl>{
+                     throw sem_error::TypeError("Invalid assignment to function type", var_name);}
+                ), declarator.second);
     }else{
-        return std::visit(overloaded{
-                [&var_name](type::VoidType vt) -> std::unique_ptr<ast::Decl>{
-                throw sem_error::TypeError("Invalid type 'void'", var_name);
-                },[&var_name](type::BasicType bt)-> std::unique_ptr<ast::Decl>{
-                return std::make_unique<ast::VarDecl>(var_name, bt);
-                },[&var_name](type::DerivedType dt)-> std::unique_ptr<ast::Decl>{
-                return dt.visit(overloaded{
-                        [&var_name](type::FuncType ft) -> std::unique_ptr<ast::Decl>{
-                        return std::make_unique<ast::FunctionDecl>(var_name, ft);
-                        }
-                        });
-                }}, declarator.second);
+        return std::visit(type::make_visitor<std::unique_ptr<ast::Decl>>(
+            [&var_name](type::BasicType bt)-> std::unique_ptr<ast::Decl>{
+                return std::make_unique<ast::VarDecl>(var_name, bt);},
+            [&var_name](type::FuncType ft)-> std::unique_ptr<ast::Decl> {
+                return std::make_unique<ast::FunctionDecl>(var_name, ft);},
+            [&var_name](type::VoidType vt)-> std::unique_ptr<ast::Decl> {
+                throw sem_error::TypeError("Invalid type 'void'", var_name);},
+            [&var_name](auto pt)-> std::unique_ptr<ast::Decl> {
+                throw sem_error::TypeError("Declaration of pointer type not implemented", var_name);}
+            ), declarator.second);
     }
 }
 

@@ -23,13 +23,15 @@ enum class FType {
 typedef std::variant<IType, FType> BasicType;
 typedef std::monostate VoidType;
 class FuncType;
+class PointerType;
 class DerivedType;
 typedef std::variant<VoidType, BasicType, DerivedType> CType;
 
 class DerivedType{
-    std::variant<std::unique_ptr<FuncType>> type;
+    std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> type;
 public:
     DerivedType(FuncType f); //Defined in type_func.cpp
+    DerivedType(PointerType f); //Defined in type_pointer.cpp
 
     DerivedType(const DerivedType& other); 
     DerivedType& operator=(const DerivedType& other);
@@ -64,6 +66,19 @@ public:
         return std::holds_alternative<std::unique_ptr<T>>(type);
     }
 };
+class PointerType{
+    CType underlying_type;
+public:
+    explicit PointerType(CType t) : underlying_type(t) {}
+    bool operator ==(const PointerType& other) const;
+    bool operator !=(const PointerType& other) const;
+    CType pointed_type() const;
+    friend bool is_compatible(const PointerType& type1, const PointerType& type2);
+    friend bool can_convert(const PointerType& type1, const PointerType& type2);
+    friend std::string to_string(const PointerType& type);
+    friend std::string ir_type(const PointerType& type);
+};
+
 class FuncType{
     struct FuncPrototype{
         std::vector<CType> param_types;
