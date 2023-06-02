@@ -9,7 +9,7 @@ namespace token{
 enum class TokenType{
     LBrace, RBrace, LParen, RParen, LBrack, RBrack, Semicolon, Period,
     Keyword, Identifier, IntegerLiteral, FloatLiteral,
-    Not, Minus, Plus, Mult, Div, Mod,
+    Not, Minus, Plus, Star, Div, Mod,
     Assign, PlusAssign, MinusAssign, DivAssign, MultAssign,ModAssign,
     LSAssign,RSAssign,BAAssign, BOAssign, BXAssign,
     Colon, Question, And, Or,
@@ -96,8 +96,8 @@ inline std::string string_name(TokenType type){
             return "minus";
         case TokenType:: Plus:
             return "plus";
-        case TokenType::Mult:
-            return "multiplication";
+        case TokenType::Star:
+            return "star '*'";
         case TokenType::Div:
             return "division";
         case TokenType::Mod:

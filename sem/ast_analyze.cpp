@@ -253,7 +253,7 @@ void BinaryOp::analyze(symbol::STable* st){
             break;
         case token::TokenType::Plus:
         case token::TokenType::Minus:
-        case token::TokenType::Mult:
+        case token::TokenType::Star:
         case token::TokenType::Div:
             if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",tok);

@@ -25,7 +25,7 @@ namespace{
     //left binding is less than right binding for left associativity (+, -)
     //and vice versa for right associativity
     std::map<token::TokenType, std::pair<int, int>> binary_op_binding_power = {{
-        {token::TokenType::Mult, {25,26}}, {token::TokenType::Div, {25,26}},
+        {token::TokenType::Star, {25,26}}, {token::TokenType::Div, {25,26}},
         {token::TokenType::Mod, {25,26}}, 
         {token::TokenType::Plus,{23,24}}, {token::TokenType::Minus,{23,24}}, 
         {token::TokenType::LShift,{21,22}}, {token::TokenType::RShift,{21,22}}, 
@@ -492,7 +492,7 @@ std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, type::CType specifie
                 return std::make_unique<ast::FunctionDecl>(var_name, ft);},
             [&var_name](type::VoidType vt)-> std::unique_ptr<ast::Decl> {
                 throw sem_error::TypeError("Invalid type 'void'", var_name);},
-            [&var_name](auto pt)-> std::unique_ptr<ast::Decl> {
+            [&var_name](type::PointerType pt)-> std::unique_ptr<ast::Decl> {
                 throw sem_error::TypeError("Declaration of pointer type not implemented", var_name);}
             ), declarator.second);
     }

@@ -20,7 +20,7 @@ TEST_CASE("recognizes_mult"){
     auto ss = std::stringstream("3*5");
     lexer::Lexer l(ss);
     REQUIRE(l.get_token().type == token::TokenType::IntegerLiteral);
-    REQUIRE(l.get_token().type == token::TokenType::Mult);
+    REQUIRE(l.get_token().type == token::TokenType::Star);
     REQUIRE(l.get_token().type == token::TokenType::IntegerLiteral);
 }
 TEST_CASE("recognizes_logical_not"){

@@ -13,7 +13,7 @@ namespace{
 const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::PlusAssign, token::TokenType::Plus},
     {token::TokenType::MinusAssign, token::TokenType::Minus},
-    {token::TokenType::MultAssign, token::TokenType::Mult},
+    {token::TokenType::MultAssign, token::TokenType::Star},
     {token::TokenType::DivAssign, token::TokenType::Div},
     {token::TokenType::ModAssign, token::TokenType::Mod},
     {token::TokenType::LSAssign, token::TokenType::LShift},
@@ -653,7 +653,7 @@ value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const 
         case token::TokenType::Minus:
         case token::TokenType::Plus:
         case token::TokenType::Div:
-        case token::TokenType::Mult:
+        case token::TokenType::Star:
         case token::TokenType::Mod:
         case token::TokenType::Equal:
         case token::TokenType::NEqual:

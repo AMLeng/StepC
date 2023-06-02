@@ -23,7 +23,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type()), left,right,output,c);
             break;
-        case token::TokenType::Mult:
+        case token::TokenType::Star:
             result = make_command(left->get_type(),std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "mul";},
                 [](type::FType){return "fmul";},

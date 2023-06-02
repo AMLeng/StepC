@@ -24,7 +24,7 @@ namespace{
     }
 
     type::CType parse_pointer(type::CType specified_type, lexer::Lexer& l){
-        if(l.peek_token().type != token::TokenType::Mult){
+        if(l.peek_token().type != token::TokenType::Star){
             return specified_type;
         }else{
             throw parse_error::UnknownError("Pointer declarations not yet implemented", l.peek_token());
