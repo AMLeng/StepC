@@ -29,6 +29,8 @@ typedef std::variant<VoidType, BasicType, DerivedType> CType;
 
 class DerivedType{
     std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> type;
+    template <typename ReturnType, typename Visitor>
+    auto visit_helper(Visitor&& v) const;
 public:
     DerivedType(FuncType f); //Defined in type_func.cpp
     DerivedType(PointerType f); //Defined in type_pointer.cpp
@@ -45,14 +47,8 @@ public:
     friend std::string to_string(const DerivedType& type);
     friend bool can_convert(const DerivedType& type1, const DerivedType& type2);
 
-    template <typename Visitor>
-    auto visit(Visitor&& v) const{
-        return std::visit([&v](auto&& pointer){
-            return std::invoke(v,*pointer);
-        }
-        ,type);
-    }
-
+    template <typename ReturnType, typename Visitor>
+    ReturnType visit(Visitor&& v) const;
     template <typename T>
     T get() const{
         try{
@@ -133,8 +129,27 @@ bool can_represent(IType type, unsigned long long int value);
 //bool can_represent(BasicType target, BasicType source);
 //bool is_complete(CType type);
 
+
+//Everything below is template stuff for type::make_visitor to work properly
 template <class... Ts> struct overloaded : Ts...{using Ts::operator()...;};
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
+
+
+template <typename ReturnType, typename Visitor>
+auto DerivedType::visit_helper(Visitor&& v) const{
+    return [&v](const auto& pointer) -> ReturnType{
+        if constexpr(std::is_convertible_v<decltype(std::invoke(v,*pointer)),ReturnType>){
+            return std::invoke(v,*pointer);
+        }else{
+            throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
+        }
+    };
+}
+
+template <typename ReturnType, typename Visitor>
+ReturnType DerivedType::visit(Visitor&& v) const{
+    return std::visit(visit_helper<ReturnType>(v),type);
+}
 
 template<typename ReturnType, typename...Ts>
 struct type_visitor{
@@ -157,8 +172,8 @@ struct type_visitor{
         }
     }
     ReturnType operator()(const DerivedType& derived_type){
-        if constexpr(std::is_convertible_v<decltype(derived_type.visit(inner_visitor)),ReturnType>){
-            return derived_type.visit(inner_visitor);
+        if constexpr(std::is_convertible_v<decltype(derived_type.visit<ReturnType>(inner_visitor)),ReturnType>){
+            return derived_type.visit<ReturnType>(inner_visitor);
         }else{
             throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
         }
