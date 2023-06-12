@@ -141,7 +141,8 @@ auto DerivedType::visit_helper(Visitor&& v) const{
         if constexpr(std::is_convertible_v<decltype(std::invoke(v,*pointer)),ReturnType>){
             return std::invoke(v,*pointer);
         }else{
-            throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
+            std::invoke(v,*pointer);//Give this function a chance to throw an exception
+            throw std::runtime_error("Tried to call visit helper on "+type::to_string(*pointer)+" returning incompatible return type");
         }
     };
 }
@@ -168,14 +169,14 @@ struct type_visitor{
             return std::visit(inner_visitor,basic_type);
         }else{
             std::visit(inner_visitor,basic_type);
-            throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
+            throw std::runtime_error("Tried to call basic type visitor on lambda returning incompatible return type");
         }
     }
     ReturnType operator()(const DerivedType& derived_type){
         if constexpr(std::is_convertible_v<decltype(derived_type.visit<ReturnType>(inner_visitor)),ReturnType>){
             return derived_type.visit<ReturnType>(inner_visitor);
         }else{
-            throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
+            throw std::runtime_error("Tried to call type visitor on "+type::to_string(derived_type)+" with function returning incompatible return type");
         }
     }
 };

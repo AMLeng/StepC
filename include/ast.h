@@ -90,7 +90,7 @@ struct VarDecl : public Decl {
     bool analyzed = false;
     std::optional<std::unique_ptr<BinaryOp>> assignment;
     //Type qualifiers and storage class specifiers to be implemented later
-    VarDecl(token::Token tok, type::BasicType type,std::optional<std::unique_ptr<BinaryOp>> assignment = std::nullopt) 
+    VarDecl(token::Token tok, type::CType type,std::optional<std::unique_ptr<BinaryOp>> assignment = std::nullopt) 
         : Decl(tok,type), assignment(std::move(assignment)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;

@@ -27,7 +27,10 @@ namespace{
         if(l.peek_token().type != token::TokenType::Star){
             return specified_type;
         }else{
-            throw parse_error::UnknownError("Pointer declarations not yet implemented", l.peek_token());
+            l.get_token();
+            auto type = type::PointerType(specified_type);
+            //Add code to parse quaifiers here
+            return parse_pointer(type, l);
         }
     }
     std::pair<Declarator,std::optional<std::vector<Declarator>>> parse_declarator(type::CType specified_type, lexer::Lexer& l){

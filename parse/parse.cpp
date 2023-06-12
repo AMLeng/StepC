@@ -479,8 +479,9 @@ std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, type::CType specifie
                 [&var_name,&l,bind = binary_op_binding_power.at(token::TokenType::Assign).second](type::BasicType bt){
                     auto assign = parse_binary_op(l,std::make_unique<ast::Variable>(var_name),bind);
                     return std::make_unique<ast::VarDecl>(var_name, bt, std::move(assign));},
-                 [&var_name](type::PointerType ft){
-                     throw sem_error::TypeError("Assignment to pointer type not implemented", var_name);},
+                [&var_name,&l,bind = binary_op_binding_power.at(token::TokenType::Assign).second](type::PointerType pt){
+                    auto assign = parse_binary_op(l,std::make_unique<ast::Variable>(var_name),bind);
+                    return std::make_unique<ast::VarDecl>(var_name, pt, std::move(assign));},
                  [&var_name](type::FuncType ft){
                      throw sem_error::TypeError("Invalid assignment to function type", var_name);}
                 ), declarator.second);
@@ -493,7 +494,7 @@ std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, type::CType specifie
             [&var_name](type::FuncType ft){
                 return std::make_unique<ast::FunctionDecl>(var_name, ft);},
             [&var_name](type::PointerType pt){
-                throw sem_error::TypeError("Declaration of pointer type not implemented", var_name);}
+                return std::make_unique<ast::VarDecl>(var_name, pt);}
             ), declarator.second);
     }
 }
