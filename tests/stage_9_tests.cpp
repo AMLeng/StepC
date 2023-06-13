@@ -326,7 +326,7 @@ void a(){
 TEST_CASE("function def missing paren"){
     auto ss = std::stringstream(
 R"(
-void a{
+int a{
     return;
 }
 )");
@@ -349,6 +349,28 @@ int main(){
 })");
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+}
+TEST_CASE("variadic function decl one arg"){
+    auto ss = std::stringstream(
+R"(
+int a(int b,...);
+int main(){
+    return a(3);
+})");
+    lexer::Lexer l(ss);
+    parse::construct_ast(l)->analyze();
+}
+TEST_CASE("variadic function def one arg"){
+    auto ss = std::stringstream(
+R"(
+int a(int b,...){
+    return 3;
+}
+int main(){
+    return a(4);
+})");
+    lexer::Lexer l(ss);
+    parse::construct_ast(l)->analyze();
 }
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)

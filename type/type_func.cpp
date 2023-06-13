@@ -14,6 +14,9 @@ FuncType::FuncType(CType ret, std::vector<CType> param, bool variadic)
             }
         }
     }
+    if(is_type<FuncType>(ret_type)){
+        throw std::runtime_error("Function cannot return function type");
+    }
 }
 FuncType::FuncType(CType ret)
     : ret_type(ret), prototype(std::nullopt) {
@@ -108,9 +111,9 @@ std::string FuncType::to_string(const FuncType::FuncPrototype& t){
 }
 std::string to_string(const FuncType& t){
     if(t.prototype.has_value()){
-        return to_string(t.ret_type) + FuncType::to_string(t.prototype.value());
+        return "function on " + FuncType::to_string(t.prototype.value()) + " returning "+to_string(t.ret_type);
     }else{
-        return to_string(t.ret_type) + "()";
+        return "function with unknown args returning "+to_string(t.ret_type);
     }
 }
 std::string ir_type(const FuncType& type){

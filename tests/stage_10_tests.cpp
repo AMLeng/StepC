@@ -21,7 +21,66 @@ int main(){
 })");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
-    program_pointer->pretty_print(0);
+}
+TEST_CASE("parse complex decl 1"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    void* (*a)(int *,double,...);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+}
+TEST_CASE("parse complex decl 2"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int(b)(int*(*)(int));
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+}
+TEST_CASE("parse complex decl 3"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int(*(*c)(void))(int*(*)(int));
+})");
+    //Pointer to a function on (void) returning a pointer to
+    //  "a function taking in an int*(*)(int) and returning an int"
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+}
+TEST_CASE("parse complex decl 4"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int**(*(**c)())(int);
+})");
+    //Pointer to pointer to a function returning a pointer to
+    //  "a function taking in an int and returning an int**"
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+}
+TEST_CASE("invalid decl 1"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    void* (a*)(int *,double,...);
+})");
+    //Identifier in incorrect spot relative to pointer *
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+}
+TEST_CASE("invalid decl 2"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int(int*(*)(int)) (*c)(void);
+})");
+    //Identifier must come before any function arg types
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
 }
 
 

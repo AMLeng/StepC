@@ -105,8 +105,6 @@ void Conditional::pretty_print(int depth){
 }
 
 void NullStmt::pretty_print(int depth){
-    AST::print_whitespace(depth);
-    std::cout<< "NULL"<<std::endl;
 }
 
 void IfStmt::pretty_print(int depth){
