@@ -218,8 +218,9 @@ struct BreakStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 struct ReturnStmt : public Stmt{
+    token::Token tok;
     std::optional<std::unique_ptr<Expr>> return_expr;
-    ReturnStmt(std::optional<std::unique_ptr<Expr>> ret_expr) : return_expr(std::move(ret_expr)) {}
+    ReturnStmt(token::Token tok, std::optional<std::unique_ptr<Expr>> ret_expr) : tok(tok), return_expr(std::move(ret_expr)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
     value::Value* codegen(std::ostream& output, context::Context& c) const override;

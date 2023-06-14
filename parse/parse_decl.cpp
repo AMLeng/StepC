@@ -42,6 +42,9 @@ namespace{
             if(index != unapplied.size()-1){
                 throw parse_error::ParseError("Invalid type definition ",tok);
             }
+            if(ident.has_value()){
+                throw parse_error::ParseError("Multiple identifiers in type definition ",tok);
+            }
             ident = tok;
         }
         void add_level(token::Token tok){
@@ -250,16 +253,21 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
         l.get_token();
     }
     auto specified_type = parse_specifiers(l);
-    //Check if we have a function definition
+    //Check if we have a function definition and not just a declaration
     if(l.peek_token().type == token::TokenType::Identifier
         && l.peek_token(2).type == token::TokenType::LParen){
         int i = 3;
-        while(l.peek_token(i).type != token::TokenType::RParen){
+        while(token::matches_type(l.peek_token(i), 
+            token::TokenType::Comma, token::TokenType::Identifier, token::TokenType::Keyword, token::TokenType::Ellipsis)){
             i++;
         }
-        i++;
-        if(l.peek_token(i).type == token::TokenType::LBrace){
-            return parse_function_def(l, specified_type);
+        if(l.peek_token(i).type == token::TokenType::RParen){
+            i++;
+            if(l.peek_token(i).type == token::TokenType::LBrace){
+                return parse_function_def(l, specified_type);
+            }
+        }else{
+            throw parse_error::ParseError("Invalid function declaration", l.peek_token());
         }
     }
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};

@@ -374,7 +374,11 @@ void ReturnStmt::analyze(symbol::STable* st){
         ret_type = this->return_expr.value()->type;
     }
     if(!type::can_convert(ret_type,bt->return_type())){
-        throw sem_error::TypeError("Invalid return type",this->return_expr.value()->tok);
+        if(this->return_expr.has_value()){
+            throw sem_error::TypeError("Invalid return type",this->return_expr.value()->tok);
+        }else{
+            throw sem_error::TypeError("Invalid return type",this->tok);
+        }
     }
 }
 void ContinueStmt::analyze(symbol::STable* st){

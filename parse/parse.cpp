@@ -283,11 +283,11 @@ std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l){
     }
     if(l.peek_token().type == token::TokenType::Semicolon){
         l.get_token();
-        return std::make_unique<ast::ReturnStmt>(std::nullopt);
+        return std::make_unique<ast::ReturnStmt>(return_keyword, std::nullopt);
     }
     auto ret_value = parse_expr(l);
     check_token_type(l.get_token(), token::TokenType::Semicolon);
-    return std::make_unique<ast::ReturnStmt>(std::move(ret_value));
+    return std::make_unique<ast::ReturnStmt>(return_keyword, std::move(ret_value));
 }
 
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
