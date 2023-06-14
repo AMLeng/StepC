@@ -296,7 +296,7 @@ void BinaryOp::analyze(symbol::STable* st){
             }
             this->type = type::from_str("int");
             break;
-        case token::TokenType::BitwiseAnd:
+        case token::TokenType::Amp:
         case token::TokenType::BitwiseOr:
         case token::TokenType::BitwiseXor:
             if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){

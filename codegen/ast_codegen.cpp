@@ -18,7 +18,7 @@ const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::ModAssign, token::TokenType::Mod},
     {token::TokenType::LSAssign, token::TokenType::LShift},
     {token::TokenType::RSAssign, token::TokenType::RShift},
-    {token::TokenType::BAAssign, token::TokenType::BitwiseAnd},
+    {token::TokenType::BAAssign, token::TokenType::Amp},
     {token::TokenType::BOAssign, token::TokenType::BitwiseOr},
     {token::TokenType::BXAssign, token::TokenType::BitwiseXor},
 }};
@@ -663,7 +663,7 @@ value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const 
         case token::TokenType::GEq:
         case token::TokenType::LShift:
         case token::TokenType::RShift:
-        case token::TokenType::BitwiseAnd:
+        case token::TokenType::Amp:
         case token::TokenType::BitwiseOr:
         case token::TokenType::BitwiseXor:
         case token::TokenType::Comma:

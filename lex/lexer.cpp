@@ -59,7 +59,7 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {';',token::TokenType::Semicolon},
     {',',token::TokenType::Comma},
     {'~',token::TokenType::BitwiseNot},
-    {'&',token::TokenType::BitwiseAnd},
+    {'&',token::TokenType::Amp},
     {'|',token::TokenType::BitwiseOr},
     {'^',token::TokenType::BitwiseXor},
     {'!',token::TokenType::Not},

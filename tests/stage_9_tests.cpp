@@ -290,7 +290,7 @@ int main(){
     putchar();
 })");
     lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
 }
 TEST_CASE("error function decl void multi arg"){
     auto ss = std::stringstream(
@@ -300,7 +300,7 @@ int main(){
     putchar(25, 5);
 })");
     lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
 }
 TEST_CASE("error function decl void multi arg 2"){
     auto ss = std::stringstream(
@@ -310,7 +310,7 @@ int main(){
     putchar();
 })");
     lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
 }
 TEST_CASE("empty return in void function"){
     auto ss = std::stringstream(
