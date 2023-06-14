@@ -116,6 +116,31 @@ void UnaryOp::analyze(symbol::STable* st) {
     this->arg->analyze(st);
     //Typechecking
     switch(this->tok.type){
+        case token::TokenType::Star:
+            if(!type::is_type<type::PointerType>(this->arg->type)){
+                throw sem_error::TypeError("Cannot dereference non-pointer type",tok);
+            }
+            this->type = std::get<type::DerivedType>(this->arg->type).get<type::PointerType>().pointed_type();
+            //TODO must return an l-value (refactor l-value determination)
+            break;
+        case token::TokenType::Amp:
+            //Make exception for result of *
+            {
+            auto arg_pointer = dynamic_cast<ast::UnaryOp*>(this->arg.get());
+            if(arg_pointer && arg_pointer->tok.type == token::TokenType::Star){
+                break;
+            }
+            }
+            //Make exception for result of [] TODO
+            {
+            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
+            if(!lval){
+                throw sem_error::TypeError("Lvalue required as argument of address operator",tok);
+            }
+            //Check that not bitfield and not of register type
+            }
+            this->type = type::PointerType(this->arg->type);
+            break;
         case token::TokenType::Plusplus:
             {
             auto lval = dynamic_cast<ast::LValue*>(this->arg.get());

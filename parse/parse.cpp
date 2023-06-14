@@ -111,6 +111,8 @@ std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::Lexer& l){
                 token::TokenType::Minus,
                 token::TokenType::Plus,
                 token::TokenType::BitwiseNot,
+                token::TokenType::Amp,
+                token::TokenType::Star,
                 token::TokenType::Not,
                 token::TokenType::Plusplus,//Prefix versions
                 token::TokenType::Minusminus)){
@@ -182,6 +184,8 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
         case token::TokenType::Minus:
         case token::TokenType::Plus:
         case token::TokenType::BitwiseNot:
+        case token::TokenType::Amp:
+        case token::TokenType::Star:
         case token::TokenType::Not:
         case token::TokenType::Plusplus:
         case token::TokenType::Minusminus:

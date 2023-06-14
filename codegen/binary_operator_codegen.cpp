@@ -130,7 +130,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
             //So it doesn't matter if we lshr or ashr
             result = make_command(left->get_type(),"lshr", left,right,output,c);
             break;
-        case token::TokenType::BitwiseAnd:
+        case token::TokenType::Amp:
             result = make_command(left->get_type(),"and", left,right,output,c);
             break;
         case token::TokenType::BitwiseOr:
