@@ -26,7 +26,6 @@ std::unique_ptr<ast::BreakStmt> parse_break_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::GotoStmt> parse_goto_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::LabeledStmt> parse_labeled_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::Variable> parse_variable(lexer::Lexer& l);
-std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l);
 std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l);
 

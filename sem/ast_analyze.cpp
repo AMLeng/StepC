@@ -24,6 +24,17 @@ const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::BOAssign, token::TokenType::BitwiseOr},
     {token::TokenType::BXAssign, token::TokenType::BitwiseXor},
 }};
+bool is_lval(const ast::AST* node){
+    if(dynamic_cast<const ast::Variable*>(node)){
+        return true;
+    }
+    if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
+        if(p->tok.type == token::TokenType::Star){
+            return true;
+        }
+    }
+    return false;
+}
 std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, token::TokenType op, token::Token tok){
     auto return_types = std::array<type::CType,3>{};
     switch(op){
@@ -181,11 +192,8 @@ void Postfix::analyze(symbol::STable* st) {
     //Typechecking
     switch(this->tok.type){
         case token::TokenType::Plusplus:
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
-            if(!lval){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of increment",tok);
-            }
             }
             if(!type::is_arith(this->arg->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",tok);
@@ -193,11 +201,8 @@ void Postfix::analyze(symbol::STable* st) {
             this->type = type::integer_promotions(this->arg->type);
             break;
         case token::TokenType::Minusminus:
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
-            if(!lval){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
-            }
             }
             if(!type::is_arith(this->arg->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",tok);
@@ -233,21 +238,15 @@ void UnaryOp::analyze(symbol::STable* st) {
             }
             }
             //Make exception for result of [] TODO
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
-            if(!lval){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of address operator",tok);
             }
-            //Check that not bitfield and not of register type
-            }
+            //If is lvalue, should check that not bitfield and not of register type
             this->type = type::PointerType(this->arg->type);
             break;
         case token::TokenType::Plusplus:
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
-            if(!lval){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of increment",tok);
-            }
             }
             if(!type::is_arith(this->arg->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",tok);
@@ -255,11 +254,8 @@ void UnaryOp::analyze(symbol::STable* st) {
             this->type = type::integer_promotions(this->arg->type);
             break;
         case token::TokenType::Minusminus:
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->arg.get());
-            if(!lval){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
-            }
             }
             if(!type::is_arith(this->arg->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",tok);
@@ -300,6 +296,7 @@ void BinaryOp::analyze(symbol::STable* st){
         this->new_right_type=types[2];
     }else{
         this->type = this->left->type; //Since we assign, this type will be predetermined
+
         this->new_left_type = this->left->type;
         this->new_right_type = this->right->type;
         if(this->tok.type != token::TokenType::Assign){
@@ -307,14 +304,12 @@ void BinaryOp::analyze(symbol::STable* st){
             this->new_left_type=types[1];
             this->new_right_type=types[2];
         }
-        auto lval = dynamic_cast<ast::LValue*>(this->left.get());
-        if(!lval){
+        if(!is_lval(this->left.get())){
             throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
         }
     }
     
 }
-//Methods that just recurse
 void NullStmt::analyze(symbol::STable* st){
 }
 void Constant::analyze(symbol::STable* st){

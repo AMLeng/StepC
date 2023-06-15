@@ -135,10 +135,6 @@ std::unique_ptr<ast::Variable> parse_variable(lexer::Lexer& l){
     check_token_type(var_tok, token::TokenType::Identifier);
     return std::make_unique<ast::Variable>(var_tok);
 }
-std::unique_ptr<ast::LValue> parse_lvalue(lexer::Lexer& l){
-    //Right now variables are the only implemented lvalue
-    return parse_variable(l);
-}
 std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique_ptr<ast::Expr> cond){
     auto question = l.get_token();
     check_token_type(question, token::TokenType::Question);
@@ -195,7 +191,7 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
             if(l.peek_token(2).type == token::TokenType::LParen){
                 expr_ptr = parse_function_call(l);
             }else{
-                expr_ptr = parse_lvalue(l);
+                expr_ptr = parse_variable(l);
             }
             break;
         case token::TokenType::LParen:

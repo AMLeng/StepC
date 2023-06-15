@@ -244,14 +244,10 @@ struct Conditional : public Expr{
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
-struct LValue : public Expr{
-    LValue(token::Token tok) : Expr(tok){}
-    virtual ~LValue() = 0;
-};
 
-struct Variable : public LValue{
+struct Variable : public Expr{
     std::string variable_name;
-    Variable(token::Token tok) : LValue(tok), variable_name(tok.value) {}
+    Variable(token::Token tok) : Expr(tok), variable_name(tok.value) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
