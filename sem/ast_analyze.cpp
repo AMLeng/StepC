@@ -1,14 +1,109 @@
 #include "ast.h"
 #include "type.h"
 #include "sem_error.h"
+#include <array>
 namespace ast{
-
+namespace{
 template <class... Ts>
 struct overloaded : Ts...{
     using Ts::operator()...;
 };
 
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
+
+const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
+    {token::TokenType::Assign, token::TokenType::Assign},
+    {token::TokenType::PlusAssign, token::TokenType::Plus},
+    {token::TokenType::MinusAssign, token::TokenType::Minus},
+    {token::TokenType::MultAssign, token::TokenType::Star},
+    {token::TokenType::DivAssign, token::TokenType::Div},
+    {token::TokenType::ModAssign, token::TokenType::Mod},
+    {token::TokenType::LSAssign, token::TokenType::LShift},
+    {token::TokenType::RSAssign, token::TokenType::RShift},
+    {token::TokenType::BAAssign, token::TokenType::Amp},
+    {token::TokenType::BOAssign, token::TokenType::BitwiseOr},
+    {token::TokenType::BXAssign, token::TokenType::BitwiseXor},
+}};
+std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, token::TokenType op, token::Token tok){
+    auto return_types = std::array<type::CType,3>{};
+    switch(op){
+        case token::TokenType::Plus:
+        case token::TokenType::Minus:
+        case token::TokenType::Star:
+        case token::TokenType::Div:
+            if(!type::is_arith(left) || !type::is_arith(right)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            return_types[0] = type::usual_arithmetic_conversions(left, right);
+            return_types[1] = return_types[0];
+            return_types[2] = return_types[0];
+            break;
+        case token::TokenType::Mod:
+            if(!type::is_int(left) || !type::is_int(right)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            return_types[0] = type::usual_arithmetic_conversions(left, right);
+            return_types[1] = return_types[0];
+            return_types[2] = return_types[0];
+            break;
+        case token::TokenType::Amp:
+        case token::TokenType::BitwiseOr:
+        case token::TokenType::BitwiseXor:
+            if(!type::is_int(left) || !type::is_int(right)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            return_types[0] = type::usual_arithmetic_conversions(left, right);
+            return_types[1] = return_types[0];
+            return_types[2] = return_types[0];
+            break;
+        case token::TokenType::LShift:
+        case token::TokenType::RShift:
+            if(!type::is_int(left) || !type::is_int(right)){
+                throw sem_error::TypeError("Operand of integer type required",tok);
+            }
+            return_types[1] = type::integer_promotions(left);
+            return_types[2] = type::integer_promotions(right);
+            return_types[0] = return_types[1];
+            break;
+        case token::TokenType::And:
+        case token::TokenType::Or:
+            if(!type::is_scalar(left) || !type::is_scalar(right)){
+                throw sem_error::TypeError("Operand of scalar type required",tok);
+            }
+            return_types[2] = right;
+            return_types[1] = left;
+            return_types[0] = type::from_str("int");
+            break;
+        case token::TokenType::Equal:
+        case token::TokenType::NEqual:
+            //Check that in fact real type
+        case token::TokenType::Less:
+        case token::TokenType::Greater:
+        case token::TokenType::LEq:
+        case token::TokenType::GEq:
+            if(!type::is_arith(left) || !type::is_arith(right)){
+                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            }
+            {
+            auto convert_type = type::usual_arithmetic_conversions(left, right);
+            return_types[1] = convert_type;
+            return_types[2] = convert_type;
+            }
+            return_types[0] = type::from_str("int");
+            break;
+        case token::TokenType::Comma:
+            return_types[2] = right;
+            return_types[1] = left;
+            return_types[0] = left;
+            break;
+        default:
+            assert(false && "Unknown binary operator type");
+    }
+    return return_types;
+}
+
+} //namespace
+
 void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
     //Add symbol to symbol table, check that not already present
@@ -35,8 +130,11 @@ void Variable::analyze(symbol::STable* st) {
         throw sem_error::STError("Variable not found in symbol table",this->tok);
     }
     auto type_in_table = st->symbol_type(this->variable_name);
-    if(!std::holds_alternative<type::BasicType>(type_in_table)){
-        throw sem_error::STError("Symbol table entry not of basic type",this->tok);
+    if(type::is_type<type::FuncType>(type_in_table)){
+        throw sem_error::STError("Variable cannot have function type",this->tok);
+    }
+    if(type::is_type<type::VoidType>(type_in_table)){
+        throw sem_error::STError("Variable cannot have void type",this->tok);
     }
     this->type = type_in_table;
 }
@@ -121,6 +219,9 @@ void UnaryOp::analyze(symbol::STable* st) {
                 throw sem_error::TypeError("Cannot dereference non-pointer type",tok);
             }
             this->type = std::get<type::DerivedType>(this->arg->type).get<type::PointerType>().pointed_type();
+            if(type::is_type<type::VoidType>(this->type)){
+                throw sem_error::TypeError("Cannot dereference void pointer",tok);
+            }
             //TODO must return an l-value (refactor l-value determination)
             break;
         case token::TokenType::Amp:
@@ -192,162 +293,26 @@ void BinaryOp::analyze(symbol::STable* st){
     this->analyzed = true;
     this->left->analyze(st);
     this->right->analyze(st);
-    switch(this->tok.type){
-        case token::TokenType::PlusAssign:
-        case token::TokenType::MinusAssign:
-        case token::TokenType::DivAssign:
-        case token::TokenType::MultAssign:
-            if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
-            }
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
-            if(!lval){
-                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
-            }
-            }
-            {
-            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
-            this->new_left_type = convert_type;
-            this->new_right_type = convert_type;
-            }
-            this->type = this->left->type;
-            break;
-        case token::TokenType::ModAssign:
-            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
-                throw sem_error::TypeError("Operand of integer type required",tok);
-            }
-            {
-            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
-            this->new_left_type = convert_type;
-            this->new_right_type = convert_type;
-            }
-            this->type = this->left->type;
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
-            if(!lval){
-                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
-            }
-            }
-            break;
-        case token::TokenType::BAAssign:
-        case token::TokenType::BOAssign:
-        case token::TokenType::BXAssign:
-            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
-                throw sem_error::TypeError("Operand of integer type required",tok);
-            }
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
-            if(!lval){
-                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
-            }
-            }
-            {
-            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
-            this->new_left_type = convert_type;
-            this->new_right_type = convert_type;
-            }
-            this->type = this->left->type;
-            break;
-        case token::TokenType::LSAssign:
-        case token::TokenType::RSAssign:
-            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
-                throw sem_error::TypeError("Operand of integer type required",tok);
-            }
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
-            if(!lval){
-                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
-            }
-            }
-            this->new_left_type = type::integer_promotions(this->left->type);
-            this->new_right_type = type::integer_promotions(this->right->type);
-            this->type = this->left->type;
-            break;
-        case token::TokenType::Assign:
-            {
-            auto lval = dynamic_cast<ast::LValue*>(this->left.get());
-            if(!lval){
-                throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
-            }
-            }
-            //All basic types are interconvertable, modulo some potential for UB
-            this->new_right_type = this->right->type;
-            this->new_left_type = this->left->type;
-            this->type = this->left->type;
-            break;
-        case token::TokenType::Plus:
-        case token::TokenType::Minus:
-        case token::TokenType::Star:
-        case token::TokenType::Div:
-            if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
-            }
-            this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
-            this->new_left_type = this->type;
-            this->new_right_type = this->type;
-            break;
-        case token::TokenType::Mod:
-            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
-                throw sem_error::TypeError("Operand of integer type required",tok);
-            }
-            this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
-            this->new_left_type = this->type;
-            this->new_right_type = this->type;
-            break;
-        case token::TokenType::And:
-        case token::TokenType::Or:
-            if(!type::is_scalar(this->left->type) || !type::is_scalar(this->right->type)){
-                throw sem_error::TypeError("Operand of scalar type required",tok);
-            }
-            this->new_right_type = this->right->type;
-            this->new_left_type = this->left->type;
-            this->type = type::from_str("int");
-            break;
-        case token::TokenType::Equal:
-        case token::TokenType::NEqual:
-            //Check that in fact real type
-        case token::TokenType::Less:
-        case token::TokenType::Greater:
-        case token::TokenType::LEq:
-        case token::TokenType::GEq:
-            if(!type::is_arith(this->left->type) || !type::is_arith(this->right->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
-            }
-            {
-            auto convert_type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
-            this->new_left_type = convert_type;
-            this->new_right_type = convert_type;
-            }
-            this->type = type::from_str("int");
-            break;
-        case token::TokenType::Amp:
-        case token::TokenType::BitwiseOr:
-        case token::TokenType::BitwiseXor:
-            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
-                throw sem_error::TypeError("Operand of integer type required",tok);
-            }
-            this->type = type::usual_arithmetic_conversions(this->left->type, this->right->type);
-            this->new_left_type = this->type;
-            this->new_right_type = this->type;
-            break;
-        case token::TokenType::LShift:
-        case token::TokenType::RShift:
-            if(!type::is_int(this->left->type) || !type::is_int(this->right->type)){
-                throw sem_error::TypeError("Operand of integer type required",tok);
-            }
-            this->new_left_type = type::integer_promotions(this->left->type);
-            this->new_right_type = type::integer_promotions(this->right->type);
-            this->type = this->new_left_type;
-            break;
-        case token::TokenType::Comma:
-            this->new_right_type = this->right->type;
-            this->new_left_type = this->left->type;
-            this->type = this->left->type;
-            break;
-        default:
-            assert(false && "Unknown binary operator type");
+    if(assignment_op.find(this->tok.type) == assignment_op.end()){
+        auto types = analyze_bin_op(this->left->type,this->right->type,this->tok.type, this->tok);
+        this->type = types[0];
+        this->new_left_type=types[1];
+        this->new_right_type=types[2];
+    }else{
+        this->type = this->left->type; //Since we assign, this type will be predetermined
+        this->new_left_type = this->left->type;
+        this->new_right_type = this->right->type;
+        if(this->tok.type != token::TokenType::Assign){
+            auto types = analyze_bin_op(this->left->type,this->right->type,assignment_op.at(this->tok.type), this->tok);
+            this->new_left_type=types[1];
+            this->new_right_type=types[2];
+        }
+        auto lval = dynamic_cast<ast::LValue*>(this->left.get());
+        if(!lval){
+            throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
+        }
     }
+    
 }
 //Methods that just recurse
 void NullStmt::analyze(symbol::STable* st){
