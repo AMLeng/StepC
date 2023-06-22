@@ -48,18 +48,9 @@ public:
 
     template <typename ReturnType, typename Visitor>
     ReturnType visit(Visitor&& v) const;
-    template <typename T>
-    T get() const{
-        try{
-            return *std::get<std::unique_ptr<T>>(type);
-        }catch(std::exception& e){
-            throw std::runtime_error("DerivedType holding incorrect type");
-        }
-    }
-    template <typename T>
-    bool holds_alternative() const{
-        return std::holds_alternative<std::unique_ptr<T>>(type);
-    }
+
+    template<typename T>
+    friend T get(const CType& type);
 };
 class PointerType{
     CType underlying_type;
@@ -193,6 +184,18 @@ bool is_type(const CType& type){
     ), type);
 }
 
+template<typename T>
+T get(const CType& type){
+    try{
+        if constexpr(std::is_convertible_v<T,DerivedType>){
+            return *std::get<std::unique_ptr<T>>(std::get<DerivedType>(type).type);
+        }else{
+            return std::get<T>(type);
+        }
+    }catch(std::exception& e){
+    }
+    throw std::runtime_error("Incorrect type for type::get");
+}
 
 }
 #endif

@@ -221,7 +221,7 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)co
     return nullptr;
 }
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
-    auto f_type = std::get<type::DerivedType>(this->type).get<type::FuncType>();
+    auto f_type = type::get<type::FuncType>(this->type);
     assert(!std::holds_alternative<type::DerivedType>(f_type.return_type()) && "Cannot yet return derived types");
     if(this->tok.value == "main"){
         assert(f_type.return_type() == type::CType(type::IType::Int));
@@ -435,7 +435,7 @@ value::Value* Constant::codegen(std::ostream& output, context::Context& c)const 
 value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto function = c.get_value(this->func_name);
-    auto ft =std::get<type::DerivedType>(function->get_type()).get<type::FuncType>();
+    auto ft =type::get<type::FuncType>(function->get_type());
 
     auto arg_values = std::vector<value::Value*>{};
     for(auto& expr : this->args){
@@ -475,7 +475,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
             command = std::visit(overloaded{
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
-                }, std::get<type::BasicType>(this->type));
+                }, type::get<type::BasicType>(this->type));
             
             AST::print_whitespace(c.depth(), output);
             auto var_temp = c.new_temp(this->type);

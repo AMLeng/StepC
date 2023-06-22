@@ -37,7 +37,7 @@ bool is_lval(const ast::AST* node){
 }
 bool is_nullptr_constant(const ast::Expr* node){
     if(type::is_type<type::PointerType>(node->type)){
-        auto t = std::get<type::DerivedType>(node->type).get<type::PointerType>();
+        auto t = type::get<type::PointerType>(node->type);
         if(!type::is_type<type::VoidType>(t.pointed_type())){
             return false;
         }
@@ -191,7 +191,7 @@ void FuncCall::analyze(symbol::STable* st) {
         arg_types.push_back(type::CType());
     }
     try{
-        auto f_type = std::get<type::DerivedType>(st->symbol_type(this->func_name)).get<type::FuncType>();
+        auto f_type = type::get<type::FuncType>(st->symbol_type(this->func_name));
         if(!f_type.params_match(arg_types)){
             throw sem_error::TypeError("Cannot call function of type "+type::to_string(f_type)+" on types of provided arguments",this->tok);
         }
@@ -237,7 +237,7 @@ void UnaryOp::analyze(symbol::STable* st) {
             if(!type::is_type<type::PointerType>(this->arg->type)){
                 throw sem_error::TypeError("Cannot dereference non-pointer type",tok);
             }
-            this->type = std::get<type::DerivedType>(this->arg->type).get<type::PointerType>().pointed_type();
+            this->type = type::get<type::PointerType>(this->arg->type).pointed_type();
             if(type::is_type<type::VoidType>(this->type)){
                 throw sem_error::TypeError("Cannot dereference void pointer",tok);
             }
@@ -353,9 +353,11 @@ void ReturnStmt::analyze(symbol::STable* st){
     }
     if(!type::can_assign(ret_type,bt->return_type())){
         if(this->return_expr.has_value()){
-            throw sem_error::TypeError("Invalid return type",this->return_expr.value()->tok);
+            throw sem_error::TypeError("Invalid return type "
+                +type::to_string(ret_type) +" (expected "+type::to_string(bt->return_type()) +")",this->return_expr.value()->tok);
         }else{
-            throw sem_error::TypeError("Invalid return type",this->tok);
+            throw sem_error::TypeError("Invalid return type "
+                +type::to_string(ret_type) +" (expected "+type::to_string(bt->return_type()) +")",this->tok);
         }
     }
 }
@@ -514,7 +516,7 @@ void FunctionDecl::analyze(symbol::STable* st){
 }
 void FunctionDef::analyze(symbol::STable* st) {
     this->analyzed = true;
-    auto f_type = std::get<type::DerivedType>(this->type).get<type::FuncType>();
+    auto f_type = type::get<type::FuncType>(this->type);
     if(st->in_function()){
         throw sem_error::FlowError("Function definition inside function",this->tok);
     }

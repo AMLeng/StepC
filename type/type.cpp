@@ -24,8 +24,8 @@ bool can_cast(const CType& type1, const CType& type2){
     }
     return is_type<PointerType>(type1)
         && is_type<PointerType>(type2)
-        && (is_type<FuncType>(std::get<DerivedType>(type1).get<PointerType>().pointed_type()) 
-            == is_type<FuncType>(std::get<DerivedType>(type2).get<PointerType>().pointed_type()));
+        && (is_type<FuncType>(type::get<PointerType>(type1).pointed_type()) 
+            == is_type<FuncType>(type::get<PointerType>(type2).pointed_type()));
 }
 bool can_assign(const CType& type1, const CType& type2){
     return std::visit(make_visitor<bool>(
@@ -34,7 +34,7 @@ bool can_assign(const CType& type1, const CType& type2){
             return is_type<BasicType>(type2);
             },
         [&type2](PointerType type1){return type2 == CType(IType::Bool)
-            || is_type<PointerType>(type2) && can_assign(type1, std::get<DerivedType>(type2).get<PointerType>());},
+            || is_type<PointerType>(type2) && can_assign(type1, type::get<PointerType>(type2));},
         [&type2](FuncType type1){return is_type<FuncType>(type2);}
     ),type1);
 }
