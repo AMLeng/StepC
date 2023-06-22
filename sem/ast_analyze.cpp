@@ -241,17 +241,8 @@ void UnaryOp::analyze(symbol::STable* st) {
             if(type::is_type<type::VoidType>(this->type)){
                 throw sem_error::TypeError("Cannot dereference void pointer",tok);
             }
-            //TODO must return an l-value (refactor l-value determination)
             break;
         case token::TokenType::Amp:
-            //Make exception for result of *
-            {
-            auto arg_pointer = dynamic_cast<ast::UnaryOp*>(this->arg.get());
-            if(arg_pointer && arg_pointer->tok.type == token::TokenType::Star){
-                break;
-            }
-            }
-            //Make exception for result of [] TODO
             if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of address operator",tok);
             }

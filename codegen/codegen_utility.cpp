@@ -104,7 +104,13 @@ value::Value* convert(type::CType target_type, value::Value* val,
         [&](const type::BasicType& bt){return convert(bt, val, output, c);},
         [&](const type::VoidType& vt){throw std::runtime_error("Unable to convert value to void type");},
         [&](const type::FuncType& ft){throw std::runtime_error("Unable to convert value to function type");},
-        [&](const type::PointerType& pt){throw std::runtime_error("Unable to convert value to function type");}
+        [&](const type::PointerType& pt){
+            if(type::is_type<type::PointerType>(val->get_type())){
+                return val; //Do nothing
+            }else{
+                throw std::runtime_error("Conversions to pointer types not yet implemented");
+            }
+        }
     ),target_type);
 }
 value::Value* make_command(type::CType t, std::string command, value::Value* left, value::Value* right, 
@@ -115,23 +121,27 @@ value::Value* make_command(type::CType t, std::string command, value::Value* lef
     output << new_temp->get_value()<<" = "<<command<<" "<<type::ir_type(left->get_type())<<" " << left->get_value() <<", "<< right->get_value()<<std::endl;
     return new_temp;
 }
-value::Value* make_load(value::Value* local, std::ostream& output, context::Context& c){
-    auto result = c.new_temp(local->get_type());
+//Basically returns result = *data_pointer
+value::Value* make_load(value::Value* data_pointer, std::ostream& output, context::Context& c){
+    assert(type::is_type<type::PointerType>(data_pointer->get_type()) && "Can only load from a pointer");
+    auto result = c.new_temp(type::get<type::PointerType>(data_pointer->get_type()).pointed_type());
     print_whitespace(c.depth(), output);
-    output << result->get_value()<<" = load "<<type::ir_type(local->get_type());
-    output << ", " <<type::ir_type(local->get_type())<<"* "<<local->get_value()<<std::endl;
+    output << result->get_value()<<" = load "<<type::ir_type(result->get_type());
+    output << ", " <<type::ir_type(data_pointer->get_type())<<" "<<data_pointer->get_value()<<std::endl;
     return result;
 }
 value::Value* make_tmp_alloca(type::CType t, std::ostream& output, context::Context& c){
-    auto new_tmp = c.new_temp(t);
+    auto new_tmp = c.new_temp(type::PointerType(t));
     print_whitespace(c.depth(), output);
-    output << new_tmp->get_value() <<" = alloca "<<type::ir_type(new_tmp->get_type()) <<std::endl;
+    output << new_tmp->get_value() <<" = alloca "<<type::ir_type(t) <<std::endl;
     return new_tmp;
 }
+//Basically performs *mem = data_pointer
 void make_store(value::Value* val, value::Value* mem, std::ostream& output, context::Context& c){
+    assert(type::is_type<type::PointerType>(mem->get_type()) && "Can only store to a pointer");
     print_whitespace(c.depth(), output);
     output << "store "<<type::ir_type(val->get_type())<<" "<<val->get_value();
-    output<<", "<<type::ir_type(mem->get_type())<<"* "<<mem->get_value()<<std::endl;
+    output<<", "<<type::ir_type(mem->get_type())<<" "<<mem->get_value()<<std::endl;
 }
 
 

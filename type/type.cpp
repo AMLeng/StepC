@@ -22,12 +22,20 @@ bool can_cast(const CType& type1, const CType& type2){
     if(can_assign(type1,type2)){
         return true;
     }
-    return is_type<PointerType>(type1)
-        && is_type<PointerType>(type2)
-        && (is_type<FuncType>(type::get<PointerType>(type1).pointed_type()) 
-            == is_type<FuncType>(type::get<PointerType>(type2).pointed_type()));
+    if(!is_type<PointerType>(type1)){
+        //Must be an int for int to pointer conversion
+        return is_type<IType>(type1) && is_type<PointerType>(type2);
+    }
+    if(!is_type<PointerType>(type2)){
+        //Must be an int for pointer to int conversion
+        return is_type<IType>(type2) && is_type<PointerType>(type1);
+    }
+    return is_type<FuncType>(type::get<PointerType>(type1).pointed_type()) 
+            == is_type<FuncType>(type::get<PointerType>(type2).pointed_type());
 }
 bool can_assign(const CType& type1, const CType& type2){
+    //Leaves out the case of assigning a nullptr constant,
+    //Since that requires the actual value and not just the type
     return std::visit(make_visitor<bool>(
         [&type2](VoidType){return std::holds_alternative<VoidType>(type2);},
         [&type2](BasicType type1){

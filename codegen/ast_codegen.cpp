@@ -22,13 +22,23 @@ const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::BOAssign, token::TokenType::BitwiseOr},
     {token::TokenType::BXAssign, token::TokenType::BitwiseXor},
 }};
+value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Context& c){
+    if(const auto ast_variable = dynamic_cast<const ast::Variable*>(node)){
+        return c.get_value(ast_variable->variable_name);
+    }
+    if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
+        if(p->tok.type == token::TokenType::Star){
+            return p->arg->codegen(output, c);
+        }
+    }
+    assert(false && "Unknown type of lvalue in code generation");
+    return nullptr;
+}
 
 value::Value* assignment_codegen(const ast::BinaryOp* node, std::ostream& output, context::Context& c){
     auto right_register = node->right->codegen(output, c);
     right_register = codegen_utility::convert(node->new_right_type, std::move(right_register), output, c);
-    auto ast_variable = dynamic_cast<const ast::Variable*>(node->left.get());
-    assert(ast_variable && "Other lvalues not yet implemented");
-    auto var_value = c.get_value(ast_variable->variable_name);
+    auto var_value = get_lval(node->left.get(), output, c);
 
     value::Value* result = nullptr;
     if(assignment_op.find(node->tok.type) != assignment_op.end()){
@@ -40,7 +50,8 @@ value::Value* assignment_codegen(const ast::BinaryOp* node, std::ostream& output
         assert(node->tok.type == token::TokenType::Assign && "Unknown assignment op");
         result = codegen_utility::convert(node->type, right_register, output, c);
     }
-    result = codegen_utility::convert(var_value->get_type(), result, output, c);
+    assert(type::is_type<type::PointerType>(var_value->get_type()));
+    result = codegen_utility::convert(type::get<type::PointerType>(var_value->get_type()).pointed_type(), result, output, c);
     codegen_utility::make_store(result, var_value, output, c);
     return result;
 }
@@ -126,12 +137,13 @@ void global_func_type_codegen(const std::string& name, const type::FuncType& t, 
 
 
 void global_decl_codegen(value::Value* value, std::ostream& output, context::Context& c, value::Value* def = nullptr){
+    assert(type::is_type<type::PointerType>(value->get_type()) && "Variable types must be stored as pointers");
     std::visit(type::make_visitor<void>(
         [&](const type::BasicType& bt){global_basic_type_codegen(value->get_value(),bt, def, output, c);}, 
         [](const type::VoidType& vt){assert(false && "Cannot have variable of void type");}, 
-        [](const type::PointerType& pt){assert(false && "Have not yet implemented variables of pointer type");}, 
+        [](const type::PointerType& pt){assert(false && "Have not yet implemented global variables of pointer type");}, 
         [&value, &output](const type::FuncType& ft){global_func_type_codegen(value->get_value(), ft, output);}
-    ), value->get_type());
+    ), type::get<type::PointerType>(value->get_type()).pointed_type());
 }
 
 } //namespace
@@ -265,6 +277,7 @@ value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c)cons
 value::Value* Variable::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto var_value = c.get_value(variable_name);
+    assert(type::is_type<type::PointerType>(var_value->get_type()) && "Variable not stored as pointer to the actual variable value");
     return codegen_utility::make_load(var_value,output,c);
 }
 
@@ -412,7 +425,7 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     if(c.in_function()){
         auto variable = c.add_local(name, type);
         AST::print_whitespace(c.depth(), output);
-        output << variable->get_value() <<" = alloca "<<type::ir_type(variable->get_type()) <<std::endl;
+        output << variable->get_value() <<" = alloca "<<type::ir_type(type) <<std::endl;
         if(this->assignment.has_value()){
             this->assignment.value()->codegen(output, c);
         }
@@ -435,7 +448,7 @@ value::Value* Constant::codegen(std::ostream& output, context::Context& c)const 
 value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto function = c.get_value(this->func_name);
-    auto ft =type::get<type::FuncType>(function->get_type());
+    auto ft =type::get<type::FuncType>(type::get<type::PointerType>(function->get_type()).pointed_type());
 
     auto arg_values = std::vector<value::Value*>{};
     for(auto& expr : this->args){
@@ -468,9 +481,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
     switch(tok.type){
         case token::TokenType::Plusplus:
         {
-            auto variable = dynamic_cast<const ast::Variable*>(arg.get());
-            assert(variable && "Other lvalues not yet implemented");
-            auto var_reg = c.get_value(variable->variable_name);
+            auto var_reg = get_lval(arg.get(), output, c);
             new_temp = codegen_utility::make_load(var_reg, output, c);
             command = std::visit(overloaded{
                 [](type::IType){return "add";},
@@ -488,9 +499,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
             return new_temp;
         case token::TokenType::Minusminus:
         {
-            auto variable = dynamic_cast<const ast::Variable*>(arg.get());
-            assert(variable && "Other lvalues not yet implemented");
-            auto var_reg = c.get_value(variable->variable_name);
+            auto var_reg = get_lval(arg.get(), output, c);
             new_temp = codegen_utility::make_load(var_reg, output, c);
             command = std::visit(overloaded{
                 [](type::IType){return "sub";},
@@ -512,19 +521,14 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
 }
 value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    auto operand = arg->codegen(output, c);
     std::string t = type::ir_type(this->type);
-    std::string command = "";
-    value::Value* new_temp = nullptr;
     switch(tok.type){
         case token::TokenType::Plusplus:
         {
-            auto variable = dynamic_cast<const ast::Variable*>(arg.get());
-            assert(variable && "Other lvalues not yet implemented");
-            auto var_reg = c.get_value(variable->variable_name);
+            auto var_reg = get_lval(arg.get(), output, c);
             auto var_temp = codegen_utility::make_load(var_reg, output, c);
             var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
-            command = std::visit(type::make_visitor<std::string>(
+            std::string command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
@@ -533,7 +537,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 ), var_temp->get_type());
             
             AST::print_whitespace(c.depth(), output);
-            new_temp = c.new_temp(this->type);
+            auto new_temp = c.new_temp(this->type);
             output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
@@ -542,16 +546,14 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), var_temp->get_type()) <<std::endl;
             codegen_utility::make_store(new_temp,var_reg, output, c);
-        }
             return new_temp;
+        }
         case token::TokenType::Minusminus:
         {
-            auto variable = dynamic_cast<const ast::Variable*>(arg.get());
-            assert(variable && "Other lvalues not yet implemented");
-            auto var_reg = c.get_value(variable->variable_name);
+            auto var_reg = get_lval(arg.get(), output, c);
             auto var_temp = codegen_utility::make_load(var_reg, output, c);
             var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
-            command = std::visit(type::make_visitor<std::string>(
+            std::string command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
@@ -560,7 +562,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 ), var_temp->get_type());
             
             AST::print_whitespace(c.depth(), output);
-            new_temp = c.new_temp(this->type);
+            auto new_temp = c.new_temp(this->type);
             output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
@@ -569,14 +571,16 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), var_temp->get_type()) <<std::endl;
             codegen_utility::make_store(new_temp,var_reg, output, c);
-        }
             return new_temp;
+        }
         case token::TokenType::Plus:
-            return codegen_utility::convert(this->type, std::move(operand), output, c);
+            return codegen_utility::convert(this->type, arg->codegen(output,c), output, c);
         case token::TokenType::Minus:
+        {
+            auto operand = arg->codegen(output, c);
             operand =  codegen_utility::convert(this->type, std::move(operand), output, c);
             //sub or fsub
-            command = std::visit(type::make_visitor<std::string>(
+            std::string command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
@@ -585,7 +589,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 ), operand->get_type());
             
             AST::print_whitespace(c.depth(), output);
-            new_temp = c.new_temp(this->type);
+            auto new_temp = c.new_temp(this->type);
             output << new_temp->get_value()<<" = "<<command<<" "<<t<<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return " 0, ";},
                 [](type::FType){return " 0.0, ";},
@@ -594,17 +598,22 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), operand->get_type()) <<operand->get_value() <<std::endl;
             return new_temp;
+        }
         case token::TokenType::BitwiseNot:
+        {
+            auto operand = arg->codegen(output, c);
             operand =  codegen_utility::convert(this->type, std::move(operand), output, c);
             AST::print_whitespace(c.depth(), output);
-            new_temp = c.new_temp(this->type);
+            auto new_temp = c.new_temp(this->type);
             output << new_temp->get_value()<<" = xor "<<t<<" -1, " <<operand->get_value() <<std::endl;
             return new_temp;
+        }
         case token::TokenType::Not:
         {
+            auto operand = arg->codegen(output, c);
             assert(t == "i32");
             //icmp or fcmp
-            command = std::visit(type::make_visitor<std::string>(
+            std::string command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "icmp eq";},
                 [](type::FType){return "fcmp oeq";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
@@ -623,9 +632,17 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), operand->get_type()) << operand->get_value() <<std::endl;
 
-            new_temp = codegen_utility::convert(this->type, intermediate_bool, output, c);
+            return codegen_utility::convert(this->type, intermediate_bool, output, c);
         }
-            return new_temp;
+        case token::TokenType::Amp:
+        {
+            return get_lval(arg.get(), output, c);
+        }
+        case token::TokenType::Star:
+        {
+            auto operand = arg->codegen(output, c);
+            return codegen_utility::make_load(operand, output, c);
+        }
         default:
             assert(false && "Operator Not Implemented");
     }
