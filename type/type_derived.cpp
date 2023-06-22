@@ -68,17 +68,6 @@ bool is_compatible(const DerivedType& type1, const DerivedType& type2){
     }, type1.type);
 }
 
-bool can_convert(const DerivedType& type1, const DerivedType& type2){
-    return std::visit(overloaded{
-            [](const std::unique_ptr<FuncType>& type)-> bool{
-                return false;
-            },
-            [&type2 = std::as_const(type2.type)](const std::unique_ptr<PointerType>& type)-> bool{
-                return std::holds_alternative<std::unique_ptr<PointerType>>(type2)
-                    && can_convert(*type, *std::get<std::unique_ptr<PointerType>>(type2));
-            }
-        }, type1.type);
-}
 std::string to_string(const DerivedType& arg){
     try{
         return std::visit(overloaded{

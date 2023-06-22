@@ -6,25 +6,20 @@ DerivedType::DerivedType(PointerType p)
 bool is_compatible(const PointerType& type1, const PointerType& type2){
     return is_compatible(type1.underlying_type, type2.underlying_type);
 }
-bool can_convert(const PointerType& type1, const PointerType& type2){
-    return std::visit(make_visitor<bool>(
-        [&t2 = std::as_const(type2.underlying_type)](const FuncType& t1){
-            return is_type<FuncType>(t2) /*&& is_compatible(t1, t2)*/;
-            },
-        [&t2 = std::as_const(type2.underlying_type)](const PointerType& t1){
-            return (is_type<PointerType>(t2) && can_convert(t1, t2)) || is_type<VoidType>(t2);
-            },
-        [&t2 = std::as_const(type2.underlying_type)](const VoidType& ){
-            return !is_type<FuncType>(t2);
-            },
-        [&t2 = std::as_const(type2.underlying_type)](const BasicType& ){
-            return is_type<VoidType>(t2) || is_type<BasicType>(t2);
-            }
-    ), type1.underlying_type);
-    return can_convert(type1.underlying_type, type2.underlying_type);
-}
 std::string to_string(const PointerType& type){
     return "pointer to "+to_string(type.underlying_type);
+}
+bool can_assign(const PointerType& right, const PointerType& left){
+    return std::visit(overloaded{
+            [](const FuncType& type)-> bool{
+                return false;
+            },
+            [left= left.pointed_type()](const auto& right)-> bool{
+                return is_compatible(right, left)
+                    || is_type<VoidType>(right)
+                    || is_type<VoidType>(left);
+            }
+        }, right.pointed_type());
 }
 std::string ir_type(const PointerType& type){
     return "ptr";

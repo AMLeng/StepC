@@ -9,6 +9,7 @@ namespace type{
 bool is_compatible(const PointerType& type1, const PointerType& type2);
 std::string to_string(const PointerType& type);
 std::string ir_type(const PointerType& type);
+bool can_assign(const PointerType& right, const PointerType& left);
 
 }//namespace type
 #endif

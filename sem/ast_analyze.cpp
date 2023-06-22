@@ -35,6 +35,20 @@ bool is_lval(const ast::AST* node){
     }
     return false;
 }
+bool is_nullptr_constant(const ast::Expr* node){
+    if(type::is_type<type::PointerType>(node->type)){
+        auto t = std::get<type::DerivedType>(node->type).get<type::PointerType>();
+        if(!type::is_type<type::VoidType>(t.pointed_type())){
+            return false;
+        }
+    }else{
+        if(!type::is_type<type::IType>(node->type)){
+            return false;
+        }
+    }
+    auto p = dynamic_cast<const ast::Constant*>(node);
+    return p && std::stoull(p->literal) == 0;
+}
 std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, token::TokenType op, token::Token tok){
     auto return_types = std::array<type::CType,3>{};
     switch(op){
@@ -307,6 +321,10 @@ void BinaryOp::analyze(symbol::STable* st){
         if(!is_lval(this->left.get())){
             throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
         }
+        if(!type::can_assign(this->right->type,this->left->type) 
+            && !(type::is_type<type::PointerType>(this->left->type) && is_nullptr_constant(this->right.get()))){
+            throw sem_error::TypeError("Invalid types for assignment",tok);
+        }
     }
     
 }
@@ -333,7 +351,7 @@ void ReturnStmt::analyze(symbol::STable* st){
         }
         ret_type = this->return_expr.value()->type;
     }
-    if(!type::can_convert(ret_type,bt->return_type())){
+    if(!type::can_assign(ret_type,bt->return_type())){
         if(this->return_expr.has_value()){
             throw sem_error::TypeError("Invalid return type",this->return_expr.value()->tok);
         }else{

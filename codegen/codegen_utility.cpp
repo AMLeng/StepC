@@ -97,7 +97,7 @@ void print_whitespace(int depth, std::ostream& output){
 
 value::Value* convert(type::CType target_type, value::Value* val, 
         std::ostream& output, context::Context& c){
-    if(!type::can_convert(val->get_type(),target_type)){
+    if(!type::can_cast(val->get_type(),target_type)){
         throw std::runtime_error("Tried to convert "+type::to_string(val->get_type())+" to "+type::to_string(target_type));
     }
     return std::visit(type::make_visitor<value::Value*>(

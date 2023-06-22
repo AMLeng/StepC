@@ -45,7 +45,6 @@ public:
     bool operator!=(const DerivedType& other) const;
     friend bool is_compatible(const DerivedType&, const DerivedType&);
     friend std::string to_string(const DerivedType& type);
-    friend bool can_convert(const DerivedType& type1, const DerivedType& type2);
 
     template <typename ReturnType, typename Visitor>
     ReturnType visit(Visitor&& v) const;
@@ -70,7 +69,6 @@ public:
     bool operator !=(const PointerType& other) const;
     CType pointed_type() const;
     friend bool is_compatible(const PointerType& type1, const PointerType& type2);
-    friend bool can_convert(const PointerType& type1, const PointerType& type2);
     friend std::string to_string(const PointerType& type);
     friend std::string ir_type(const PointerType& type);
 };
@@ -102,7 +100,8 @@ public:
 
 std::string to_string(const CType& type);
 bool is_compatible(const CType& , const CType&); //Defined in type.cpp
-bool can_convert(const CType& from, const CType& to); //Defined in type.cpp
+bool can_assign(const CType& from, const CType& to); //Defined in type.cpp
+bool can_cast(const CType& from, const CType& to); //Defined in type.cpp
 
 BasicType from_str_multiset(const std::multiset<std::string>& keywords);
 BasicType usual_arithmetic_conversions(CType type1, CType type2);

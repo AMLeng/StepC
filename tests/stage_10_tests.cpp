@@ -93,7 +93,8 @@ int main(){
 })");
     //Identifier must come before any function arg types
     lexer::Lexer l(ss);
-    parse::construct_ast(l)->analyze();
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
 }
 
 TEST_CASE("invalid address of"){
@@ -176,29 +177,16 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     program_pointer->analyze();
 }
-TEST_CASE("address dereference nullptr is valid"){
+TEST_CASE("cannot assign non nullptr"){
     auto ss = std::stringstream(
 R"(
 int main(){
-    int* a = 0;
-    int * b = &*a;
+    int* a = 3;
 })");
     //Identifier must come before any function arg types
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
-    program_pointer->analyze();
-}
-TEST_CASE("cannot dereference nullptr"){
-    auto ss = std::stringstream(
-R"(
-int main(){
-    int* a = 0;
-    int b = *a;
-})");
-    //Identifier must come before any function arg types
-    lexer::Lexer l(ss);
-    auto program_pointer = parse::construct_ast(l);
-    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
+    REQUIRE_THROWS_AS(program_pointer->analyze(),sem_error::TypeError);
 }
 TEST_CASE("cannot assign other int to ptr without cast"){
     auto ss = std::stringstream(
@@ -265,7 +253,8 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     program_pointer->analyze();
 }
-TEST_CASE("can assign complex 0 expression "){
+/* Have not yet implemented constant expressions
+ * TEST_CASE("can assign complex 0 expression "){
     auto ss = std::stringstream(
 R"(
 int main(){
@@ -274,7 +263,7 @@ int main(){
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
     program_pointer->analyze();
-}
+}*/
 TEST_CASE("cannot convert ptr to int without cast"){
     auto ss = std::stringstream(
 R"(

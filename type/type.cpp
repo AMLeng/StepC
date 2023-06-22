@@ -1,6 +1,7 @@
 #include "type/type_basic.h"
 #include "type/type_derived.h"
 #include "type/type_func.h"
+#include "type/type_pointer.h"
 #include "type.h"
 namespace type{
 
@@ -17,13 +18,25 @@ bool is_compatible(const CType& type1, const CType& type2){
                             && is_compatible(type1, std::get<DerivedType>(type2));},
     }, type1);
 }
-bool can_convert(const CType& type1, const CType& type2){
-    return std::visit(overloaded{
+bool can_cast(const CType& type1, const CType& type2){
+    if(can_assign(type1,type2)){
+        return true;
+    }
+    return is_type<PointerType>(type1)
+        && is_type<PointerType>(type2)
+        && (is_type<FuncType>(std::get<DerivedType>(type1).get<PointerType>().pointed_type()) 
+            == is_type<FuncType>(std::get<DerivedType>(type2).get<PointerType>().pointed_type()));
+}
+bool can_assign(const CType& type1, const CType& type2){
+    return std::visit(make_visitor<bool>(
         [&type2](VoidType){return std::holds_alternative<VoidType>(type2);},
-        [&type2](BasicType type1){return std::holds_alternative<BasicType>(type2);},
-        [&type2](const DerivedType& type1){return std::holds_alternative<DerivedType>(type2) 
-                            && can_convert(type1, std::get<DerivedType>(type2));},
-    }, type1);
+        [&type2](BasicType type1){
+            return is_type<BasicType>(type2);
+            },
+        [&type2](PointerType type1){return type2 == CType(IType::Bool)
+            || is_type<PointerType>(type2) && can_assign(type1, std::get<DerivedType>(type2).get<PointerType>());},
+        [&type2](FuncType type1){return is_type<FuncType>(type2);}
+    ),type1);
 }
 std::string to_string(const CType& type){
     return std::visit(overloaded{

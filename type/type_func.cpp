@@ -36,7 +36,7 @@ bool FuncType::params_match(std::vector<CType> arg_types) const{
         return false;
     }
     for(int i=0; i<params.size(); i++){
-        if(!can_convert(arg_types.at(i),params.at(i))){
+        if(!can_assign(arg_types.at(i),params.at(i))){
             return false;
         }
     }
