@@ -105,7 +105,15 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
     right_register = codegen_utility::convert(node->new_right_type, std::move(right_register), output, c);
     return codegen_utility::bin_op_codegen(left_register, right_register, node->tok.type, node->type, output, c);
 }
-void global_basic_type_codegen(const std::string& name, type::BasicType t, value::Value* def, std::ostream& output, context::Context& c){
+void global_pointer_type_codegen(const std::string& name, value::Value* def, std::ostream& output){
+    output << name <<" = dso_local global ptr ";
+    if(def){
+        output << def->get_value() << std::endl;
+    }else{
+        output << "null"<<std::endl;
+    }
+}
+void global_basic_type_codegen(const std::string& name, type::BasicType t, value::Value* def, std::ostream& output){
     output << name <<" = dso_local global "<<type::ir_type(t)<<" ";
     if(def){
         output << def->get_value() << std::endl;
@@ -139,9 +147,9 @@ void global_func_type_codegen(const std::string& name, const type::FuncType& t, 
 void global_decl_codegen(value::Value* value, std::ostream& output, context::Context& c, value::Value* def = nullptr){
     assert(type::is_type<type::PointerType>(value->get_type()) && "Variable types must be stored as pointers");
     std::visit(type::make_visitor<void>(
-        [&](const type::BasicType& bt){global_basic_type_codegen(value->get_value(),bt, def, output, c);}, 
+        [&](const type::BasicType& bt){global_basic_type_codegen(value->get_value(),bt, def, output);}, 
         [](const type::VoidType& vt){assert(false && "Cannot have variable of void type");}, 
-        [](const type::PointerType& pt){assert(false && "Have not yet implemented global variables of pointer type");}, 
+        [&](const type::PointerType& pt){global_pointer_type_codegen(value->get_value(), def, output);}, 
         [&value, &output](const type::FuncType& ft){global_func_type_codegen(value->get_value(), ft, output);}
     ), type::get<type::PointerType>(value->get_type()).pointed_type());
 }
