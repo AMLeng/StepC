@@ -39,8 +39,17 @@ std::string convert_command(type::FType target, type::FType source){
 }
 value::Value* convert(type::BasicType target_type, value::Value* val, 
         std::ostream& output, context::Context& c){
+    if(type::is_type<type::PointerType>(val->get_type())){
+        if(type::is_type<type::FType>(target_type)){
+            assert(false && "Tried to convert pointer to float");
+        }
+        auto new_tmp = c.new_temp(target_type);
+        output << new_tmp->get_value() <<" = ptrtoint "<<type::ir_type(val->get_type());
+        output << " "<<val->get_value()<<" to "<<type::ir_type(new_tmp->get_type())<<std::endl;
+        return new_tmp;
+    }
     if(!std::holds_alternative<type::BasicType>(val->get_type())){
-        assert(false && "Tried to convert non-basic type to basic type");
+        assert(false && "Tried to convert non-basic, non-pointer type to basic type");
     }
     auto val_type = std::get<type::BasicType>(val->get_type());
     if(target_type == type::from_str("_Bool")){
@@ -73,18 +82,17 @@ value::Value* convert(type::BasicType target_type, value::Value* val,
 }
 value::Value* convert(type::PointerType target_type, value::Value* val, 
         std::ostream& output, context::Context& c){
-    return std::visit(type::make_visitor<value::Value*>(
-    [&](const type::PointerType& pt){
-    },
-    [&](const type::IType& it){
-        print_whitespace(c.depth(), output);
-        auto new_tmp = c.new_temp(target_type);
-        output << new_tmp->get_value() <<" = inttoptr " << type::ir_type(it) <<" "<<val->get_value()<<" to "<<type::ir_type(target_type)<<std::endl;
-    },
-    [&](const auto& t){
-        assert(false && "Tried to convert non-pointer, non-integer type to pointer type");
+    if(type::is_type<type::PointerType>(val->get_type())){
+        return val; //Do nothing
+    }else{
+        if(!type::is_type<type::IType>(val->get_type())){
+            assert(false && "Tried to convert non-ptr, non-int type to ptr");
         }
-    ), val->get_type());
+        auto new_tmp = c.new_temp(target_type);
+        output << new_tmp->get_value() <<" = inttoptr "<<type::ir_type(val->get_type());
+        output << " "<<val->get_value()<<" to "<<type::ir_type(new_tmp->get_type())<<std::endl;
+        return new_tmp;
+    }
 }
 
 } //namespace
@@ -104,13 +112,7 @@ value::Value* convert(type::CType target_type, value::Value* val,
         [&](const type::BasicType& bt){return convert(bt, val, output, c);},
         [&](const type::VoidType& vt){throw std::runtime_error("Unable to convert value to void type");},
         [&](const type::FuncType& ft){throw std::runtime_error("Unable to convert value to function type");},
-        [&](const type::PointerType& pt){
-            if(type::is_type<type::PointerType>(val->get_type())){
-                return val; //Do nothing
-            }else{
-                throw std::runtime_error("Conversions to pointer types not yet implemented");
-            }
-        }
+        [&](const type::PointerType& pt){return convert(pt, val, output, c);}
     ),target_type);
 }
 value::Value* make_command(type::CType t, std::string command, value::Value* left, value::Value* right, 
