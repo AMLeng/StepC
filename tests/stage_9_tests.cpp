@@ -310,7 +310,7 @@ int main(){
     putchar();
 })");
     lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
 }
 TEST_CASE("empty return in void function"){
     auto ss = std::stringstream(

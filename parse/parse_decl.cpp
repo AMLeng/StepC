@@ -174,14 +174,16 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
         }
         type::CType param_specifiers = parse_specifiers(l);
         declarators.push_back(parse_declarator(param_specifiers,l));
-        if(declarators.back().first.has_value()){
-            //If declarator has identifier
-            if(declarators.back().second == type::CType(type::VoidType())){
+        if(declarators.back().second == type::CType(type::VoidType())){
+            if(declarators.back().first.has_value()){
                 throw sem_error::TypeError("Cannot have named variable of void type",declarators.back().first.value());
             }
-            if(names.insert(declarators.back().first.value().value).second == false){
-                throw sem_error::STError("Duplicate variable name in function parameter list",declarators.back().first.value());
+            if(declarators.size() > 1 ){
+                throw sem_error::TypeError("Cannot have void type in function with multiple parameters",l.peek_token());
             }
+        }
+        if(declarators.back().first.has_value() &&names.insert(declarators.back().first.value().value).second == false){
+            throw sem_error::STError("Duplicate variable name in function parameter list",declarators.back().first.value());
         }
         if(token::matches_type(l.peek_token(),token::TokenType::Comma)){
             l.get_token();
@@ -210,42 +212,45 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     return std::make_unique<ast::DeclList>(std::move(decls));
 }
 
-std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, type::CType ret_type){
+std::unique_ptr<ast::FunctionDecl> parse_function_def(lexer::Lexer& l, type::CType ret_type){
     auto ident = l.get_token();
     check_token_type(ident, token::TokenType::Identifier);
     auto parsed_param_pair = parse_param_list(l);
     auto param_declarators = parsed_param_pair.first;
-    auto type = compute_function_type(ret_type, parsed_param_pair);
 
-    check_token_type(l.peek_token(), token::TokenType::LBrace);
     auto param_decls = std::vector<std::unique_ptr<ast::Decl>>{};
     for(const auto& param_declarator: param_declarators){
-        auto param_decl = std::visit(type::make_visitor<std::unique_ptr<ast::Decl>>(
-            [&](const type::BasicType& bt){
-                if(param_declarator.first.has_value()){
-                    return std::make_unique<ast::VarDecl>(param_declarator.first.value(),bt);
-                }else{
-                    throw sem_error::STError("Cannot have missing parameter name in function def", l.peek_token());
-                }
-            },
-            [&](const type::VoidType& vt){
-                if(param_declarator.first.has_value()){
-                    throw sem_error::TypeError("Cannot have void type with parameter name", param_declarator.first.value());
-                }
-                if(param_declarators.size() >1){
-                    throw sem_error::TypeError("Cannot have void type in function with multiple parameters",l.peek_token());
-                }
-                return nullptr;
-            },
-            [&l](const type::FuncType& ft){throw sem_error::TypeError("Cannot have function as parameter type", l.peek_token());},
-            [&l](const type::PointerType& pt){throw sem_error::TypeError("Have not yet implemented pointer as parameter type", l.peek_token());}
-        ),param_declarator.second);
-        if(param_decl != nullptr){
+        if(param_declarator.first.has_value()){
+            auto param_decl = std::make_unique<ast::VarDecl>(param_declarator.first.value(),param_declarator.second);
+
+            assert(param_decl != nullptr && "Failed to create function parameter");
             param_decls.push_back(std::move(param_decl));
         }
     }
-    auto function_body = parse_compound_stmt(l);
-    return std::make_unique<ast::FunctionDef>(ident, type, std::move(param_decls), std::move(function_body));
+    if(l.peek_token().type ==token::TokenType::LBrace){
+        //Def
+        if(param_decls.size() != param_declarators.size()){
+            //If they are not equal, we failed to construct VarDecls for some of the parameters
+            //Which only happens if we weren't given identifiers
+            throw sem_error::STError("Cannot have missing parameter name in function def", ident);
+        }
+        auto function_body = parse_compound_stmt(l);
+        try{
+            auto type = compute_function_type(ret_type, parsed_param_pair);
+            return std::make_unique<ast::FunctionDef>(ident, type, std::move(param_decls), std::move(function_body));
+        }catch(std::exception& e){
+            throw parse_error::ParseError(e.what(), ident);
+        }
+    }else{
+        //Decl
+        //We don't move from param_decls so it gets RAIIed
+        try{
+            auto type = compute_function_type(ret_type, parsed_param_pair);
+            return std::make_unique<ast::FunctionDecl>(ident, type);
+        }catch(std::exception& e){
+            throw parse_error::ParseError(e.what(), ident);
+        }
+    }
 }
 
 std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
@@ -253,25 +258,18 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
         l.get_token();
     }
     auto specified_type = parse_specifiers(l);
-    //Check if we have a function definition and not just a declaration
+    auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
     if(l.peek_token().type == token::TokenType::Identifier
         && l.peek_token(2).type == token::TokenType::LParen){
-        int i = 3;
-        while(token::matches_type(l.peek_token(i), 
-            token::TokenType::Comma, token::TokenType::Identifier, token::TokenType::Keyword, token::TokenType::Ellipsis)){
-            i++;
-        }
-        if(l.peek_token(i).type == token::TokenType::RParen){
-            i++;
-            if(l.peek_token(i).type == token::TokenType::LBrace){
-                return parse_function_def(l, specified_type);
-            }
+        auto function_decl_or_def = parse_function_def(l, specified_type);
+        if(dynamic_cast<ast::FunctionDef*>(function_decl_or_def.get())){
+            return std::unique_ptr<ast::FunctionDef>(dynamic_cast<ast::FunctionDef*>(function_decl_or_def.release()));
         }else{
-            throw parse_error::ParseError("Invalid function declaration", l.peek_token());
+            decls.push_back(std::move(function_decl_or_def));
         }
+    }else{
+        decls.push_back(parse_init_decl(l,specified_type, parse_declarator(specified_type, l)));
     }
-    auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
-    decls.push_back(parse_init_decl(l,specified_type, parse_declarator(specified_type, l)));
     while(true){
         if(token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
             l.get_token();
