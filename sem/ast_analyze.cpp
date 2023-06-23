@@ -50,81 +50,127 @@ bool is_nullptr_constant(const ast::Expr* node){
     return p && std::stoull(p->literal) == 0;
 }
 std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, token::TokenType op, token::Token tok){
-    auto return_types = std::array<type::CType,3>{};
+    //Returns an array of: {result type, converted left type, converted right type}
     switch(op){
         case token::TokenType::Plus:
+            if(type::is_arith(left) && type::is_arith(right)){
+                auto type = type::usual_arithmetic_conversions(left, right);
+                return std::array<type::CType, 3>{type, type, type};
+            }
+            if(type::is_type<type::IType>(left) && type::is_type<type::PointerType>(right)){
+                return std::array<type::CType, 3>{right, left, right};
+            }
+            if(type::is_type<type::PointerType>(left) && type::is_type<type::IType>(right)){
+                return std::array<type::CType, 3>{left, left, right};
+            }
+            throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
+                +type::to_string(right)+"\" for addition",tok);
         case token::TokenType::Minus:
+            if(type::is_arith(left) && type::is_arith(right)){
+                auto type = type::usual_arithmetic_conversions(left, right);
+                return std::array<type::CType, 3>{type, type, type};
+            }
+            if(type::is_type<type::PointerType>(left) && type::is_type<type::PointerType>(right)){
+                if(!type::is_compatible(type::get<type::PointerType>(left).pointed_type(),
+                        type::get<type::PointerType>(right).pointed_type())){
+                    throw sem_error::TypeError("Pointer types being subtracted must be to compatible types",tok);
+                }
+                //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
+                return std::array<type::CType, 3>{type::CType(type::IType::LLong), left, right};
+            }
+            if(type::is_type<type::PointerType>(left) && type::is_type<type::IType>(right)){
+                return std::array<type::CType, 3>{left, left, right};
+            }
+            throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
+                +type::to_string(right)+"\" for subtraction",tok);
         case token::TokenType::Star:
         case token::TokenType::Div:
-            if(!type::is_arith(left) || !type::is_arith(right)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            if(type::is_arith(left) && type::is_arith(right)){
+                auto type = type::usual_arithmetic_conversions(left, right);
+                return std::array<type::CType, 3>{type, type, type};
             }
-            return_types[0] = type::usual_arithmetic_conversions(left, right);
-            return_types[1] = return_types[0];
-            return_types[2] = return_types[0];
-            break;
+            throw sem_error::TypeError("Operand of arithmetic type required for multiplicative operator",tok);
         case token::TokenType::Mod:
-            if(!type::is_int(left) || !type::is_int(right)){
-                throw sem_error::TypeError("Operand of integer type required",tok);
+            if(type::is_int(left) && type::is_int(right)){
+                auto type = type::usual_arithmetic_conversions(left, right);
+                return std::array<type::CType, 3>{type, type, type};
             }
-            return_types[0] = type::usual_arithmetic_conversions(left, right);
-            return_types[1] = return_types[0];
-            return_types[2] = return_types[0];
-            break;
+            throw sem_error::TypeError("Operand of integer type required for modulo",tok);
         case token::TokenType::Amp:
         case token::TokenType::BitwiseOr:
         case token::TokenType::BitwiseXor:
-            if(!type::is_int(left) || !type::is_int(right)){
-                throw sem_error::TypeError("Operand of integer type required",tok);
+            if(type::is_int(left) && type::is_int(right)){
+                auto type = type::usual_arithmetic_conversions(left, right);
+                return std::array<type::CType, 3>{type, type, type};
             }
-            return_types[0] = type::usual_arithmetic_conversions(left, right);
-            return_types[1] = return_types[0];
-            return_types[2] = return_types[0];
-            break;
+            throw sem_error::TypeError("Operand of integer type required",tok);
         case token::TokenType::LShift:
         case token::TokenType::RShift:
-            if(!type::is_int(left) || !type::is_int(right)){
-                throw sem_error::TypeError("Operand of integer type required",tok);
+            if(type::is_int(left) && type::is_int(right)){
+                auto promoted_left = type::integer_promotions(left);
+                return std::array<type::CType, 3>{promoted_left, promoted_left, type::integer_promotions(right)};
             }
-            return_types[1] = type::integer_promotions(left);
-            return_types[2] = type::integer_promotions(right);
-            return_types[0] = return_types[1];
-            break;
+            throw sem_error::TypeError("Operand of integer type required",tok);
         case token::TokenType::And:
         case token::TokenType::Or:
-            if(!type::is_scalar(left) || !type::is_scalar(right)){
-                throw sem_error::TypeError("Operand of scalar type required",tok);
+            if(type::is_scalar(left) && type::is_scalar(right)){
+                return std::array<type::CType, 3>{type::from_str("int"), left, right};
             }
-            return_types[2] = right;
-            return_types[1] = left;
-            return_types[0] = type::from_str("int");
-            break;
+            throw sem_error::TypeError("Operand of scalar type required",tok);
         case token::TokenType::Equal:
         case token::TokenType::NEqual:
-            //Check that in fact real type
+            if(type::is_arith(left) && type::is_arith(right)){
+                auto convert_type = type::usual_arithmetic_conversions(left, right);
+                return std::array<type::CType, 3>{type::from_str("int"), convert_type, convert_type};
+            }
+            if(type::is_type<type::PointerType>(left) && type::is_type<type::IType>(right)){
+                return std::array<type::CType, 3>{type::from_str("int"), left, left};
+            }
+            if(type::is_type<type::IType>(left) && type::is_type<type::PointerType>(right)){
+                return std::array<type::CType, 3>{type::from_str("int"), right, right};
+            }
+            if(type::is_type<type::PointerType>(left) && type::is_type<type::PointerType>(right)){
+                auto l = type::get<type::PointerType>(left);
+                auto r = type::get<type::PointerType>(right);
+                if(l.pointed_type() == type::CType(type::VoidType())){
+                    return std::array<type::CType, 3>{type::from_str("int"), left, left};
+                }
+                if(r.pointed_type() == type::CType(type::VoidType())){
+                    return std::array<type::CType, 3>{type::from_str("int"), right, right};
+                }
+                if(!type::is_compatible(l.pointed_type(),r.pointed_type())){
+                    throw sem_error::TypeError("Pointer types being compared for equality must be to compatible types",tok);
+                }else{
+                    return std::array<type::CType, 3>{type::from_str("int"), left, right};
+                }
+            }
+            throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
+                +type::to_string(right)+"\" for equality operator",tok);
         case token::TokenType::Less:
         case token::TokenType::Greater:
         case token::TokenType::LEq:
         case token::TokenType::GEq:
-            if(!type::is_arith(left) || !type::is_arith(right)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            if(type::is_arith(left) && type::is_arith(right)){
+                //Check that they are real types
+                auto convert_type = type::usual_arithmetic_conversions(left, right);
+                return std::array<type::CType, 3>{type::from_str("int"), convert_type, convert_type};
             }
-            {
-            auto convert_type = type::usual_arithmetic_conversions(left, right);
-            return_types[1] = convert_type;
-            return_types[2] = convert_type;
+            if(type::is_type<type::PointerType>(left) && type::is_type<type::PointerType>(right)){
+                auto l = type::get<type::PointerType>(left);
+                auto r = type::get<type::PointerType>(right);
+                if(!type::is_compatible(l.pointed_type(),r.pointed_type())){
+                    throw sem_error::TypeError("Pointer types being compared for equality must be to compatible types",tok);
+                }else{
+                    return std::array<type::CType, 3>{type::from_str("int"), left, right};
+                }
             }
-            return_types[0] = type::from_str("int");
-            break;
+            throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
+                +type::to_string(right)+"\" for relational operator",tok);
         case token::TokenType::Comma:
-            return_types[2] = right;
-            return_types[1] = left;
-            return_types[0] = left;
-            break;
-        default:
-            assert(false && "Unknown binary operator type");
+            return std::array<type::CType, 3>{left, left, right};
     }
-    return return_types;
+    assert(false && "Unknown binary operator type");
+    __builtin_unreachable();
 }
 
 } //namespace
@@ -295,11 +341,32 @@ void BinaryOp::analyze(symbol::STable* st){
     this->left->analyze(st);
     this->right->analyze(st);
     if(assignment_op.find(this->tok.type) == assignment_op.end()){
+        //Non-assignment case
         auto types = analyze_bin_op(this->left->type,this->right->type,this->tok.type, this->tok);
         this->type = types[0];
         this->new_left_type=types[1];
         this->new_right_type=types[2];
+        if(token::matches_type(this->tok, token::TokenType::Equal, token::TokenType::NEqual)){
+            //For null ptr constants, we can't do the checking just from the argument types
+            if(type::is_type<type::PointerType>(this->left->type) && type::is_type<type::IType>(this->right->type)){
+                if(is_nullptr_constant(this->right.get())){
+                    this->new_left_type = this->left->type;
+                    this->new_right_type = this->left->type;
+                }else{
+                    throw sem_error::TypeError("Cannot compare pointer with int other than null ptr constant", this->tok);
+                }
+            }
+            if(type::is_type<type::PointerType>(this->right->type) && type::is_type<type::IType>(this->left->type)){
+                if(is_nullptr_constant(this->left.get())){
+                    this->new_left_type = this->right->type;
+                    this->new_right_type = this->right->type;
+                }else{
+                    throw sem_error::TypeError("Cannot compare pointer with int other than null ptr constant", this->tok);
+                }
+            }
+        }
     }else{
+        //Assignment case
         this->type = this->left->type; //Since we assign, this type will be predetermined
 
         this->new_left_type = this->left->type;

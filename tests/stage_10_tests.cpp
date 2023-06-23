@@ -313,6 +313,147 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
 }
+TEST_CASE("pointer int addition subtraction"){
+    auto ss = std::stringstream(
+R"(
+int* array;
+int main(){
+    int size = 12;
+    int index = 14;
+    return *(array + index)+ *(size+ array - index);
+}
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("pointer pointer subtraction"){
+    auto ss = std::stringstream(
+R"(
+int* array;
+int* array_end;
+int main(){
+    return array_end - array;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("pointer pointer relational"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int a = 3;
+    int* it1 = &a;;
+    int* it2 = &a;;
+    if(it1 < it2 || it2 < it1){
+        return 0;
+    }
+    return 1;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("pointer pointer relational incompatible error"){
+    auto ss = std::stringstream(
+R"(
+int* b;
+double* c;
+int main(){
+    return b <= c;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(),sem_error::TypeError);
+}
+TEST_CASE("pointer void pointer relational error"){
+    auto ss = std::stringstream(
+R"(
+int* b;
+void* c;
+int main(){
+    return b >= c;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
+}
+TEST_CASE("pointer pointer equality"){
+    auto ss = std::stringstream(
+R"(
+int* b;
+int main(){
+    int* a = 0;
+    return b == a;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("pointer pointer equality incompatible error"){
+    auto ss = std::stringstream(
+R"(
+int* b;
+double* c;
+int main(){
+    return b == c;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(),sem_error::TypeError);
+}
+TEST_CASE("pointer void pointer equality"){
+    auto ss = std::stringstream(
+R"(
+int* b;
+void* c;
+int main(){
+    return b != c;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("pointer null const equality"){
+    auto ss = std::stringstream(
+R"(
+int* b;
+int main(){
+    return b == 0;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("pointer nonnull const equality error"){
+    auto ss = std::stringstream(
+R"(
+int* b;
+int main(){
+    return b == 5;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(),sem_error::TypeError);
+}
+TEST_CASE("pass function pointer"){
+    auto ss = std::stringstream(
+R"(
+int eval(int(*f)(int,int), int a, int b){
+    return (*f)(a,b);
+}
+int plus(int a, int b){
+    return a + b;
+}
+int main(){
+    int(*p)(int, int) = &plus;
+    return eval(p,3,7);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
 
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
