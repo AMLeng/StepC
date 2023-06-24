@@ -48,7 +48,7 @@ value::Value* Context::add_local(std::string name, type::CType type){
     assert(current_function && current_scope && "Cannot add local variable outside of function");
     std::string value = "%" + name +"."+std::to_string(current_function->total_locals);
     assert(current_scope->sym_map.find(name) == current_scope->sym_map.end() && "Symbol already present in table");
-    current_scope->sym_map.emplace(name,std::make_unique<value::Value>(value, type));
+    current_scope->sym_map.emplace(name,std::make_unique<value::Value>(value, type::PointerType(type)));
     current_function->total_locals++;
     return current_scope->sym_map.at(name).get();
 }
@@ -56,7 +56,7 @@ value::Value* Context::add_global(std::string name, type::CType type, bool defin
     std::string value = "@" + name; //No name mangling
     assert(!(global_sym_map.find(name) != global_sym_map.end() 
         && global_sym_map.at(name).second && defined) && "Redefinition of global symbol");
-    auto emplace_pair = global_sym_map.emplace(name,std::make_pair(std::make_unique<value::Value>(value, type), defined));
+    auto emplace_pair = global_sym_map.emplace(name,std::make_pair(std::make_unique<value::Value>(value, type::PointerType(type)), defined));
     if(!emplace_pair.second){ //If emplace failed because already present
         global_sym_map.at(name).second = global_sym_map.at(name).second || defined;
     }

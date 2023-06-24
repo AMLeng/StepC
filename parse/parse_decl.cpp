@@ -7,6 +7,9 @@
 #include <string_view>
 #include <map>
 #include <set>
+#include <deque>
+#include <functional>
+#include <tuple>
 namespace parse{
 template <class... Ts>
 struct overloaded : Ts...{
@@ -16,90 +19,183 @@ struct overloaded : Ts...{
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 
 namespace{
+    type::FuncType compute_function_type(type::CType ret_type, std::pair<std::vector<Declarator>,bool> parsed_params){
+        if(parsed_params.first.size() > 0){
+            auto params = std::vector<type::CType>{};
+            for(const auto& decl : parsed_params.first){
+                params.emplace_back(decl.second);
+            }
+            return type::FuncType(ret_type, params, parsed_params.second);
+        }else{
+            return type::FuncType(ret_type);
+        }
+    }
+    class TypeBuilder{
+        std::deque<std::deque<std::pair<std::function<type::CType(type::CType)>,token::Token>>> unapplied;
+        std::optional<token::Token> ident;
+        std::optional<std::vector<Declarator>> param_list;
+        int index;
+        public:
+        TypeBuilder() : index(0), ident(std::nullopt){
+            unapplied.emplace_back();
+        }
+        std::optional<std::vector<Declarator>> get_params(){
+            return param_list;
+        }
+        void add_ident(token::Token tok){
+            if(index != unapplied.size()-1){
+                throw parse_error::ParseError("Invalid type definition ",tok);
+            }
+            if(ident.has_value()){
+                throw parse_error::ParseError("Multiple identifiers in type definition ",tok);
+            }
+            ident = tok;
+        }
+        void add_level(token::Token tok){
+            if(index != unapplied.size()-1){
+                throw parse_error::ParseError("Invalid type definition ",tok);
+            }
+            if(ident.has_value()){
+                throw parse_error::ParseError("Invalid type definition ",tok);
+            }
+            unapplied.emplace_back();
+            index++;
+        }
+        void subtract_level(token::Token tok){
+            index--;
+            if(index < 0){
+                throw parse_error::ParseError("Invalid type definition ",tok);
+            }
+        }
+        void add_pointer(token::Token tok){
+            if(ident.has_value()){
+                throw parse_error::ParseError("Cannot have pointers after ident in type declarator ",tok);
+            }
+            if(unapplied.at(index).size() > 0 
+                && unapplied.at(index).back().second.type != token::TokenType::Star){
+                throw parse_error::ParseError("Cannot have pointers after other operations in type declarator ",tok);
+            }
+            unapplied.at(index).push_back(
+                std::make_pair([](type::CType t){return type::PointerType(t);},tok)
+            );
+        }
+        void add_func(std::pair<std::vector<Declarator>,bool>&& parsed_param_list, token::Token tok){ 
+            if(index == unapplied.size()-1 && ident.has_value()){
+                //If this is the parameter list immediately following the identifier at the deepest level we've seen
+                assert(param_list == std::nullopt);
+                param_list = parsed_param_list.first;
+            }
+            if(unapplied.at(index).size() > 0 ){
+                auto prev_type = unapplied.at(index).back().second.type;
+                if(prev_type == token::TokenType::LParen){
+                    throw parse_error::ParseError("Function declarator cannot have function return type",tok);
+                }
+                if(prev_type == token::TokenType::LBrack){
+                    throw parse_error::ParseError("Function declarator cannot have array return type",tok);
+                }
+            }
+            unapplied.at(index).push_back(
+                std::make_pair([params = std::move(parsed_param_list)](type::CType t){
+                    return compute_function_type(t,params);
+                },tok)
+            );
+        }
+        Declarator build_declarator(type::CType current){
+            while(unapplied.size() > 0){
+                while(unapplied.front().size() > 0){
+                    try{
+                        current = unapplied.front().front().first(current);
+                    }catch(std::exception& e){
+                        throw parse_error::ParseError(e.what(), unapplied.front().front().second);
+                    }
+                    unapplied.front().pop_front();
+                }
+                unapplied.pop_front();
+            }
+            return std::make_pair(ident, current);
+        }
+    };
+
     //Check and throw default unexpected token exception
     void check_token_type(const token::Token& tok, token::TokenType type){
         if(tok.type != type){
             throw parse_error::ParseError("Expected " + token::string_name(type), tok);
         }
     }
-
-    type::CType parse_pointer(type::CType specified_type, lexer::Lexer& l){
-        if(l.peek_token().type != token::TokenType::Mult){
-            return specified_type;
-        }else{
-            throw parse_error::UnknownError("Pointer declarations not yet implemented", l.peek_token());
+    void parse_declarator_helper(lexer::Lexer& l, TypeBuilder& builder){
+        auto next_tok = l.peek_token();
+        switch(next_tok.type){
+            case token::TokenType::Identifier:
+                builder.add_ident(l.get_token());
+                parse_declarator_helper(l,builder);
+                return;
+            case token::TokenType::Star:
+                builder.add_pointer(l.get_token());
+                parse_declarator_helper(l,builder);
+                return;
+            case token::TokenType::LParen:
+                if(l.peek_token(2).type == token::TokenType::Keyword ||
+                    l.peek_token(2).type == token::TokenType::RParen){
+                    //Function declaration
+                    auto tok = l.peek_token();
+                    auto parsed_param_pair = parse_param_list(l);
+                    builder.add_func(std::move(parsed_param_pair),tok);
+                }else{
+                    //Parens for binding
+                    builder.add_level(l.get_token());
+                    parse_declarator_helper(l,builder);
+                    check_token_type(l.peek_token(),token::TokenType::RParen);
+                    builder.subtract_level(l.get_token());
+                }
+                parse_declarator_helper(l,builder);
+                return;
+            case token::TokenType::LBrack:
+                throw parse_error::ParseError("Unexpected token when parsing declarator", next_tok);
+            default:
+                return;
         }
     }
-    std::pair<Declarator,std::optional<std::vector<Declarator>>> parse_declarator(type::CType specified_type, lexer::Lexer& l){
-        type::CType type = parse_pointer(specified_type, l);
-        auto next_tok = l.peek_token();
-        if(next_tok.type != token::TokenType::Identifier){
-            if(next_tok.type == token::TokenType::LParen){
-                l.get_token();
-                auto ret_val = parse_declarator(type,l);
-                check_token_type(l.get_token(), token::TokenType::RParen);
-                return ret_val;
-            }else{
-                throw parse_error::ParseError("Expected identifier or left parenthesis", next_tok);
-            }
-        }
-        auto ident = l.get_token();
-        check_token_type(ident, token::TokenType::Identifier);
-        next_tok = l.peek_token();
-        switch(next_tok.type){
-            case token::TokenType::LParen:
-                {
-                    if(token::matches_type(l.peek_token(2), token::TokenType::Identifier, token::TokenType::RParen)){//K&R style ident list
-                        check_token_type(l.get_token(), token::TokenType::LParen);
-                        if(l.peek_token().type != token::TokenType::RParen){
-                            throw parse_error::ParseError("Cannot parse K&R style declaration ident list", l.peek_token());
-                        }
-                        l.get_token();
-                        return std::make_pair(std::make_pair(ident, type::FuncType(type)),std::vector<Declarator>{});
-                    }else{
-                        auto param_list = parse_param_list(type, l);
-                        type = param_list.first;
-                        return std::make_pair(std::make_pair(ident, type),param_list.second);
-                    }
-                }
-            case token::TokenType::LBrack:
-                throw parse_error::ParseError("Expected identifier or left parenthesis", next_tok);
-            default:
-                return std::make_pair(std::make_pair(ident, type),std::nullopt);
-        }
-        //Above switch should definitely return
-        __builtin_unreachable();
+
+    Declarator parse_declarator(type::CType type, lexer::Lexer& l){
+        //This does not parse declarators for function definitions
+        auto builder = TypeBuilder();
+        parse_declarator_helper(l,builder);
+        return builder.build_declarator(type);
     }
 } //namespace
 
-std::pair<type::FuncType, std::vector<Declarator>> parse_param_list(type::CType ret_type, lexer::Lexer& l){
+std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::LParen);
     if(l.peek_token().type == token::TokenType::Ellipsis){
         throw parse_error::ParseError("Named parameter required before \"...\"", l.peek_token());
     }
     bool variadic = false;
     auto declarators = std::vector<Declarator>{};
-    auto params = std::vector<type::CType>{};
     auto names = std::set<std::string>{};
     while(true){
         if(l.peek_token().type == token::TokenType::RParen){
             break;
         }
+        if(l.peek_token().type == token::TokenType::Ellipsis){
+            variadic = true;
+            l.get_token();
+            break;
+        }
         type::CType param_specifiers = parse_specifiers(l);
-        if(token::matches_type(l.peek_token(),token::TokenType::Comma,token::TokenType::RParen)){
-            declarators.push_back(std::make_pair(std::nullopt, param_specifiers));
-            params.push_back(param_specifiers);
-        }else{
-            declarators.push_back(parse_declarator(param_specifiers,l).first);
-            params.push_back(declarators.back().second);
-            if(params.back() == type::CType(type::VoidType())){
-                throw sem_error::TypeError("Cannot have variable of void type",declarators.back().first.value());
-            }
+        declarators.push_back(parse_declarator(param_specifiers,l));
+        if(type::is_type<type::VoidType>(declarators.back().second)){
             if(declarators.back().first.has_value()){
-                if(names.insert(declarators.back().first.value().value).second == false){
-                    throw sem_error::STError("Duplicate variable name in function parameter list",declarators.back().first.value());
-                }
+                throw sem_error::TypeError("Cannot have named variable of void type",declarators.back().first.value());
             }
+            if(declarators.size() > 1 ){
+                throw sem_error::TypeError("Cannot have void type in function with multiple parameters",l.peek_token());
+            }
+        }
+        if(type::is_type<type::FuncType>(declarators.back().second)){
+            declarators.back().second = type::PointerType(declarators.back().second);
+        }
+        if(declarators.back().first.has_value() &&names.insert(declarators.back().first.value().value).second == false){
+            throw sem_error::STError("Duplicate variable name in function parameter list",declarators.back().first.value());
         }
         if(token::matches_type(l.peek_token(),token::TokenType::Comma)){
             l.get_token();
@@ -107,30 +203,19 @@ std::pair<type::FuncType, std::vector<Declarator>> parse_param_list(type::CType 
             break;
         }
     }
-    if(token::matches_type(l.peek_token(),token::TokenType::Ellipsis)){
-        l.get_token();
-        variadic = true;
-    }
     check_token_type(l.get_token(), token::TokenType::RParen);
-    assert(params.size() > 0 && "K&R style definitions with no parameters should not end up here");
-    try{
-        return std::make_pair(type::FuncType(ret_type, params, variadic),declarators);
-    }catch(std::runtime_error& e){
-        throw sem_error::TypeError(std::string("Failure to construct Function Type ") +e.what(),l.peek_token());
-    }
+    return std::make_pair(declarators,variadic);
 }
-
-
 
 std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     auto specifiers = parse_specifiers(l);
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
     while(true){
-        auto declarator = parse_declarator(specifiers, l).first;
+        auto declarator = parse_declarator(specifiers, l);
         if(!declarator.first.has_value()){
             throw parse_error::ParseError("Abstract declarator not permitted here", l.peek_token());
         }
-        decls.push_back(parse_init_decl(l, specifiers, declarator));
+        decls.push_back(parse_init_decl(l, declarator));
         if(token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
             break;
         }
@@ -138,63 +223,53 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     }
     return std::make_unique<ast::DeclList>(std::move(decls));
 }
-std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, Declarator decl, std::vector<Declarator> params){
-    check_token_type(l.peek_token(), token::TokenType::LBrace);
+
+std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, Declarator func){
     auto param_decls = std::vector<std::unique_ptr<ast::Decl>>{};
     for(const auto& param_declarator: params){
-        auto param_decl = std::visit(type::make_visitor<std::unique_ptr<ast::Decl>>(
-            [&](const type::BasicType& bt){
-                if(param_declarator.first.has_value()){
-                    return std::make_unique<ast::VarDecl>(param_declarator.first.value(),bt);
-                }else{
-                    throw sem_error::STError("Cannot have missing parameter name in function def", l.peek_token());
-                }
-            },
-            [&](const type::VoidType& vt){
-                if(param_declarator.first.has_value()){
-                    throw sem_error::TypeError("Cannot have void type with parameter name", param_declarator.first.value());
-                }
-                if(params.size() >1){
-                    throw sem_error::TypeError("Cannot have void type in function with multiple parameters",l.peek_token());
-                }
-                return nullptr;
-            },
-            [&l](const type::FuncType& ft){throw sem_error::TypeError("Cannot have function as parameter type", l.peek_token());}
-        ),param_declarator.second);
-        if(param_decl != nullptr){
-            param_decls.push_back(std::move(param_decl));
+        if(!param_declarator.first.has_value()){
+            if(params.size() > 1 || !type::is_type<type::VoidType>(param_declarator.second)){
+                throw parse_error::ParseError("Function parameter missing identifier", l.peek_token());
+            }
+            break;
         }
+        param_decls.push_back(std::make_unique<ast::VarDecl>(param_declarator.first.value(),param_declarator.second));
     }
     auto function_body = parse_compound_stmt(l);
-    return std::make_unique<ast::FunctionDef>(decl.first.value(), std::get<type::DerivedType>(decl.second).get<type::FuncType>(), 
-        std::move(param_decls), std::move(function_body));
+    return std::make_unique<ast::FunctionDef>(func.first.value(), type::get<type::FuncType>(func.second), std::move(param_decls), std::move(function_body));
 }
 
 std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
     while(l.peek_token().type == token::TokenType::Semicolon){
         l.get_token();
     }
-    auto specifiers = parse_specifiers(l);
-    auto declarator_param_pair = parse_declarator(specifiers, l);
-    if(l.peek_token().type == token::TokenType::LBrace){
-        if(!type::is_type<type::FuncType>(declarator_param_pair.first.second)){
-            throw parse_error::ParseError("Expected function definition", l.peek_token());
-        }
-        return parse_function_def(l, declarator_param_pair.first, declarator_param_pair.second.value());
-    }
+    auto specified_type = parse_specifiers(l);
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
-    decls.push_back(parse_init_decl(l,specifiers, declarator_param_pair.first));
+    {
+        auto builder = TypeBuilder();
+        parse_declarator_helper(l,builder);
+        auto declarator = builder.build_declarator(specified_type);
+        if(l.peek_token().type ==token::TokenType::LBrace){
+            auto params = builder.get_params();
+            if(!params.has_value()){
+                throw parse_error::ParseError("Unexpected beginning of function definition", l.peek_token());
+            }
+            return parse_function_def(l, params.value(), declarator);
+        }
+        decls.push_back(parse_init_decl(l,declarator));
+    }
+
     while(true){
         if(token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
             l.get_token();
             break;
         }
         check_token_type(l.get_token(), token::TokenType::Comma);
-        auto declarator = parse_declarator(specifiers, l).first;
+        auto declarator = parse_declarator(specified_type, l);
         if(!declarator.first.has_value()){
             throw parse_error::ParseError("Abstract declarator not permitted here", l.peek_token());
         }
-        decls.push_back(parse_init_decl(l, specifiers, declarator));
+        decls.push_back(parse_init_decl(l, declarator));
     }
     return std::make_unique<ast::DeclList>(std::move(decls));
 }

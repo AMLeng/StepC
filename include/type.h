@@ -23,13 +23,17 @@ enum class FType {
 typedef std::variant<IType, FType> BasicType;
 typedef std::monostate VoidType;
 class FuncType;
+class PointerType;
 class DerivedType;
 typedef std::variant<VoidType, BasicType, DerivedType> CType;
 
 class DerivedType{
-    std::variant<std::unique_ptr<FuncType>> type;
+    std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> type;
+    template <typename ReturnType, typename Visitor>
+    auto visit_helper(Visitor&& v) const;
 public:
     DerivedType(FuncType f); //Defined in type_func.cpp
+    DerivedType(PointerType f); //Defined in type_pointer.cpp
 
     DerivedType(const DerivedType& other); 
     DerivedType& operator=(const DerivedType& other);
@@ -41,29 +45,25 @@ public:
     bool operator!=(const DerivedType& other) const;
     friend bool is_compatible(const DerivedType&, const DerivedType&);
     friend std::string to_string(const DerivedType& type);
-    friend bool can_convert(const DerivedType& type1, const DerivedType& type2);
 
-    template <typename Visitor>
-    auto visit(Visitor&& v) const{
-        return std::visit([&v](auto&& pointer){
-            return std::invoke(v,*pointer);
-        }
-        ,type);
-    }
+    template <typename ReturnType, typename Visitor>
+    ReturnType visit(Visitor&& v) const;
 
-    template <typename T>
-    T get() const{
-        try{
-            return *std::get<std::unique_ptr<T>>(type);
-        }catch(std::exception& e){
-            throw std::runtime_error("DerivedType holding incorrect type");
-        }
-    }
-    template <typename T>
-    bool holds_alternative() const{
-        return std::holds_alternative<std::unique_ptr<T>>(type);
-    }
+    template<typename T>
+    friend T get(const CType& type);
 };
+class PointerType{
+    CType underlying_type;
+public:
+    explicit PointerType(CType t) : underlying_type(t) {}
+    bool operator ==(const PointerType& other) const;
+    bool operator !=(const PointerType& other) const;
+    CType pointed_type() const;
+    friend bool is_compatible(const PointerType& type1, const PointerType& type2);
+    friend std::string to_string(const PointerType& type);
+    friend std::string ir_type(const PointerType& type);
+};
+
 class FuncType{
     struct FuncPrototype{
         std::vector<CType> param_types;
@@ -91,7 +91,8 @@ public:
 
 std::string to_string(const CType& type);
 bool is_compatible(const CType& , const CType&); //Defined in type.cpp
-bool can_convert(const CType& from, const CType& to); //Defined in type.cpp
+bool can_assign(const CType& from, const CType& to); //Defined in type.cpp
+bool can_cast(const CType& from, const CType& to); //Defined in type.cpp
 
 BasicType from_str_multiset(const std::multiset<std::string>& keywords);
 BasicType usual_arithmetic_conversions(CType type1, CType type2);
@@ -118,8 +119,28 @@ bool can_represent(IType type, unsigned long long int value);
 //bool can_represent(BasicType target, BasicType source);
 //bool is_complete(CType type);
 
+
+//Everything below is template stuff for type::make_visitor to work properly
 template <class... Ts> struct overloaded : Ts...{using Ts::operator()...;};
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
+
+
+template <typename ReturnType, typename Visitor>
+auto DerivedType::visit_helper(Visitor&& v) const{
+    return [&v](const auto& pointer) -> ReturnType{
+        if constexpr(std::is_convertible_v<decltype(std::invoke(v,*pointer)),ReturnType>){
+            return std::invoke(v,*pointer);
+        }else{
+            std::invoke(v,*pointer);//Give this function a chance to throw an exception
+            throw std::runtime_error("Tried to call visit helper on "+type::to_string(*pointer)+" returning incompatible return type");
+        }
+    };
+}
+
+template <typename ReturnType, typename Visitor>
+ReturnType DerivedType::visit(Visitor&& v) const{
+    return std::visit(visit_helper<ReturnType>(v),type);
+}
 
 template<typename ReturnType, typename...Ts>
 struct type_visitor{
@@ -138,14 +159,14 @@ struct type_visitor{
             return std::visit(inner_visitor,basic_type);
         }else{
             std::visit(inner_visitor,basic_type);
-            throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
+            throw std::runtime_error("Tried to call basic type visitor on lambda returning incompatible return type");
         }
     }
     ReturnType operator()(const DerivedType& derived_type){
-        if constexpr(std::is_convertible_v<decltype(derived_type.visit(inner_visitor)),ReturnType>){
-            return derived_type.visit(inner_visitor);
+        if constexpr(std::is_convertible_v<decltype(derived_type.visit<ReturnType>(inner_visitor)),ReturnType>){
+            return derived_type.visit<ReturnType>(inner_visitor);
         }else{
-            throw std::runtime_error("Tried to call type visitor on lambda returning incompatible return type");
+            throw std::runtime_error("Tried to call type visitor on "+type::to_string(derived_type)+" with function returning incompatible return type");
         }
     }
 };
@@ -163,6 +184,18 @@ bool is_type(const CType& type){
     ), type);
 }
 
+template<typename T>
+T get(const CType& type){
+    try{
+        if constexpr(std::is_convertible_v<T,DerivedType>){
+            return *std::get<std::unique_ptr<T>>(std::get<DerivedType>(type).type);
+        }else{
+            return std::get<T>(type);
+        }
+    }catch(std::exception& e){
+    }
+    throw std::runtime_error("Incorrect type for type::get");
+}
 
 }
 #endif

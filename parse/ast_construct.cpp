@@ -89,7 +89,6 @@ Decl::~Decl(){}
 Stmt::~Stmt(){}
 BlockItem::~BlockItem(){}
 Expr::~Expr(){}
-LValue::~LValue(){}
 
 Constant::Constant(const token::Token& tok) : Expr(tok){
     literal = tok.value;

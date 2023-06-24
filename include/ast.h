@@ -90,7 +90,7 @@ struct VarDecl : public Decl {
     bool analyzed = false;
     std::optional<std::unique_ptr<BinaryOp>> assignment;
     //Type qualifiers and storage class specifiers to be implemented later
-    VarDecl(token::Token tok, type::BasicType type,std::optional<std::unique_ptr<BinaryOp>> assignment = std::nullopt) 
+    VarDecl(token::Token tok, type::CType type,std::optional<std::unique_ptr<BinaryOp>> assignment = std::nullopt) 
         : Decl(tok,type), assignment(std::move(assignment)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
@@ -218,8 +218,9 @@ struct BreakStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 struct ReturnStmt : public Stmt{
+    token::Token tok;
     std::optional<std::unique_ptr<Expr>> return_expr;
-    ReturnStmt(std::optional<std::unique_ptr<Expr>> ret_expr) : return_expr(std::move(ret_expr)) {}
+    ReturnStmt(token::Token tok, std::optional<std::unique_ptr<Expr>> ret_expr) : tok(tok), return_expr(std::move(ret_expr)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth);
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -243,14 +244,10 @@ struct Conditional : public Expr{
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
-struct LValue : public Expr{
-    LValue(token::Token tok) : Expr(tok){}
-    virtual ~LValue() = 0;
-};
 
-struct Variable : public LValue{
+struct Variable : public Expr{
     std::string variable_name;
-    Variable(token::Token tok) : LValue(tok), variable_name(tok.value) {}
+    Variable(token::Token tok) : Expr(tok), variable_name(tok.value) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -265,10 +262,10 @@ struct Constant : public Expr{
 };
 
 struct FuncCall : public Expr{
-    std::string func_name;
+    std::unique_ptr<Expr> func;
     std::vector<std::unique_ptr<Expr>> args;
-    FuncCall(token::Token func_ident, std::vector<std::unique_ptr<Expr>> args) : 
-        Expr(func_ident), func_name(func_ident.value), args(std::move(args)) {}
+    FuncCall(token::Token tok, std::unique_ptr<Expr> func, std::vector<std::unique_ptr<Expr>> args) : 
+        Expr(tok), func(std::move(func)), args(std::move(args)) {}
     void analyze(symbol::STable* st) override;
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;

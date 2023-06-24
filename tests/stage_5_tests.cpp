@@ -176,7 +176,7 @@ R"(
     b = (3 + a)*2;
 )");
     lexer::Lexer l(ss);
-    auto assign_ptr = parse::parse_binary_op(l,parse::parse_lvalue(l),0);
+    auto assign_ptr = parse::parse_binary_op(l,parse::parse_variable(l),0);
     //assign_ptr->pretty_print(0);
 }
 TEST_CASE("parse assignment in program"){

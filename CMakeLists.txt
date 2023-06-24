@@ -10,7 +10,7 @@ project(IncrementalC
 )
 
 add_library(type
-    type/type_basic.cpp type/type_func.cpp type/type_derived.cpp type/type.cpp 
+    type/type_basic.cpp type/type_func.cpp type/type_derived.cpp type/type_pointer.cpp type/type.cpp 
 )
 add_library (codegen_utils
     codegen/codegen_utility.cpp codegen/binary_operator_codegen.cpp
@@ -56,6 +56,10 @@ target_link_libraries(stage_8_tests PRIVATE Catch2::Catch2WithMain core)
 add_executable(stage_9_tests tests/stage_9_tests.cpp)
 set_target_properties(stage_9_tests PROPERTIES SUFFIX ".out")
 target_link_libraries(stage_9_tests PRIVATE Catch2::Catch2WithMain core)
+
+add_executable(stage_10_tests tests/stage_10_tests.cpp)
+set_target_properties(stage_10_tests PROPERTIES SUFFIX ".out")
+target_link_libraries(stage_10_tests PRIVATE Catch2::Catch2WithMain core)
 
 add_executable(step_c step_c.cpp)
 target_link_libraries(step_c PRIVATE core)

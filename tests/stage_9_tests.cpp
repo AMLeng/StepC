@@ -94,6 +94,16 @@ R"(int main(){
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
 }
+TEST_CASE("void argument"){
+    auto ss = std::stringstream(
+R"(
+int b(void);
+int main(){
+    return b();
+})");
+    lexer::Lexer l(ss);
+    parse::construct_ast(l)->analyze();
+}
 TEST_CASE("error no void argument name"){
     auto ss = std::stringstream(
 R"(
@@ -290,7 +300,7 @@ int main(){
     putchar();
 })");
     lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
 }
 TEST_CASE("error function decl void multi arg"){
     auto ss = std::stringstream(
@@ -300,7 +310,7 @@ int main(){
     putchar(25, 5);
 })");
     lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
 }
 TEST_CASE("error function decl void multi arg 2"){
     auto ss = std::stringstream(
@@ -326,7 +336,7 @@ void a(){
 TEST_CASE("function def missing paren"){
     auto ss = std::stringstream(
 R"(
-void a{
+int a{
     return;
 }
 )");
@@ -349,6 +359,40 @@ int main(){
 })");
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
+}
+TEST_CASE("variadic function decl one arg"){
+    auto ss = std::stringstream(
+R"(
+int a(int b,...);
+int main(){
+    return a(3);
+})");
+    lexer::Lexer l(ss);
+    parse::construct_ast(l)->analyze();
+}
+TEST_CASE("variadic function def one arg"){
+    auto ss = std::stringstream(
+R"(
+int a(int b,...){
+    return 3;
+}
+int main(){
+    return a(4);
+})");
+    lexer::Lexer l(ss);
+    parse::construct_ast(l)->analyze();
+}
+TEST_CASE("multiple function calls"){
+    auto ss = std::stringstream(
+R"(
+int a(int b){
+    return 3;
+}
+int main(){
+    return a(4) + a(5);
+})");
+    lexer::Lexer l(ss);
+    parse::construct_ast(l)->analyze();
 }
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)

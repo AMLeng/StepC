@@ -20,11 +20,6 @@ bool promote_one_rank(FType& type);
 //Checking
 bool is_signed_int(BasicType type);
 bool is_unsigned_int(BasicType type);
-bool is_float(BasicType type);
-
-bool is_int(BasicType type);
-bool is_arith(BasicType type);
-bool is_scalar(BasicType type);
 
 //Printing
 std::string to_string(BasicType type);
