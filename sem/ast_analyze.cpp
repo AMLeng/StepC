@@ -269,9 +269,9 @@ void Postfix::analyze(symbol::STable* st) {
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
                 this->type = this->arg->type;
+                break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
-            break;
         case token::TokenType::Minusminus:
             if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
@@ -282,6 +282,7 @@ void Postfix::analyze(symbol::STable* st) {
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
                 this->type = this->arg->type;
+                break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
         default:
@@ -329,6 +330,7 @@ void UnaryOp::analyze(symbol::STable* st) {
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
                 this->type = this->arg->type;
+                break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Minusminus:
@@ -341,6 +343,7 @@ void UnaryOp::analyze(symbol::STable* st) {
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
                 this->type = this->arg->type;
+                break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Plus:

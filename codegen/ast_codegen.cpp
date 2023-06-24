@@ -653,13 +653,16 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
         case token::TokenType::Not:
         {
             auto operand = arg->codegen(output, c);
+            if(type::is_type<type::PointerType>(operand->get_type())){
+                operand = codegen_utility::convert(type::IType::LLong, operand, output, c);
+            }
             assert(t == "i32");
             //icmp or fcmp
             std::string command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "icmp eq";},
                 [](type::FType){return "fcmp oeq";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
+                [](type::PointerType){throw std::runtime_error("Operand should have been converted to integer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), operand->get_type());
 
@@ -670,7 +673,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::IType){return " 0, ";},
                 [](type::FType){return " 0.0, ";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
+                [](type::PointerType){throw std::runtime_error("Operand should have been converted to integer type");},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), operand->get_type()) << operand->get_value() <<std::endl;
 

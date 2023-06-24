@@ -61,16 +61,16 @@ bool is_unsigned_int(CType type){
     return std::holds_alternative<BasicType>(type) && is_unsigned_int(std::get<BasicType>(type));
 }
 bool is_float(CType type){
-    return std::holds_alternative<BasicType>(type) && is_float(std::get<BasicType>(type));
+    return type::is_type<type::FType>(type);
 }
 bool is_int(CType type){
-    return std::holds_alternative<BasicType>(type) && is_int(std::get<BasicType>(type));
+    return type::is_type<type::IType>(type);
 }
 bool is_arith(CType type){
-    return std::holds_alternative<BasicType>(type) && is_arith(std::get<BasicType>(type));
+    return type::is_type<type::BasicType>(type);
 }
 bool is_scalar(CType type){
-    return std::holds_alternative<BasicType>(type) && is_scalar(std::get<BasicType>(type));
+    return type::is_type<type::BasicType>(type) || type::is_type<type::PointerType>(type);
 }
 BasicType usual_arithmetic_conversions(CType type1, CType type2){
     try{
