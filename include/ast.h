@@ -262,10 +262,10 @@ struct Constant : public Expr{
 };
 
 struct FuncCall : public Expr{
-    std::string func_name;
+    std::unique_ptr<Expr> func;
     std::vector<std::unique_ptr<Expr>> args;
-    FuncCall(token::Token func_ident, std::vector<std::unique_ptr<Expr>> args) : 
-        Expr(func_ident), func_name(func_ident.value), args(std::move(args)) {}
+    FuncCall(token::Token tok, std::unique_ptr<Expr> func, std::vector<std::unique_ptr<Expr>> args) : 
+        Expr(tok), func(std::move(func)), args(std::move(args)) {}
     void analyze(symbol::STable* st) override;
     void pretty_print(int depth) override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;

@@ -126,7 +126,12 @@ value::Value* make_command(type::CType t, std::string command, value::Value* lef
 //Basically returns result = *data_pointer
 value::Value* make_load(value::Value* data_pointer, std::ostream& output, context::Context& c){
     assert(type::is_type<type::PointerType>(data_pointer->get_type()) && "Can only load from a pointer");
-    auto result = c.new_temp(type::get<type::PointerType>(data_pointer->get_type()).pointed_type());
+    auto result_type = type::get<type::PointerType>(data_pointer->get_type()).pointed_type();
+    if(type::is_type<type::FuncType>(result_type)){
+        //Loading from a function pointer just gives back the function pointer
+        return data_pointer;
+    }
+    auto result = c.new_temp(result_type);
     print_whitespace(c.depth(), output);
     output << result->get_value()<<" = load "<<type::ir_type(result->get_type());
     output << ", " <<type::ir_type(data_pointer->get_type())<<" "<<data_pointer->get_value()<<std::endl;

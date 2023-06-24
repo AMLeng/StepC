@@ -455,8 +455,7 @@ value::Value* Constant::codegen(std::ostream& output, context::Context& c)const 
 }
 value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    auto function = c.get_value(this->func_name);
-    auto ft =type::get<type::FuncType>(type::get<type::PointerType>(function->get_type()).pointed_type());
+    auto function = this->func->codegen(output, c);
 
     auto arg_values = std::vector<value::Value*>{};
     for(auto& expr : this->args){
@@ -464,11 +463,11 @@ value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const 
     }
     value::Value* return_val = nullptr;
     print_whitespace(c.depth(), output);
-    if(ft.return_type() != type::CType(type::VoidType())){
-        return_val = c.new_temp(ft.return_type());
+    if(this->type != type::CType(type::VoidType())){
+        return_val = c.new_temp(this->type);
         output << return_val->get_value() <<" = ";
     }
-    output << "call "<<type::ir_type(ft.return_type());
+    output << "call "<<type::ir_type(this->type);
     output <<" "<<function->get_value()<<"(";
     if(arg_values.size() > 0){
         for(int i=0; i<arg_values.size() - 1; i++){

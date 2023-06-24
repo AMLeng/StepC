@@ -229,9 +229,10 @@ std::unique_ptr<ast::FunctionDecl> parse_function_def(lexer::Lexer& l, type::CTy
     }
     if(l.peek_token().type ==token::TokenType::LBrace){
         //Def
-        if(param_decls.size() != param_declarators.size()){
+        if(param_decls.size() != param_declarators.size()
+            && !(param_declarators.size() == 1 && type::is_type<type::VoidType>(param_declarators.back().second))){
             //If they are not equal, we failed to construct VarDecls for some of the parameters
-            //Which only happens if we weren't given identifiers
+            //Which only happens if we weren't given identifiers, or if we have no arguments
             throw sem_error::STError("Cannot have missing parameter name in function def", ident);
         }
         auto function_body = parse_compound_stmt(l);

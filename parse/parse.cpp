@@ -144,10 +144,9 @@ std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique
     return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
 }
 
-std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l){
-    auto function_name = l.get_token();
-    check_token_type(function_name, token::TokenType::Identifier);
-    check_token_type(l.get_token(), token::TokenType::LParen);
+std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l, std::unique_ptr<ast::Expr> func){
+    auto tok = l.get_token();
+    check_token_type(tok, token::TokenType::LParen);
     auto args = std::vector<std::unique_ptr<ast::Expr>>{};
     while(l.peek_token().type != token::TokenType::RParen){
         args.push_back(parse_expr(l,func_call_arg_binding_power));
@@ -157,7 +156,7 @@ std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l){
         check_token_type(l.get_token(), token::TokenType::Comma);
     }
     check_token_type(l.get_token(), token::TokenType::RParen);
-    return std::make_unique<ast::FuncCall>(function_name, std::move(args));
+    return std::make_unique<ast::FuncCall>(tok, std::move(func), std::move(args));
 }
 
 std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
@@ -188,11 +187,7 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
             expr_ptr =  parse_unary_op(l);
             break;
         case token::TokenType::Identifier:
-            if(l.peek_token(2).type == token::TokenType::LParen){
-                expr_ptr = parse_function_call(l);
-            }else{
-                expr_ptr = parse_variable(l);
-            }
+            expr_ptr = parse_variable(l);
             break;
         case token::TokenType::LParen:
             l.get_token();
@@ -211,7 +206,14 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
                 break;
             }
             expr_ptr = parse_conditional(l, std::move(expr_ptr));
-            break;
+            continue;
+        }
+        if(potential_op_token.type == token::TokenType::LParen){
+            if(unary_op_binding_power+1 < min_bind_power){
+                break;
+            }
+            expr_ptr = parse_function_call(l, std::move(expr_ptr));
+            continue;
         }
         if(potential_op_token.type == token::TokenType::Plusplus ||
             potential_op_token.type == token::TokenType::Minusminus){
@@ -220,7 +222,7 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
                 break;
             }
             expr_ptr = parse_postfix(l, std::move(expr_ptr));
-            break;
+            continue;
         }
         if(binary_op_binding_power.find(potential_op_token.type) == binary_op_binding_power.end()){
             break; //Not an operator

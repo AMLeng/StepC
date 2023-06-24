@@ -24,6 +24,11 @@ const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::BOAssign, token::TokenType::BitwiseOr},
     {token::TokenType::BXAssign, token::TokenType::BitwiseXor},
 }};
+bool is_func_designator(const ast::AST* node){
+    auto var = dynamic_cast<const ast::Variable*>(node);
+    return var && type::is_type<type::PointerType>(var->type)
+        && type::is_type<type::FuncType>(type::get<type::PointerType>(var->type).pointed_type());
+}
 bool is_lval(const ast::AST* node){
     if(dynamic_cast<const ast::Variable*>(node)){
         return true;
@@ -201,13 +206,14 @@ void Variable::analyze(symbol::STable* st) {
         throw sem_error::STError("Variable not found in symbol table",this->tok);
     }
     auto type_in_table = st->symbol_type(this->variable_name);
-    if(type::is_type<type::FuncType>(type_in_table)){
-        throw sem_error::STError("Variable cannot have function type",this->tok);
-    }
     if(type::is_type<type::VoidType>(type_in_table)){
         throw sem_error::STError("Variable cannot have void type",this->tok);
     }
-    this->type = type_in_table;
+    if(type::is_type<type::FuncType>(type_in_table)){
+        this->type = type::PointerType(type_in_table);
+    }else{
+        this->type = type_in_table;
+    }
 }
 void Conditional::analyze(symbol::STable* st){
     this->analyzed = true;
@@ -225,9 +231,7 @@ void Conditional::analyze(symbol::STable* st){
 void FuncCall::analyze(symbol::STable* st) {
     this->analyzed = true;
     //Check that the function actually exists in a symbol table
-    if(!st->has_symbol(this->func_name)){
-        throw sem_error::STError("Function not found in symbol table",this->tok);
-    }
+    this->func->analyze(st);
     auto arg_types = std::vector<type::CType>{};
     for(auto& expr : args){
         expr->analyze(st);
@@ -236,14 +240,18 @@ void FuncCall::analyze(symbol::STable* st) {
     if(arg_types.size() == 0){
         arg_types.push_back(type::CType());
     }
+    auto original_type = this->func->type;
+    if(type::is_type<type::PointerType>(original_type)){
+        original_type = type::get<type::PointerType>(original_type).pointed_type();
+    }
     try{
-        auto f_type = type::get<type::FuncType>(st->symbol_type(this->func_name));
+        auto f_type = type::get<type::FuncType>(original_type);
         if(!f_type.params_match(arg_types)){
             throw sem_error::TypeError("Cannot call function of type "+type::to_string(f_type)+" on types of provided arguments",this->tok);
         }
         this->type = f_type.return_type();
     }catch(std::runtime_error& e){ //Won't catch the STError
-        throw sem_error::STError("Function call with identifier not referring to a function",this->tok);
+        throw sem_error::STError("Function call with expression not referring to a function or function pointer",this->tok);
     }
 }
 void Postfix::analyze(symbol::STable* st) {
@@ -287,10 +295,19 @@ void UnaryOp::analyze(symbol::STable* st) {
             if(type::is_type<type::VoidType>(this->type)){
                 throw sem_error::TypeError("Cannot dereference void pointer",tok);
             }
+            if(type::is_type<type::FuncType>(this->type)){
+                //Dereferencing a function pointer just gives a function pointer
+                this->type = this->arg->type;
+            }
             break;
         case token::TokenType::Amp:
             if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of address operator",tok);
+            }
+            if(is_func_designator(this->arg.get())){
+                //Taking the address of a function designator does nothing
+                this->type = this->arg->type;
+                break;
             }
             //If is lvalue, should check that not bitfield and not of register type
             this->type = type::PointerType(this->arg->type);

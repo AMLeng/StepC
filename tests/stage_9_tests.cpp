@@ -372,6 +372,18 @@ int main(){
     lexer::Lexer l(ss);
     parse::construct_ast(l)->analyze();
 }
+TEST_CASE("multiple function calls"){
+    auto ss = std::stringstream(
+R"(
+int a(int b){
+    return 3;
+}
+int main(){
+    return a(4) + a(5);
+})");
+    lexer::Lexer l(ss);
+    parse::construct_ast(l)->analyze();
+}
 
 //Tests exclusive to this stage (e.g. that the compiler fails on things that haven't been implemented yet)
 //Tests which use structure that will be refactored later should not be here
