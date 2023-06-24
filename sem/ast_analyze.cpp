@@ -263,20 +263,27 @@ void Postfix::analyze(symbol::STable* st) {
             if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of increment",tok);
             }
-            if(!type::is_arith(this->arg->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            if(type::is_arith(this->arg->type)){
+                this->type = type::integer_promotions(this->arg->type);
+                break;
             }
-            this->type = type::integer_promotions(this->arg->type);
+            if(type::is_type<type::PointerType>(this->arg->type)){
+                this->type = this->arg->type;
+            }
+            throw sem_error::TypeError("Operand of real or pointer type required",tok);
             break;
         case token::TokenType::Minusminus:
             if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
             }
-            if(!type::is_arith(this->arg->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            if(type::is_arith(this->arg->type)){
+                this->type = type::integer_promotions(this->arg->type);
+                break;
             }
-            this->type = type::integer_promotions(this->arg->type);
-            break;
+            if(type::is_type<type::PointerType>(this->arg->type)){
+                this->type = this->arg->type;
+            }
+            throw sem_error::TypeError("Operand of real or pointer type required",tok);
         default:
             assert(false && "Unknown postfix operator type");
             break;
@@ -316,20 +323,26 @@ void UnaryOp::analyze(symbol::STable* st) {
             if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of increment",tok);
             }
-            if(!type::is_arith(this->arg->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            if(type::is_arith(this->arg->type)){
+                this->type = type::integer_promotions(this->arg->type);
+                break;
             }
-            this->type = type::integer_promotions(this->arg->type);
-            break;
+            if(type::is_type<type::PointerType>(this->arg->type)){
+                this->type = this->arg->type;
+            }
+            throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Minusminus:
             if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
             }
-            if(!type::is_arith(this->arg->type)){
-                throw sem_error::TypeError("Operand of arithmetic type required",tok);
+            if(type::is_arith(this->arg->type)){
+                this->type = type::integer_promotions(this->arg->type);
+                break;
             }
-            this->type = type::integer_promotions(this->arg->type);
-            break;
+            if(type::is_type<type::PointerType>(this->arg->type)){
+                this->type = this->arg->type;
+            }
+            throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Plus:
         case token::TokenType::Minus:
             if(!type::is_arith(this->arg->type)){

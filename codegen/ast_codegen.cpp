@@ -482,46 +482,69 @@ value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const 
 value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto operand = arg->codegen(output, c);
-    std::string t = type::ir_type(this->type);
-    std::string command = "";
-    value::Value* new_temp = nullptr;
     switch(tok.type){
         case token::TokenType::Plusplus:
         {
             auto var_reg = get_lval(arg.get(), output, c);
-            new_temp = codegen_utility::make_load(var_reg, output, c);
-            command = std::visit(overloaded{
+            auto ret_val = codegen_utility::make_load(var_reg, output, c);
+            auto initial_type = ret_val->get_type();
+            ret_val = codegen_utility::convert(this->type, ret_val, output, c);
+            auto new_temp = ret_val;
+            if(type::is_type<type::PointerType>(new_temp->get_type())){
+                new_temp =  codegen_utility::convert(type::IType::LLong, new_temp, output, c);
+            }
+            std::string command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
-                }, type::get<type::BasicType>(this->type));
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){return "add";},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), this->type);
             
             AST::print_whitespace(c.depth(), output);
             auto var_temp = c.new_temp(this->type);
-            output << var_temp->get_value()<<" = "<<command<<" "<<t<<" "<<new_temp->get_value()<<std::visit(overloaded{
+            output << var_temp->get_value()<<" = "<<command<<" "<<type::ir_type(this->type)<<" "<<new_temp->get_value();
+            output <<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
-                }, std::get<type::BasicType>(this->type)) <<std::endl;
-            codegen_utility::make_store(var_temp,var_reg, output, c);
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){return ", 1";},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), this->type) <<std::endl;
+            codegen_utility::make_store(codegen_utility::convert(initial_type, var_temp, output, c),var_reg, output, c);
+            return ret_val;
         }
-            return new_temp;
         case token::TokenType::Minusminus:
         {
             auto var_reg = get_lval(arg.get(), output, c);
-            new_temp = codegen_utility::make_load(var_reg, output, c);
-            command = std::visit(overloaded{
+            auto ret_val = codegen_utility::make_load(var_reg, output, c);
+            auto initial_type = ret_val->get_type();
+            ret_val = codegen_utility::convert(this->type, ret_val, output, c);
+            auto new_temp = ret_val;
+            if(type::is_type<type::PointerType>(new_temp->get_type())){
+                new_temp =  codegen_utility::convert(type::IType::LLong, new_temp, output, c);
+            }
+            std::string command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
-                }, std::get<type::BasicType>(this->type));
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){return "sub";},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), this->type);
             
             AST::print_whitespace(c.depth(), output);
             auto var_temp = c.new_temp(this->type);
-            output << var_temp->get_value()<<" = "<<command<<" "<<t<<" "<<new_temp->get_value()<<std::visit(overloaded{
+            output << var_temp->get_value()<<" = "<<command<<" "<<type::ir_type(this->type)<<" "<<new_temp->get_value();
+            output<<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
-                }, std::get<type::BasicType>(this->type)) <<std::endl;
-            codegen_utility::make_store(var_temp,var_reg, output, c);
+                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
+                [](type::PointerType){return ", 1";},
+                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                ), this->type) <<std::endl;
+            codegen_utility::make_store(codegen_utility::convert(initial_type, var_temp, output, c),var_reg, output, c);
+            return ret_val;
         }
-            return new_temp;
         default:
             assert(false && "Operator Not Implemented");
     }
@@ -534,50 +557,62 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
         {
             auto var_reg = get_lval(arg.get(), output, c);
             auto var_temp = codegen_utility::make_load(var_reg, output, c);
-            var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
+            auto initial_type = var_temp->get_type();
+            if(type::is_type<type::PointerType>(var_temp->get_type())){
+                var_temp =  codegen_utility::convert(type::IType::LLong, var_temp, output, c);
+            }else{
+                var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
+            }
             std::string command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "add";},
                 [](type::FType){return "fadd";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
+                [](type::PointerType){return "add";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), var_temp->get_type());
+                ), this->type);
             
             AST::print_whitespace(c.depth(), output);
-            auto new_temp = c.new_temp(this->type);
+            auto new_temp = c.new_temp(var_temp->get_type());
             output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
+                [](type::PointerType){return ", 1";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), var_temp->get_type()) <<std::endl;
-            codegen_utility::make_store(new_temp,var_reg, output, c);
+                ), this->type) <<std::endl;
+            new_temp = codegen_utility::convert(this->type,new_temp, output, c);
+            codegen_utility::make_store(codegen_utility::convert(initial_type,new_temp, output, c),var_reg, output, c);
             return new_temp;
         }
         case token::TokenType::Minusminus:
         {
             auto var_reg = get_lval(arg.get(), output, c);
             auto var_temp = codegen_utility::make_load(var_reg, output, c);
-            var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
+            auto initial_type = var_temp->get_type();
+            if(type::is_type<type::PointerType>(var_temp->get_type())){
+                var_temp =  codegen_utility::convert(type::IType::LLong, var_temp, output, c);
+            }else{
+                var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
+            }
             std::string command = std::visit(type::make_visitor<std::string>(
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
+                [](type::PointerType){return "sub";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), var_temp->get_type());
+                ), this->type);
             
             AST::print_whitespace(c.depth(), output);
-            auto new_temp = c.new_temp(this->type);
+            auto new_temp = c.new_temp(var_temp->get_type());
             output << new_temp->get_value()<<" = "<<command<<" "<<t<<" "<<var_temp->get_value()<<std::visit(type::make_visitor<std::string>(
                 [](type::IType){return ", 1";},
                 [](type::FType){return ", 1.0";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Have not implemented operation on pointer type");},
+                [](type::PointerType){return ", 1";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), var_temp->get_type()) <<std::endl;
-            codegen_utility::make_store(new_temp,var_reg, output, c);
+                ), this->type) <<std::endl;
+            new_temp = codegen_utility::convert(this->type,new_temp, output, c);
+            codegen_utility::make_store(codegen_utility::convert(initial_type,new_temp, output, c),var_reg, output, c);
             return new_temp;
         }
         case token::TokenType::Plus:
