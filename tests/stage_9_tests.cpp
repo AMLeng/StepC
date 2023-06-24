@@ -94,6 +94,16 @@ R"(int main(){
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(parse::construct_ast(l), sem_error::TypeError);
 }
+TEST_CASE("void argument"){
+    auto ss = std::stringstream(
+R"(
+int b(void);
+int main(){
+    return b();
+})");
+    lexer::Lexer l(ss);
+    parse::construct_ast(l)->analyze();
+}
 TEST_CASE("error no void argument name"){
     auto ss = std::stringstream(
 R"(

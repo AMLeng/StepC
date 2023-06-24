@@ -471,7 +471,7 @@ std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::RBrace);
     return std::make_unique<ast::CompoundStmt>(std::move(stmt_body));
 }
-std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, type::CType specifiers, Declarator declarator){
+std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarator){
     auto var_name = declarator.first.value();
     check_token_type(var_name, token::TokenType::Identifier);
     if(l.peek_token().type == token::TokenType::Assign){

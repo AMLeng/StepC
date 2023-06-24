@@ -242,7 +242,7 @@ value::Value* CompoundStmt::codegen(std::ostream& output, context::Context& c)co
 }
 value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)const {
     auto f_type = type::get<type::FuncType>(this->type);
-    assert(!std::holds_alternative<type::DerivedType>(f_type.return_type()) && "Cannot yet return derived types");
+    assert(!type::is_type<type::FuncType>(f_type.return_type()) && "Cannot return function types");
     if(this->tok.value == "main"){
         assert(f_type.return_type() == type::CType(type::IType::Int));
     }
@@ -273,7 +273,6 @@ value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c)cons
     value::Value* return_value = nullptr;
     if(return_expr.has_value()){
         return_value = return_expr.value()->codegen(output, c);
-        assert(type::is_type<type::BasicType>(c.return_type()) && "Can't return derived types yet");
         return_value = codegen_utility::convert(c.return_type(),std::move(return_value), output, c);
     }
     int instruction_number = c.new_local_name(); 

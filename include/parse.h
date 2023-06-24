@@ -30,12 +30,12 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l);
 
 typedef std::pair<std::optional<token::Token>, type::CType> Declarator;
-std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, type::CType specifiers, Declarator declarator);
+std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarator);
 type::CType parse_specifiers(lexer::Lexer& l);
 
 //In parse_decl.cpp
 std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l);
-std::unique_ptr<ast::FunctionDecl> parse_function_def(lexer::Lexer& l, type::CType ret_type);
+std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::pair<std::vector<Declarator>,bool> params, Declarator function_type);
 std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l);
 std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l);
 } //namespace parse
