@@ -73,6 +73,8 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {'>',token::TokenType::Greater},
     {':',token::TokenType::Colon},
     {'?',token::TokenType::Question},
+    {'[',token::TokenType::LBrack},
+    {']',token::TokenType::RBrack},
 }};
 
 } //namespace
