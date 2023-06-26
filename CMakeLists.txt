@@ -10,7 +10,7 @@ project(IncrementalC
 )
 
 add_library(type
-    type/type_basic.cpp type/type_func.cpp type/type_derived.cpp type/type_pointer.cpp type/type.cpp 
+    type/type_basic.cpp type/type_func.cpp type/type_derived.cpp type/type_pointer.cpp type/type_array.cpp type/type.cpp 
 )
 add_library (codegen_utils
     codegen/codegen_utility.cpp codegen/binary_operator_codegen.cpp

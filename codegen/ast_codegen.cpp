@@ -142,14 +142,27 @@ void global_func_type_codegen(const std::string& name, const type::FuncType& t, 
     }
     output<<")";
 }
+void global_array_type_codegen(const std::string& name, value::Value* def, std::ostream& output){
+    //Sample code:
+    //@a = dso_local global [4 x i32] [i32 1, i32 2, i32 3, i32 4]
+    //@b = dso_local global [3 x i32] zeroinitializer
+    output << name <<" = dso_local global ptr ";
+    if(def){
+        throw std::runtime_error("Have not yet implemented global arrays with initializers");
+        output << def->get_value() << std::endl;
+    }else{
+        output << "zero_initializer"<<std::endl;
+    }
+}
 
 
 void global_decl_codegen(value::Value* value, std::ostream& output, context::Context& c, value::Value* def = nullptr){
     assert(type::is_type<type::PointerType>(value->get_type()) && "Variable types must be stored as pointers");
     std::visit(type::make_visitor<void>(
         [&](const type::BasicType& bt){global_basic_type_codegen(value->get_value(),bt, def, output);}, 
-        [](const type::VoidType& vt){assert(false && "Cannot have variable of void type");}, 
-        [&](const type::PointerType& pt){global_pointer_type_codegen(value->get_value(), def, output);}, 
+        [](const type::VoidType& ){assert(false && "Cannot have variable of void type");}, 
+        [&](const type::PointerType& ){global_pointer_type_codegen(value->get_value(), def, output);}, 
+        [&](const type::ArrayType& ){global_array_type_codegen(value->get_value(), def, output);}, 
         [&value, &output](const type::FuncType& ft){global_func_type_codegen(value->get_value(), ft, output);}
     ), type::get<type::PointerType>(value->get_type()).pointed_type());
 }
@@ -489,7 +502,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
             auto initial_type = ret_val->get_type();
             ret_val = codegen_utility::convert(this->type, ret_val, output, c);
             auto new_temp = ret_val;
-            if(type::is_type<type::PointerType>(new_temp->get_type())){
+            if(type::is_type<type::PointerType>(new_temp->get_type())||type::is_type<type::ArrayType>(new_temp->get_type())){
                 new_temp =  codegen_utility::convert(type::IType::LLong, new_temp, output, c);
             }
             std::string command = std::visit(type::make_visitor<std::string>(
@@ -497,6 +510,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
                 [](type::FType){return "fadd";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [](type::PointerType){return "add";},
+                [](type::ArrayType){return "add";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), this->type);
             
@@ -508,6 +522,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
                 [](type::FType){return ", 1.0";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [](type::PointerType){return ", 1";},
+                [](type::ArrayType){return ", 1";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), this->type) <<std::endl;
             codegen_utility::make_store(codegen_utility::convert(initial_type, var_temp, output, c),var_reg, output, c);
@@ -520,7 +535,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
             auto initial_type = ret_val->get_type();
             ret_val = codegen_utility::convert(this->type, ret_val, output, c);
             auto new_temp = ret_val;
-            if(type::is_type<type::PointerType>(new_temp->get_type())){
+            if(type::is_type<type::PointerType>(new_temp->get_type())||type::is_type<type::ArrayType>(new_temp->get_type())){
                 new_temp =  codegen_utility::convert(type::IType::LLong, new_temp, output, c);
             }
             std::string command = std::visit(type::make_visitor<std::string>(
@@ -528,6 +543,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
                 [](type::FType){return "fsub";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [](type::PointerType){return "sub";},
+                [](type::ArrayType){return "sub";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), this->type);
             
@@ -539,6 +555,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
                 [](type::FType){return ", 1.0";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [](type::PointerType){return ", 1";},
+                [](type::ArrayType){return ", 1";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), this->type) <<std::endl;
             codegen_utility::make_store(codegen_utility::convert(initial_type, var_temp, output, c),var_reg, output, c);
@@ -557,7 +574,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
             auto var_reg = get_lval(arg.get(), output, c);
             auto var_temp = codegen_utility::make_load(var_reg, output, c);
             auto initial_type = var_temp->get_type();
-            if(type::is_type<type::PointerType>(var_temp->get_type())){
+            if(type::is_type<type::PointerType>(var_temp->get_type()) || type::is_type<type::ArrayType>(var_temp->get_type())){
                 var_temp =  codegen_utility::convert(type::IType::LLong, var_temp, output, c);
             }else{
                 var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
@@ -567,6 +584,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::FType){return "fadd";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [](type::PointerType){return "add";},
+                [](type::ArrayType){return "add";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), this->type);
             
@@ -577,6 +595,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::FType){return ", 1.0";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [](type::PointerType){return ", 1";},
+                [](type::ArrayType){return ", 1";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), this->type) <<std::endl;
             new_temp = codegen_utility::convert(this->type,new_temp, output, c);
@@ -588,7 +607,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
             auto var_reg = get_lval(arg.get(), output, c);
             auto var_temp = codegen_utility::make_load(var_reg, output, c);
             auto initial_type = var_temp->get_type();
-            if(type::is_type<type::PointerType>(var_temp->get_type())){
+            if(type::is_type<type::PointerType>(var_temp->get_type())||type::is_type<type::ArrayType>(var_temp->get_type())){
                 var_temp =  codegen_utility::convert(type::IType::LLong, var_temp, output, c);
             }else{
                 var_temp =  codegen_utility::convert(this->type, var_temp, output, c);
@@ -598,6 +617,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::FType){return "fsub";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [](type::PointerType){return "sub";},
+                [](type::ArrayType){return "sub";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), this->type);
             
@@ -608,6 +628,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
                 [](type::FType){return ", 1.0";},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [](type::PointerType){return ", 1";},
+                [](type::ArrayType){return ", 1";},
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), this->type) <<std::endl;
             new_temp = codegen_utility::convert(this->type,new_temp, output, c);
@@ -621,23 +642,19 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
             auto operand = arg->codegen(output, c);
             operand =  codegen_utility::convert(this->type, std::move(operand), output, c);
             //sub or fsub
-            std::string command = std::visit(type::make_visitor<std::string>(
+            assert(type::is_type<type::BasicType>(operand->get_type()) && "Can only perform unary - on basic type");
+            auto operand_type = type::get<type::BasicType>(operand->get_type());
+            std::string command = std::visit(type::overloaded{
                 [](type::IType){return "sub";},
                 [](type::FType){return "fsub";},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), operand->get_type());
+                }, operand_type);
             
             AST::print_whitespace(c.depth(), output);
             auto new_temp = c.new_temp(this->type);
-            output << new_temp->get_value()<<" = "<<command<<" "<<t<<std::visit(type::make_visitor<std::string>(
+            output << new_temp->get_value()<<" = "<<command<<" "<<t<<std::visit(type::overloaded{
                 [](type::IType){return " 0, ";},
                 [](type::FType){return " 0.0, ";},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), operand->get_type()) <<operand->get_value() <<std::endl;
+                }, operand_type) <<operand->get_value() <<std::endl;
             return new_temp;
         }
         case token::TokenType::BitwiseNot:
@@ -652,29 +669,25 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
         case token::TokenType::Not:
         {
             auto operand = arg->codegen(output, c);
-            if(type::is_type<type::PointerType>(operand->get_type())){
+            if(type::is_type<type::PointerType>(operand->get_type())||type::is_type<type::ArrayType>(operand->get_type())){
                 operand = codegen_utility::convert(type::IType::LLong, operand, output, c);
             }
             assert(t == "i32");
+            assert(type::is_type<type::BasicType>(operand->get_type()) && "Non-basic types for unary not should have been converted");
+            auto operand_type = type::get<type::BasicType>(operand->get_type());
             //icmp or fcmp
-            std::string command = std::visit(type::make_visitor<std::string>(
+            std::string command = std::visit(type::overloaded{
                 [](type::IType){return "icmp eq";},
                 [](type::FType){return "fcmp oeq";},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Operand should have been converted to integer type");},
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), operand->get_type());
+                }, operand_type);
 
             AST::print_whitespace(c.depth(), output);
             auto intermediate_bool = c.new_temp(type::IType::Bool);
             output << intermediate_bool->get_value() <<" = "<<command<<" "<<type::ir_type(operand->get_type());
-            output << std::visit(type::make_visitor<std::string>(
+            output << std::visit(type::overloaded{
                 [](type::IType){return " 0, ";},
                 [](type::FType){return " 0.0, ";},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Operand should have been converted to integer type");},
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), operand->get_type()) << operand->get_value() <<std::endl;
+                }, operand_type) << operand->get_value() <<std::endl;
 
             return codegen_utility::convert(this->type, intermediate_bool, output, c);
         }

@@ -112,7 +112,8 @@ value::Value* convert(type::CType target_type, value::Value* val,
         [&](const type::BasicType& bt){return convert(bt, val, output, c);},
         [&](const type::VoidType& vt){throw std::runtime_error("Unable to convert value to void type");},
         [&](const type::FuncType& ft){throw std::runtime_error("Unable to convert value to function type");},
-        [&](const type::PointerType& pt){return convert(pt, val, output, c);}
+        [&](const type::PointerType& pt){return convert(pt, val, output, c);},
+        [&](const type::ArrayType& at){return convert(at.decay(), val, output, c);}
     ),target_type);
 }
 value::Value* make_command(type::CType t, std::string command, value::Value* left, value::Value* right, 

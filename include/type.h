@@ -23,17 +23,19 @@ enum class FType {
 typedef std::variant<IType, FType> BasicType;
 typedef std::monostate VoidType;
 class FuncType;
+class ArrayType;
 class PointerType;
 class DerivedType;
 typedef std::variant<VoidType, BasicType, DerivedType> CType;
 
 class DerivedType{
-    std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> type;
+    std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, std::unique_ptr<ArrayType>> type;
     template <typename ReturnType, typename Visitor>
     auto visit_helper(Visitor&& v) const;
 public:
     DerivedType(FuncType f); //Defined in type_func.cpp
     DerivedType(PointerType f); //Defined in type_pointer.cpp
+    DerivedType(ArrayType f); //Defined in type_array.cpp
 
     DerivedType(const DerivedType& other); 
     DerivedType& operator=(const DerivedType& other);
@@ -62,6 +64,23 @@ public:
     friend bool is_compatible(const PointerType& type1, const PointerType& type2);
     friend std::string to_string(const PointerType& type);
     friend std::string ir_type(const PointerType& type);
+};
+class ArrayType{
+    CType underlying_type;
+    int allocated_size;
+public:
+    explicit ArrayType(CType t) : underlying_type(t), allocated_size(0){}
+    ArrayType(CType t, int s) : underlying_type(t), allocated_size(s){}
+    bool operator ==(const ArrayType& other) const;
+    bool operator !=(const ArrayType& other) const;
+    CType element_type() const;
+    PointerType decay() const;
+    void set_size(int size);
+    int size() const;
+    bool is_complete() const;
+    friend bool is_compatible(const ArrayType& type1, const ArrayType& type2);
+    friend std::string to_string(const ArrayType& type);
+    friend std::string ir_type(const ArrayType& type);
 };
 
 class FuncType{

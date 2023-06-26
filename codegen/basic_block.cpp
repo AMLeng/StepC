@@ -15,7 +15,8 @@ std::string DefaultRet::get_instruction(){
         [](const type::FType& f){return "ret "+type::ir_type(f)+" 0.0";},
         [](const type::VoidType& v){return "ret void";},
         [](const type::PointerType& p)->std::string{return "ret "+type::ir_type(p)+" null";},
-        [](const type::FuncType& func)->std::string{throw std::runtime_error("Cannot have function type as return value");}
+        [](const type::FuncType& ){throw std::runtime_error("Cannot have function type as return value");},
+        [](const type::ArrayType& ){throw std::runtime_error("Cannot have array type as return value");}
     ), type);
 }
 Cond_BR::Cond_BR(value::Value* cond, std::string tl, std::string fl) :

@@ -43,7 +43,8 @@ bool can_assign(const CType& type1, const CType& type2){
             },
         [&type2](PointerType type1){return type2 == CType(IType::Bool)
             || is_type<PointerType>(type2) && can_assign(type1, type::get<PointerType>(type2));},
-        [&type2](FuncType type1){return is_type<FuncType>(type2);}
+        [&type2](FuncType type1){return is_type<FuncType>(type2);},
+        [&type2](ArrayType type1){return can_assign(type1.decay(),type2);}
     ),type1);
 }
 std::string to_string(const CType& type){
@@ -94,7 +95,8 @@ std::string ir_type(const CType& type){
         [](VoidType v)->std::string{return "void";},
         [](BasicType bt)->std::string{return ir_type(bt);},
         [](const FuncType& ft){return ir_type(ft);},
-        [](const PointerType& ft){return ir_type(ft);}
+        [](const PointerType& pt){return ir_type(pt);},
+        [](const ArrayType& at){return ir_type(at);}
     ), type);
 }
 
