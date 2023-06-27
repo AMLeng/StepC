@@ -179,6 +179,13 @@ void Expr::initializer_print(int depth) const{
     std::cout<<"INITIALIZER: "<<std::endl;
     this->pretty_print(depth+1);
 }
+void InitializerList::initializer_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"INITIALIZER List: "<<std::endl;
+    for(const auto &i : initializers){
+        i->initializer_print(depth+1);
+    }
+}
 void Constant::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"CONSTANT "<<literal<<" OF TYPE "<< type::to_string(type) <<std::endl;

@@ -471,6 +471,24 @@ std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::RBrace);
     return std::make_unique<ast::CompoundStmt>(std::move(stmt_body));
 }
+std::unique_ptr<ast::InitializerList> parse_initializer_list(lexer::Lexer& l){
+    auto inits = std::vector<std::unique_ptr<ast::Initializer>>{};
+    auto tok = l.get_token();
+    check_token_type(tok, token::TokenType::LBrace);
+    while(l.peek_token().type != token::TokenType::RBrace){
+        if(l.peek_token().type == token::TokenType::LBrace){
+            inits.push_back(parse_initializer_list(l));
+        }else{
+            inits.push_back(parse_expr(l,binary_op_binding_power.at(token::TokenType::Assign).second));
+        }
+        if(token::matches_type(l.peek_token(),token::TokenType::RBrace)){
+            break;
+        }
+        check_token_type(l.get_token(), token::TokenType::Comma);
+    }
+    check_token_type(l.get_token(), token::TokenType::RBrace);
+    return std::make_unique<ast::InitializerList>(tok, std::move(inits));
+}
 std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarator){
     auto var_name = declarator.first.value();
     check_token_type(var_name, token::TokenType::Identifier);
@@ -483,8 +501,8 @@ std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarato
         }
         l.get_token();
         if(l.peek_token().type == token::TokenType::LBrace){
-            //Initialization list
-            throw std::runtime_error("Initialization lists not yet implemented");
+            auto assign = parse_initializer_list(l);
+            return std::make_unique<ast::VarDecl>(var_name, declarator.second, std::move(assign));
         }else{
             auto assign = parse_expr(l,binary_op_binding_power.at(token::TokenType::Assign).second);
             return std::make_unique<ast::VarDecl>(var_name, declarator.second, std::move(assign));

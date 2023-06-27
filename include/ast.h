@@ -38,6 +38,14 @@ struct Initializer{
     virtual void initializer_print(int depth) const = 0;
     virtual void initializer_analyze(type::CType variable_type, symbol::STable* st) = 0;
 };
+struct InitializerList : public Initializer{
+    token::Token tok;
+    std::vector<std::unique_ptr<Initializer>> initializers;
+    InitializerList(token::Token tok, std::vector<std::unique_ptr<Initializer>> inits) : tok(tok), initializers(std::move(inits)) {}
+    void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const;
+    void initializer_print(int depth) const;
+    void initializer_analyze(type::CType variable_type, symbol::STable* st);
+};
 
 struct Program : public AST{
     std::vector<std::unique_ptr<ExtDecl>> decls;

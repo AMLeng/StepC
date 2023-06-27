@@ -445,6 +445,9 @@ void Expr::initializer_codegen(value::Value* variable, std::ostream& output, con
     auto var_type = type::get<type::PointerType>(variable->get_type()).pointed_type();
     codegen_utility::make_store(codegen_utility::convert(var_type, val, output, c),variable, output, c);
 }
+void InitializerList::initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const{
+    assert(false && "Not yet implemented");
+}
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     if(c.in_function()){

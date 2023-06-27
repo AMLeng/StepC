@@ -189,7 +189,8 @@ void VarDecl::analyze(symbol::STable* st) {
         throw sem_error::STError(e.what(),this->tok);
     }
     if(type::is_type<type::ArrayType>(this->type)){
-        if(!this->assignment.has_value()){
+        auto array_type = type::get<type::ArrayType>(this->type);
+        if(!this->assignment.has_value() && !array_type.is_complete()){
             throw sem_error::TypeError("Cannot infer size of declared array without initialization",this->tok);
         }
     }
@@ -209,6 +210,24 @@ void Expr::initializer_analyze(type::CType variable_type, symbol::STable* st){
     if(!type::can_assign(this->type,variable_type) 
             && !(type::is_type<type::PointerType>(variable_type) && is_nullptr_constant(this))){
         throw sem_error::TypeError("Invalid types for assignment",tok);
+    }
+}
+void InitializerList::initializer_analyze(type::CType variable_type, symbol::STable* st){
+    if(type::is_type<type::ArrayType>(variable_type)){
+        auto array_type = type::get<type::ArrayType>(variable_type);
+        int length = initializers.size();
+        std::cout<<array_type.size()<<std::endl;
+        if(array_type.is_complete() && array_type.size() < length){
+            length = array_type.size();
+        }
+        for(int i=0; i<length; i++){
+            initializers.at(i)->initializer_analyze(array_type.element_type(), st);
+        }
+    }else{
+        if(initializers.size() == 0){
+            throw sem_error::TypeError("Cannot have empty initializer for scalar", this->tok);
+        }
+        initializers.front()->initializer_analyze(variable_type, st);
     }
 }
 void Variable::analyze(symbol::STable* st) {
