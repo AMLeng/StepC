@@ -481,12 +481,12 @@ std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarato
         if(type::is_type<type::FuncType>(declarator.second)){
             throw sem_error::TypeError("Invalid assignment to function type", var_name);
         }
-        if(l.peek_token(2).type == token::TokenType::LBrace){
+        l.get_token();
+        if(l.peek_token().type == token::TokenType::LBrace){
             //Initialization list
             throw std::runtime_error("Initialization lists not yet implemented");
         }else{
-            auto assign = parse_binary_op(l,std::make_unique<ast::Variable>(var_name),
-                    binary_op_binding_power.at(token::TokenType::Assign).second);
+            auto assign = parse_expr(l,binary_op_binding_power.at(token::TokenType::Assign).second);
             return std::make_unique<ast::VarDecl>(var_name, declarator.second, std::move(assign));
         }
     }else{

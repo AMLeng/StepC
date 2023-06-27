@@ -64,7 +64,7 @@ int main(){
     int a = {};
 })");
     lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(parse::construct_ast(l), parse:error::ParseError);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse_error::ParseError);
 }
 TEST_CASE("parse array init decl"){
     auto ss = std::stringstream(

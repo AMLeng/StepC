@@ -198,9 +198,14 @@ void VarDecl::analyze(symbol::STable* st) {
         this->assignment.value()->analyze(st);
         if(!st->in_function()){
             //If not in function, is global and needs to be
-            if(!dynamic_cast<ast::Constant*>(this->assignment.value()->right.get())){
-                throw sem_error::FlowError("Global variable def must be constant",this->assignment.value()->tok);
+            if(!dynamic_cast<ast::Constant*>(this->assignment.value().get())){
+                throw sem_error::FlowError("Global variable def must be constant",this->tok);
             }
+        }
+        auto exp = dynamic_cast<ast::Expr*>(this->assignment.value().get());
+        if(!type::can_assign(exp->type,this->type) 
+            && !(type::is_type<type::PointerType>(this->type) && is_nullptr_constant(exp))){
+            throw sem_error::TypeError("Invalid types for assignment",tok);
         }
     }
 }

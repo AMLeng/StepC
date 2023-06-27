@@ -447,13 +447,14 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
         AST::print_whitespace(c.depth(), output);
         output << variable->get_value() <<" = alloca "<<type::ir_type(type) <<std::endl;
         if(this->assignment.has_value()){
-            this->assignment.value()->codegen(output, c);
+            auto val = this->assignment.value()->codegen(output, c);
+            codegen_utility::make_store(codegen_utility::convert(type, val, output, c),variable, output, c);
         }
         return variable;
     }else{
         auto value = c.add_global(this->name, this->type, assignment.has_value());
         if(assignment.has_value()){
-            auto const_value = dynamic_cast<ast::Constant*>(assignment.value()->right.get());
+            auto const_value = dynamic_cast<ast::Constant*>(assignment.value().get());
             assert(const_value && "Global var must be initalized by literal");
             global_decl_codegen(value, output, c, const_value->codegen(output,c));
         }
