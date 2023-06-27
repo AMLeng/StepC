@@ -45,13 +45,59 @@ int main(){
     int a[];
 })");
     lexer::Lexer l(ss);
-    REQUIRE_THROWS_AS(parse::construct_ast(l),parse_error::ParseError);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(),sem_error::TypeError);
+}
+TEST_CASE("initialization list for scalar"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int a = {4};
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+}
+TEST_CASE("empty scalar initialization error"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int a = {};
+})");
+    lexer::Lexer l(ss);
+    REQUIRE_THROWS_AS(parse::construct_ast(l), parse:error::ParseError);
 }
 TEST_CASE("parse array init decl"){
     auto ss = std::stringstream(
 R"(
 int main(){
     int a[4] = {1,2,3,4};
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+}
+TEST_CASE("parse array init decl empty"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int a[4] = {};
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+}
+TEST_CASE("parse unknown size array init decl empty"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int a[] = {};
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+}
+TEST_CASE("parse array init decl not enough"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int a[4] = {1,2,3};
 })");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
@@ -74,3 +120,29 @@ int main(){
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
 }
+TEST_CASE("Pointer to array vs pointer to pointer error"){
+    auto ss = std::stringstream(
+R"(
+int a[4];
+int **b = &a;
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
+}
+TEST_CASE("Can't increment array error"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int a[4];
+    a++;
+}
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
+}
+
+
+
+

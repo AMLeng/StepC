@@ -36,16 +36,19 @@ void ArrayType::set_size(int size){
     if(size <= 0){
         throw std::runtime_error("Cannot have array of non-positive size");
     }
+    if(allocated_size.has_value()){
+        throw std::runtime_error("Size of array is already set");
+    }
     allocated_size = size;
 }
 int ArrayType::size() const{
-    if(allocated_size <= 0){
+    if(!allocated_size.has_value()){
         throw std::runtime_error("Size of array is undetermined");
     }
-    return allocated_size;
+    return allocated_size.value();
 }
 bool ArrayType::is_complete() const{
-    return allocated_size > 0;
+    return allocated_size.has_value();
 }
 
 }

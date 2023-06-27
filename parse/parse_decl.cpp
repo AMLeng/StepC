@@ -79,6 +79,17 @@ namespace{
                 std::make_pair([](type::CType t){return type::PointerType(t);},tok)
             );
         }
+        void add_array(token::Token tok, std::optional<int> size = std::nullopt){ 
+            if(unapplied.at(index).size() > 0 ){
+                auto prev_type = unapplied.at(index).back().second.type;
+                if(prev_type == token::TokenType::LParen){
+                    throw parse_error::ParseError("Array element cannot have function type",tok);
+                }
+            }
+            unapplied.at(index).push_back(
+                std::make_pair([=](type::CType t){return type::ArrayType(t, size);},tok)
+            );
+        }
         void add_func(std::pair<std::vector<Declarator>,bool>&& parsed_param_list, token::Token tok){ 
             if(index == unapplied.size()-1 && ident.has_value()){
                 //If this is the parameter list immediately following the identifier at the deepest level we've seen
@@ -150,7 +161,22 @@ namespace{
                 parse_declarator_helper(l,builder);
                 return;
             case token::TokenType::LBrack:
-                throw parse_error::ParseError("Unexpected token when parsing declarator", next_tok);
+                {
+                auto lbrack = l.get_token();
+                std::optional<int> size = std::nullopt;
+                if(l.peek_token().type != token::TokenType::RBrack){
+                    auto expr = parse_expr(l);
+                    auto constant = dynamic_cast<ast::Constant*>(expr.get());
+                    if(!constant){
+                        throw sem_error::TypeError("Invalid constant integer expr for array size", expr->tok);
+                    }
+                    size = std::stoi(constant->literal);
+                }
+                builder.add_array(lbrack, size);
+                check_token_type(l.get_token(),token::TokenType::RBrack);
+                parse_declarator_helper(l,builder);
+                return;
+                }
             default:
                 return;
         }

@@ -67,10 +67,9 @@ public:
 };
 class ArrayType{
     CType underlying_type;
-    int allocated_size;
+    std::optional<int> allocated_size;
 public:
-    explicit ArrayType(CType t) : underlying_type(t), allocated_size(0){}
-    ArrayType(CType t, int s) : underlying_type(t), allocated_size(s){}
+    ArrayType(CType t, std::optional<int> s) : underlying_type(t), allocated_size(s){}
     bool operator ==(const ArrayType& other) const;
     bool operator !=(const ArrayType& other) const;
     CType element_type() const;

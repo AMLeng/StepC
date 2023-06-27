@@ -188,6 +188,11 @@ void VarDecl::analyze(symbol::STable* st) {
     }catch(std::runtime_error& e){
         throw sem_error::STError(e.what(),this->tok);
     }
+    if(type::is_type<type::ArrayType>(this->type)){
+        if(!this->assignment.has_value()){
+            throw sem_error::TypeError("Cannot infer size of declared array without initialization",this->tok);
+        }
+    }
     //If we have a declaration attached
     if(this->assignment.has_value()){
         this->assignment.value()->analyze(st);
