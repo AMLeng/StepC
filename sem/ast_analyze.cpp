@@ -195,18 +195,20 @@ void VarDecl::analyze(symbol::STable* st) {
     }
     //If we have a declaration attached
     if(this->assignment.has_value()){
-        this->assignment.value()->analyze(st);
         if(!st->in_function()){
             //If not in function, is global and needs to be
             if(!dynamic_cast<ast::Constant*>(this->assignment.value().get())){
                 throw sem_error::FlowError("Global variable def must be constant",this->tok);
             }
         }
-        auto exp = dynamic_cast<ast::Expr*>(this->assignment.value().get());
-        if(!type::can_assign(exp->type,this->type) 
-            && !(type::is_type<type::PointerType>(this->type) && is_nullptr_constant(exp))){
-            throw sem_error::TypeError("Invalid types for assignment",tok);
-        }
+        this->assignment.value()->initializer_analyze(this->type, st);
+    }
+}
+void Expr::initializer_analyze(type::CType variable_type, symbol::STable* st){
+    this->analyze(st);
+    if(!type::can_assign(this->type,variable_type) 
+            && !(type::is_type<type::PointerType>(variable_type) && is_nullptr_constant(this))){
+        throw sem_error::TypeError("Invalid types for assignment",tok);
     }
 }
 void Variable::analyze(symbol::STable* st) {

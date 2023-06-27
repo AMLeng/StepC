@@ -440,6 +440,11 @@ value::Value* FunctionDecl::codegen(std::ostream& output, context::Context& c)co
     c.add_global(this->name, this->type);
     return nullptr;
 }
+void Expr::initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const{
+    auto val = this->codegen(output, c);
+    auto var_type = type::get<type::PointerType>(variable->get_type()).pointed_type();
+    codegen_utility::make_store(codegen_utility::convert(var_type, val, output, c),variable, output, c);
+}
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     if(c.in_function()){
@@ -447,8 +452,7 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
         AST::print_whitespace(c.depth(), output);
         output << variable->get_value() <<" = alloca "<<type::ir_type(type) <<std::endl;
         if(this->assignment.has_value()){
-            auto val = this->assignment.value()->codegen(output, c);
-            codegen_utility::make_store(codegen_utility::convert(type, val, output, c),variable, output, c);
+            this->assignment.value()->initializer_codegen(variable, output, c);
         }
         return variable;
     }else{
