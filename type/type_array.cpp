@@ -14,10 +14,14 @@ bool is_compatible(const ArrayType& type1, const ArrayType& type2){
     return false;
 }
 std::string to_string(const ArrayType& type){
-    return "array to "+to_string(type.underlying_type);
+    return "array of "+to_string(type.underlying_type);
 }
 std::string ir_type(const ArrayType& type){
-    return "ptr";
+    std::string size = "0";
+    if(type.allocated_size.has_value()){
+        size = std::to_string(type.allocated_size.value());
+    }
+    return "["+size+" x "+ir_type(type.underlying_type)+"]";
     //return ir_type(type.underlying_type) + "*";
 }
 bool ArrayType::operator ==(const ArrayType& other) const{

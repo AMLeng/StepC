@@ -197,6 +197,14 @@ void FuncCall::pretty_print(int depth) const{
         arg->pretty_print(depth+1);
     }
 }
+void ArrayAccess::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"ARRAY ACCESS OF "<<std::endl;
+    arg->pretty_print(depth+1);
+    AST::print_whitespace(depth);
+    std::cout<<"INDEX "<<std::endl;
+    index->pretty_print(depth+1);
+}
 void Postfix::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"POSTFIX OP "<< tok.type <<" ON EXPR"<<std::endl;

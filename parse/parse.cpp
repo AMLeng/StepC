@@ -159,6 +159,13 @@ std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l, std::unique_
     return std::make_unique<ast::FuncCall>(tok, std::move(func), std::move(args));
 }
 
+std::unique_ptr<ast::ArrayAccess> parse_array_access(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
+    auto op_token = l.get_token();
+    check_token_type(op_token, token::TokenType::LBrack);
+    auto index = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RBrack);
+    return std::make_unique<ast::ArrayAccess>(op_token,std::move(arg), std::move(index));
+}
 std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
     auto op_token = l.get_token();
     if(!token::matches_type(op_token,
@@ -213,6 +220,14 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
                 break;
             }
             expr_ptr = parse_function_call(l, std::move(expr_ptr));
+            continue;
+        }
+        if(potential_op_token.type == token::TokenType::LBrack){
+            //postfix array access
+            if(unary_op_binding_power+1 < min_bind_power){
+                break;
+            }
+            expr_ptr = parse_array_access(l, std::move(expr_ptr));
             continue;
         }
         if(potential_op_token.type == token::TokenType::Plusplus ||

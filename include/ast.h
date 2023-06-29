@@ -278,6 +278,16 @@ struct Constant : public Expr{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct ArrayAccess : public Expr{
+    std::unique_ptr<Expr> arg;
+    std::unique_ptr<Expr> index;
+    ArrayAccess(token::Token tok, std::unique_ptr<Expr> argument, std::unique_ptr<Expr> index) : 
+        Expr(tok), arg(std::move(argument)), index(std::move(index)) {}
+    void analyze(symbol::STable* st) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+
 struct FuncCall : public Expr{
     std::unique_ptr<Expr> func;
     std::vector<std::unique_ptr<Expr>> args;

@@ -22,6 +22,27 @@ const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::BOAssign, token::TokenType::BitwiseOr},
     {token::TokenType::BXAssign, token::TokenType::BitwiseXor},
 }};
+value::Value* compute_array_ptr(const ast::ArrayAccess* node, std::ostream& output, context::Context& c){
+    assert(node->analyzed && "This AST node has not had analysis run on it");
+    auto addr = c.new_temp(type::PointerType(node->type));
+    auto indexes = std::vector<value::Value*>{};
+    indexes.push_back(node->index->codegen(output, c));
+    while(auto p = dynamic_cast<ast::ArrayAccess*>(node->arg.get())){
+        indexes.push_back(p->index->codegen(output, c));
+        node = p;
+    }
+    auto innermost_operand = node->arg->codegen(output, c);
+    assert(type::is_type<type::PointerType>(innermost_operand->get_type()) && "Tried to perform array access on non-pointer");
+    auto array_type = type::ir_type(type::get<type::PointerType>(innermost_operand->get_type()).pointed_type());
+    AST::print_whitespace(c.depth(), output);
+    output << addr->get_value() <<" = getelementptr "+array_type+", ptr "<<innermost_operand->get_value()<<", i64 0";
+    while(indexes.size() > 0){
+        output <<", "<<type::ir_type(indexes.back()->get_type())<<" "<<indexes.back()->get_value();
+        indexes.pop_back();
+    }
+    output <<std::endl;
+    return addr;
+}
 value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Context& c){
     if(const auto ast_variable = dynamic_cast<const ast::Variable*>(node)){
         return c.get_value(ast_variable->variable_name);
@@ -30,6 +51,9 @@ value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Cont
         if(p->tok.type == token::TokenType::Star){
             return p->arg->codegen(output, c);
         }
+    }
+    if(const auto p = dynamic_cast<const ast::ArrayAccess*>(node)){
+        return compute_array_ptr(p,output, c);
     }
     assert(false && "Unknown type of lvalue in code generation");
     return nullptr;
@@ -298,6 +322,9 @@ value::Value* Variable::codegen(std::ostream& output, context::Context& c)const 
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto var_value = c.get_value(variable_name);
     assert(type::is_type<type::PointerType>(var_value->get_type()) && "Variable not stored as pointer to the actual variable value");
+    if(type::is_type<type::ArrayType>(type::get<type::PointerType>(var_value->get_type()).pointed_type())){
+        return var_value;
+    }
     return codegen_utility::make_load(var_value,output,c);
 }
 
@@ -499,6 +526,10 @@ value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const 
     return return_val;
 }
 
+value::Value* ArrayAccess::codegen(std::ostream& output, context::Context& c)const {
+    auto addr = compute_array_ptr(this, output, c);
+    return codegen_utility::make_load(addr,output,c);
+}
 value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto operand = arg->codegen(output, c);

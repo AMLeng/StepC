@@ -38,6 +38,9 @@ bool is_lval(const ast::AST* node){
             return true;
         }
     }
+    if(dynamic_cast<const ast::ArrayAccess*>(node)){
+        return true;
+    }
     return false;
 }
 bool is_nullptr_constant(const ast::Expr* node){
@@ -283,6 +286,23 @@ void FuncCall::analyze(symbol::STable* st) {
         this->type = f_type.return_type();
     }catch(std::runtime_error& e){ //Won't catch the STError
         throw sem_error::STError("Function call with expression not referring to a function or function pointer",this->tok);
+    }
+}
+void ArrayAccess::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    if(!(type::is_type<type::ArrayType>(this->arg->type) || type::is_type<type::PointerType>(this->arg->type))){
+        throw sem_error::TypeError("Can only perform array access on pointer type",tok);
+    }
+    if(type::is_type<type::ArrayType>(this->arg->type)){
+        this->type = type::get<type::ArrayType>(this->arg->type).element_type();
+    }
+    if(type::is_type<type::PointerType>(this->arg->type)){
+        this->type = type::get<type::PointerType>(this->arg->type).pointed_type();
+    }
+    this->index->analyze(st);
+    if(!type::is_type<type::IType>(this->index->type)){
+        throw sem_error::TypeError("Array index required to be an integer",tok);
     }
 }
 void Postfix::analyze(symbol::STable* st) {
