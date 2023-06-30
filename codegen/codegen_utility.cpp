@@ -103,6 +103,16 @@ void print_whitespace(int depth, std::ostream& output){
     }
 }
 
+std::string default_value(type::CType type){
+    return std::visit(type::make_visitor<std::string>(
+                [](const type::IType& i){return "0";},
+                [](const type::FType& f){return "0.0";},
+                [](const type::VoidType& v){return "void";},
+                [](const type::PointerType& p)->std::string{return "null";},
+                [](const type::FuncType& ){throw std::runtime_error("No default function value");},
+                [](const type::ArrayType& ){return "zeroinitializer";}
+                ), type);
+}
 value::Value* convert(type::CType target_type, value::Value* val, 
         std::ostream& output, context::Context& c){
     if(!type::can_cast(val->get_type(),target_type)){

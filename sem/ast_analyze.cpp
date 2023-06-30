@@ -219,9 +219,11 @@ void InitializerList::initializer_analyze(type::CType variable_type, symbol::STa
     if(type::is_type<type::ArrayType>(variable_type)){
         auto array_type = type::get<type::ArrayType>(variable_type);
         int length = initializers.size();
-        std::cout<<array_type.size()<<std::endl;
         if(array_type.is_complete() && array_type.size() < length){
             length = array_type.size();
+        }
+        if(!array_type.is_complete()){
+            array_type.set_size(length);
         }
         for(int i=0; i<length; i++){
             initializers.at(i)->initializer_analyze(array_type.element_type(), st);

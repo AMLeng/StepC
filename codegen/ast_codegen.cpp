@@ -25,20 +25,20 @@ const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
 value::Value* compute_array_ptr(const ast::ArrayAccess* node, std::ostream& output, context::Context& c){
     assert(node->analyzed && "This AST node has not had analysis run on it");
     auto addr = c.new_temp(type::PointerType(node->type));
-    auto indexes = std::vector<value::Value*>{};
-    indexes.push_back(node->index->codegen(output, c));
+    auto index_stack = std::vector<value::Value*>{};
+    index_stack.push_back(node->index->codegen(output, c));
     while(auto p = dynamic_cast<ast::ArrayAccess*>(node->arg.get())){
-        indexes.push_back(p->index->codegen(output, c));
+        index_stack.push_back(p->index->codegen(output, c));
         node = p;
     }
     auto innermost_operand = node->arg->codegen(output, c);
     assert(type::is_type<type::PointerType>(innermost_operand->get_type()) && "Tried to perform array access on non-pointer");
     auto array_type = type::ir_type(type::get<type::PointerType>(innermost_operand->get_type()).pointed_type());
-    AST::print_whitespace(c.depth(), output);
-    output << addr->get_value() <<" = getelementptr "+array_type+", ptr "<<innermost_operand->get_value()<<", i64 0";
-    while(indexes.size() > 0){
-        output <<", "<<type::ir_type(indexes.back()->get_type())<<" "<<indexes.back()->get_value();
-        indexes.pop_back();
+    codegen_utility::print_whitespace(c.depth(), output);
+    output << addr->get_value() <<" = getelementptr inbounds "+array_type+", ptr "<<innermost_operand->get_value()<<", i64 0";
+    while(index_stack.size() > 0){
+        output <<", "<<type::ir_type(index_stack.back()->get_type())<<" "<<index_stack.back()->get_value();
+        index_stack.pop_back();
     }
     output <<std::endl;
     return addr;
@@ -473,7 +473,27 @@ void Expr::initializer_codegen(value::Value* variable, std::ostream& output, con
     codegen_utility::make_store(codegen_utility::convert(var_type, val, output, c),variable, output, c);
 }
 void InitializerList::initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const{
-    assert(false && "Not yet implemented");
+    auto var_type = type::get<type::PointerType>(variable->get_type()).pointed_type();
+    if(!type::is_type<type::ArrayType>(var_type)){
+        //Scalars
+        assert(initializers.size() > 0 && "Tried to assign empty initializer list to scalar");
+        initializers.front()->initializer_codegen(variable, output, c);
+    }else{
+        auto array_type = type::get<type::ArrayType>(var_type);
+        assert(array_type.is_complete() && "Cannot have incomplete array types during codegen");
+        for(int i=0; i<array_type.size(); i++){
+            auto element_ptr = c.new_temp(type::PointerType(array_type.element_type()));
+            codegen_utility::print_whitespace(c.depth(), output);
+            output << element_ptr->get_value() <<" = getelementptr inbounds "+type::ir_type(var_type)+", ptr ";
+            output <<variable->get_value()<<", i64 0, i32 "<<i<<std::endl;
+            if(i<initializers.size()){
+                initializers.at(i)->initializer_codegen(element_ptr, output, c);
+            }else{
+                auto default_val = value::Value(codegen_utility::default_value(array_type.element_type()), array_type.element_type());
+                codegen_utility::make_store(&default_val,element_ptr, output, c);
+            }
+        }
+    }
 }
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");

@@ -79,7 +79,7 @@ namespace{
                 std::make_pair([](type::CType t){return type::PointerType(t);},tok)
             );
         }
-        void add_array(token::Token tok, std::optional<int> size = std::nullopt){ 
+        void add_array(token::Token tok, std::vector<std::optional<int>> sizes){ 
             if(unapplied.at(index).size() > 0 ){
                 auto prev_type = unapplied.at(index).back().second.type;
                 if(prev_type == token::TokenType::LParen){
@@ -87,7 +87,12 @@ namespace{
                 }
             }
             unapplied.at(index).push_back(
-                std::make_pair([=](type::CType t){return type::ArrayType(t, size);},tok)
+                std::make_pair([=](type::CType t){
+                    for(auto size : sizes){
+                        t = type::ArrayType(t, size);
+                    }
+                    return t;
+                },tok)
             );
         }
         void add_func(std::pair<std::vector<Declarator>,bool>&& parsed_param_list, token::Token tok){ 
@@ -162,18 +167,28 @@ namespace{
                 return;
             case token::TokenType::LBrack:
                 {
-                auto lbrack = l.get_token();
-                std::optional<int> size = std::nullopt;
-                if(l.peek_token().type != token::TokenType::RBrack){
-                    auto expr = parse_expr(l);
-                    auto constant = dynamic_cast<ast::Constant*>(expr.get());
-                    if(!constant){
-                        throw sem_error::TypeError("Invalid constant integer expr for array size", expr->tok);
+                auto lbrack = l.peek_token();
+                auto sizes = std::vector<std::optional<int>>{};
+                while(l.peek_token().type == token::TokenType::LBrack){
+                    l.get_token();
+                    std::optional<int> size = std::nullopt;
+                    if(l.peek_token().type != token::TokenType::RBrack){
+                        auto expr = parse_expr(l);
+                        auto constant = dynamic_cast<ast::Constant*>(expr.get());
+                        if(!constant){
+                            throw sem_error::TypeError("Invalid constant integer expr for array size", expr->tok);
+                        }
+                        size = std::stoi(constant->literal);
                     }
-                    size = std::stoi(constant->literal);
+                    sizes.push_back(size);
+                    check_token_type(l.get_token(),token::TokenType::RBrack);
                 }
-                builder.add_array(lbrack, size);
-                check_token_type(l.get_token(),token::TokenType::RBrack);
+                for(int i=0; i<sizes.size() - 1; i++){
+                    if(!sizes.at(i).has_value()){
+                        throw sem_error::TypeError("Cannot have inner nested array of indeterminate size", l.peek_token());
+                    }
+                }
+                builder.add_array(lbrack, sizes);
                 parse_declarator_helper(l,builder);
                 return;
                 }

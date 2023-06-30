@@ -1,4 +1,5 @@
 #include "basic_block.h"
+#include "codegen/codegen_utility.h"
 
 namespace basicblock{
 Terminator::~Terminator (){}
@@ -10,14 +11,14 @@ std::string RET::get_instruction(){
     }
 }
 std::string DefaultRet::get_instruction(){
-    return std::visit(type::make_visitor<std::string>(
-        [](const type::IType& i){return "ret "+type::ir_type(i)+" 0";},
-        [](const type::FType& f){return "ret "+type::ir_type(f)+" 0.0";},
-        [](const type::VoidType& v){return "ret void";},
-        [](const type::PointerType& p)->std::string{return "ret "+type::ir_type(p)+" null";},
-        [](const type::FuncType& ){throw std::runtime_error("Cannot have function type as return value");},
-        [](const type::ArrayType& ){throw std::runtime_error("Cannot have array type as return value");}
-    ), type);
+    if(type::is_type<type::ArrayType>(type)){
+        throw std::runtime_error("Cannot have array type as return value");
+    }
+    if(type::is_type<type::VoidType>(type)){
+        return "ret void";
+    }else{
+        return "ret "+type::ir_type(type)+" "+codegen_utility::default_value(type);
+    }
 }
 Cond_BR::Cond_BR(value::Value* cond, std::string tl, std::string fl) :
     cond(cond), t_label(tl), f_label(fl){
