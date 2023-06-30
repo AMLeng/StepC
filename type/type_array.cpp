@@ -37,8 +37,8 @@ PointerType ArrayType::decay() const{
     return type::PointerType(this->underlying_type);
 }
 void ArrayType::set_size(int size){
-    if(size <= 0){
-        throw std::runtime_error("Cannot have array of non-positive size");
+    if(size < 0){
+        throw std::runtime_error("Cannot have array of negative size");
     }
     if(allocated_size.has_value()){
         throw std::runtime_error("Size of array is already set");

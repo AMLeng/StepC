@@ -30,8 +30,8 @@ bool is_func_designator(const ast::AST* node){
         && type::is_type<type::FuncType>(type::get<type::PointerType>(var->type).pointed_type());
 }
 bool is_lval(const ast::AST* node){
-    if(dynamic_cast<const ast::Variable*>(node)){
-        return true;
+    if(auto p = dynamic_cast<const ast::Variable*>(node)){
+        return !type::is_type<type::ArrayType>(p->type);
     }
     if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
         if(p->tok.type == token::TokenType::Star){
@@ -59,6 +59,12 @@ bool is_nullptr_constant(const ast::Expr* node){
 }
 std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, token::TokenType op, token::Token tok){
     //Returns an array of: {result type, converted left type, converted right type}
+    if(type::is_type<type::ArrayType>(left)){
+        left = type::PointerType(type::get<type::ArrayType>(left).element_type());
+    }
+    if(type::is_type<type::ArrayType>(right)){
+        right = type::PointerType(type::get<type::ArrayType>(right).element_type());
+    }
     switch(op){
         case token::TokenType::Plus:
             if(type::is_arith(left) && type::is_arith(right)){
@@ -254,6 +260,9 @@ void Variable::analyze(symbol::STable* st) {
 void Conditional::analyze(symbol::STable* st){
     this->analyzed = true;
     cond->analyze(st);
+    if(type::is_type<type::ArrayType>(this->cond->type)){
+        this->cond->type = type::PointerType(type::get<type::ArrayType>(this->cond->type).element_type());
+    }
     if(!type::is_scalar(this->cond->type)){
         throw sem_error::TypeError("Condition of scalar type required for ternary conditional",this->cond->tok);
     }
@@ -346,6 +355,9 @@ void Postfix::analyze(symbol::STable* st) {
 void UnaryOp::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
+    if(type::is_type<type::ArrayType>(this->arg->type) && this->tok.type != token::TokenType::Amp){
+        this->arg->type = type::PointerType(type::get<type::ArrayType>(this->arg->type).element_type());
+    }
     //Typechecking
     switch(this->tok.type){
         case token::TokenType::Star:
