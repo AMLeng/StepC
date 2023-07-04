@@ -29,9 +29,16 @@ bool is_func_designator(const ast::AST* node){
     return var && type::is_type<type::PointerType>(var->type)
         && type::is_type<type::FuncType>(type::get<type::PointerType>(var->type).pointed_type());
 }
-bool is_lval(const ast::AST* node){
+bool is_array_ident(const ast::Variable* node, const symbol::STable* st){
+    if(!node){
+        return false;
+    }
+    auto type_in_table = st->symbol_type(node->variable_name);
+    return type::is_type<type::ArrayType>(type_in_table);
+}
+bool is_lval(const ast::AST* node, const symbol::STable* st){
     if(auto p = dynamic_cast<const ast::Variable*>(node)){
-        return !type::is_type<type::ArrayType>(p->type);
+        return !is_array_ident(p, st);
     }
     if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
         if(p->tok.type == token::TokenType::Star){
@@ -59,12 +66,6 @@ bool is_nullptr_constant(const ast::Expr* node){
 }
 std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, token::TokenType op, token::Token tok){
     //Returns an array of: {result type, converted left type, converted right type}
-    if(type::is_type<type::ArrayType>(left)){
-        left = type::PointerType(type::get<type::ArrayType>(left).element_type());
-    }
-    if(type::is_type<type::ArrayType>(right)){
-        right = type::PointerType(type::get<type::ArrayType>(right).element_type());
-    }
     switch(op){
         case token::TokenType::Plus:
             if(type::is_arith(left) && type::is_arith(right)){
@@ -253,16 +254,17 @@ void Variable::analyze(symbol::STable* st) {
     }
     if(type::is_type<type::FuncType>(type_in_table)){
         this->type = type::PointerType(type_in_table);
-    }else{
-        this->type = type_in_table;
+        return;
     }
+    if(type::is_type<type::ArrayType>(type_in_table)){
+        this->type = type::PointerType(type::get<type::ArrayType>(type_in_table).element_type());
+        return;
+    }
+    this->type = type_in_table;
 }
 void Conditional::analyze(symbol::STable* st){
     this->analyzed = true;
     cond->analyze(st);
-    if(type::is_type<type::ArrayType>(this->cond->type)){
-        this->cond->type = type::PointerType(type::get<type::ArrayType>(this->cond->type).element_type());
-    }
     if(!type::is_scalar(this->cond->type)){
         throw sem_error::TypeError("Condition of scalar type required for ternary conditional",this->cond->tok);
     }
@@ -302,11 +304,8 @@ void FuncCall::analyze(symbol::STable* st) {
 void ArrayAccess::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
-    if(!(type::is_type<type::ArrayType>(this->arg->type) || type::is_type<type::PointerType>(this->arg->type))){
+    if(!type::is_type<type::PointerType>(this->arg->type)){
         throw sem_error::TypeError("Can only perform array access on pointer type",tok);
-    }
-    if(type::is_type<type::ArrayType>(this->arg->type)){
-        this->type = type::get<type::ArrayType>(this->arg->type).element_type();
     }
     if(type::is_type<type::PointerType>(this->arg->type)){
         this->type = type::get<type::PointerType>(this->arg->type).pointed_type();
@@ -322,7 +321,7 @@ void Postfix::analyze(symbol::STable* st) {
     //Typechecking
     switch(this->tok.type){
         case token::TokenType::Plusplus:
-            if(!is_lval(this->arg.get())){
+            if(!is_lval(this->arg.get(), st)){
                 throw sem_error::TypeError("Lvalue required as argument of increment",tok);
             }
             if(type::is_arith(this->arg->type)){
@@ -335,7 +334,7 @@ void Postfix::analyze(symbol::STable* st) {
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Minusminus:
-            if(!is_lval(this->arg.get())){
+            if(!is_lval(this->arg.get(),st)){
                 throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
             }
             if(type::is_arith(this->arg->type)){
@@ -355,9 +354,6 @@ void Postfix::analyze(symbol::STable* st) {
 void UnaryOp::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
-    if(type::is_type<type::ArrayType>(this->arg->type) && this->tok.type != token::TokenType::Amp){
-        this->arg->type = type::PointerType(type::get<type::ArrayType>(this->arg->type).element_type());
-    }
     //Typechecking
     switch(this->tok.type){
         case token::TokenType::Star:
@@ -374,7 +370,15 @@ void UnaryOp::analyze(symbol::STable* st) {
             }
             break;
         case token::TokenType::Amp:
-            if(!is_lval(this->arg.get())){
+            {
+                auto p= dynamic_cast<ast::Variable*>(this->arg.get());
+                if(is_array_ident(p, st)){
+                    //Must come before lvalue check
+                    this->type = type::PointerType(st->symbol_type(p->variable_name));
+                    return;
+                }
+            }
+            if(!is_lval(this->arg.get(),st)){
                 throw sem_error::TypeError("Lvalue required as argument of address operator",tok);
             }
             if(is_func_designator(this->arg.get())){
@@ -386,7 +390,7 @@ void UnaryOp::analyze(symbol::STable* st) {
             this->type = type::PointerType(this->arg->type);
             break;
         case token::TokenType::Plusplus:
-            if(!is_lval(this->arg.get())){
+            if(!is_lval(this->arg.get(),st)){
                 throw sem_error::TypeError("Lvalue required as argument of increment",tok);
             }
             if(type::is_arith(this->arg->type)){
@@ -399,7 +403,7 @@ void UnaryOp::analyze(symbol::STable* st) {
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Minusminus:
-            if(!is_lval(this->arg.get())){
+            if(!is_lval(this->arg.get(),st)){
                 throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
             }
             if(type::is_arith(this->arg->type)){
@@ -474,7 +478,7 @@ void BinaryOp::analyze(symbol::STable* st){
             this->new_left_type=types[1];
             this->new_right_type=types[2];
         }
-        if(!is_lval(this->left.get())){
+        if(!is_lval(this->left.get(),st)){
             throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
         }
         if(!type::can_assign(this->right->type,this->left->type) 

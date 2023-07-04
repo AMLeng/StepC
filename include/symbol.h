@@ -40,7 +40,7 @@ public:
     virtual void add_extern_decl(const std::string& name, const type::CType& type) = 0;
     void add_symbol(std::string name, type::CType type, bool has_def = false);
     bool has_symbol(std::string name);
-    type::CType symbol_type(std::string name);
+    type::CType symbol_type(std::string name) const;
 };
 class GlobalTable : public STable{
     std::map<std::string, type::CType> external_type_map;

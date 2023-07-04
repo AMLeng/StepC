@@ -31,25 +31,28 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     if(type::is_type<type::IType>(right->get_type())){
                         return make_command(left->get_type(), "add", left, right, output, c);
                     }else{
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                        left = convert(type::CType(type::IType::LLong), left, output, c);
-                        right = convert(type::CType(type::IType::LLong), right, output, c);
-                        return make_command(type::CType(type::IType::LLong), "add", left, right, output, c);
+                        auto new_var = c.new_temp(result_type);
+                        print_whitespace(c.depth(), output);
+                        output << new_var->get_value() <<" = getelementptr inbounds ";
+                        output <<type::ir_type(type::get<type::PointerType>(right->get_type()).pointed_type());
+                        output <<", ptr "<<right->get_value()<<", i64 0, ";
+                        output<<type::ir_type(left->get_type())<<" "<<left->get_value()<<std::endl;
+                        return new_var;
                     }
                 },
                 [&](type::FType){return make_command(left->get_type(), "fadd", left, right, output, c);},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::CType(type::IType::LLong), "add", left, right, output, c);
+                    auto new_var = c.new_temp(result_type);
+                    print_whitespace(c.depth(), output);
+                    output << new_var->get_value() <<" = getelementptr inbounds ";
+                    output <<type::ir_type(type::get<type::PointerType>(left->get_type()).pointed_type());
+                    output <<", ptr "<<left->get_value()<<", i64 0, ";
+                    output<<type::ir_type(right->get_type())<<" "<<right->get_value()<<std::endl;
+                    return new_var;
                     },
                 [&](type::ArrayType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::CType(type::IType::LLong), "add", left, right, output, c);
+                    throw std::runtime_error("Cannot do operation on array type");
                     },
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type());
