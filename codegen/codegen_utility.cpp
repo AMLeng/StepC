@@ -44,6 +44,7 @@ value::Value* convert(type::BasicType target_type, value::Value* val,
             assert(false && "Tried to convert pointer to float");
         }
         auto new_tmp = c.new_temp(target_type);
+        print_whitespace(c.depth(), output);
         output << new_tmp->get_value() <<" = ptrtoint "<<type::ir_type(val->get_type());
         output << " "<<val->get_value()<<" to "<<type::ir_type(new_tmp->get_type())<<std::endl;
         return new_tmp;
@@ -98,7 +99,7 @@ value::Value* convert(type::PointerType target_type, value::Value* val,
 } //namespace
 
 void print_whitespace(int depth, std::ostream& output){
-    for(int i=0; i<depth; i++){
+    if(depth > 0){
         output << "  ";
     }
 }
@@ -107,9 +108,9 @@ std::string default_value(type::CType type){
                 [](const type::IType& i){return "0";},
                 [](const type::FType& f){return "0.0";},
                 [](const type::VoidType& v){return "void";},
-                [](const type::PointerType& p)->std::string{return "null";},
-                [](const type::FuncType& ){throw std::runtime_error("No default function value");},
-                [](const type::ArrayType& ){return "zeroinitializer";}
+                [](const type::ArrayType& ){return "zeroinitializer";},
+                [](const type::PointerType& p){return "null";},
+                [](const type::FuncType& ){throw std::runtime_error("No default function value");}
                 ), type);
 }
 value::Value* convert(type::CType target_type, value::Value* val, 
@@ -121,8 +122,7 @@ value::Value* convert(type::CType target_type, value::Value* val,
         [&](const type::BasicType& bt){return convert(bt, val, output, c);},
         [&](const type::VoidType& vt){throw std::runtime_error("Unable to convert value to void type");},
         [&](const type::FuncType& ft){throw std::runtime_error("Unable to convert value to function type");},
-        [&](const type::PointerType& pt){return convert(pt, val, output, c);},
-        [&](const type::ArrayType& at){return convert(at.decay(), val, output, c);}
+        [&](const type::PointerType& pt){return convert(pt, val, output, c);}
     ),target_type);
 }
 value::Value* make_command(type::CType t, std::string command, value::Value* left, value::Value* right, 
@@ -142,7 +142,8 @@ value::Value* make_load(value::Value* data_pointer, std::ostream& output, contex
         return data_pointer;
     }
     if(type::is_type<type::ArrayType>(result_type)){
-        result_type = type::PointerType(type::get<type::ArrayType>(result_type).element_type());
+        //Loading from an array will fetch an element
+        result_type = type::get<type::ArrayType>(result_type).element_type();
     }
     auto result = c.new_temp(result_type);
     print_whitespace(c.depth(), output);

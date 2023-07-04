@@ -29,16 +29,10 @@ bool is_func_designator(const ast::AST* node){
     return var && type::is_type<type::PointerType>(var->type)
         && type::is_type<type::FuncType>(type::get<type::PointerType>(var->type).pointed_type());
 }
-bool is_array_ident(const ast::Variable* node, const symbol::STable* st){
-    if(!node){
-        return false;
-    }
-    auto type_in_table = st->symbol_type(node->variable_name);
-    return type::is_type<type::ArrayType>(type_in_table);
-}
-bool is_lval(const ast::AST* node, const symbol::STable* st){
+bool is_lval(const ast::AST* node){
+    //We assume that arrays will all decay to pointers, so that nothing of array type is an lvalue
     if(auto p = dynamic_cast<const ast::Variable*>(node)){
-        return !is_array_ident(p, st);
+        return !type::is_type<type::ArrayType>(p->type);
     }
     if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
         if(p->tok.type == token::TokenType::Star){
@@ -73,10 +67,12 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
                 return std::array<type::CType, 3>{type, type, type};
             }
             if(type::is_type<type::IType>(left) && type::is_type<type::PointerType>(right)){
-                return std::array<type::CType, 3>{right, left, right};
+                //Splices right in the case that it's an array type
+                return std::array<type::CType, 3>{type::get<type::PointerType>(right), left, right};
             }
             if(type::is_type<type::PointerType>(left) && type::is_type<type::IType>(right)){
-                return std::array<type::CType, 3>{left, left, right};
+                //Splices left in the case that it's an array type
+                return std::array<type::CType, 3>{type::get<type::PointerType>(left), left, right};
             }
             throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
                 +type::to_string(right)+"\" for addition",tok);
@@ -94,7 +90,7 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
                 return std::array<type::CType, 3>{type::CType(type::IType::LLong), left, right};
             }
             if(type::is_type<type::PointerType>(left) && type::is_type<type::IType>(right)){
-                return std::array<type::CType, 3>{left, left, right};
+                return std::array<type::CType, 3>{type::get<type::PointerType>(left), left, right};
             }
             throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
                 +type::to_string(right)+"\" for subtraction",tok);
@@ -148,15 +144,15 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
                 auto l = type::get<type::PointerType>(left);
                 auto r = type::get<type::PointerType>(right);
                 if(l.pointed_type() == type::CType(type::VoidType())){
-                    return std::array<type::CType, 3>{type::from_str("int"), left, left};
+                    return std::array<type::CType, 3>{type::from_str("int"), l, l};
                 }
                 if(r.pointed_type() == type::CType(type::VoidType())){
-                    return std::array<type::CType, 3>{type::from_str("int"), right, right};
+                    return std::array<type::CType, 3>{type::from_str("int"), r, r};
                 }
                 if(!type::is_compatible(l.pointed_type(),r.pointed_type())){
                     throw sem_error::TypeError("Pointer types being compared for equality must be to compatible types",tok);
                 }else{
-                    return std::array<type::CType, 3>{type::from_str("int"), left, right};
+                    return std::array<type::CType, 3>{type::from_str("int"), l, r};
                 }
             }
             throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
@@ -176,7 +172,7 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
                 if(!type::is_compatible(l.pointed_type(),r.pointed_type())){
                     throw sem_error::TypeError("Pointer types being compared for equality must be to compatible types",tok);
                 }else{
-                    return std::array<type::CType, 3>{type::from_str("int"), left, right};
+                    return std::array<type::CType, 3>{type::from_str("int"), l, r};
                 }
             }
             throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
@@ -215,25 +211,27 @@ void VarDecl::analyze(symbol::STable* st) {
         this->assignment.value()->initializer_analyze(this->type, st);
     }
 }
-void Expr::initializer_analyze(type::CType variable_type, symbol::STable* st){
+void Expr::initializer_analyze(type::CType& variable_type, symbol::STable* st){
     this->analyze(st);
     if(!type::can_assign(this->type,variable_type) 
             && !(type::is_type<type::PointerType>(variable_type) && is_nullptr_constant(this))){
-        throw sem_error::TypeError("Invalid types for assignment",tok);
+        throw sem_error::TypeError("Invalid types "+type::to_string(this->type)+" and "+type::to_string(variable_type)+" for initialization",tok);
     }
 }
-void InitializerList::initializer_analyze(type::CType variable_type, symbol::STable* st){
+void InitializerList::initializer_analyze(type::CType& variable_type, symbol::STable* st){
     if(type::is_type<type::ArrayType>(variable_type)){
         auto array_type = type::get<type::ArrayType>(variable_type);
+        auto element_type = array_type.element_type();
         int length = initializers.size();
         if(array_type.is_complete() && array_type.size() < length){
             length = array_type.size();
         }
         if(!array_type.is_complete()){
             array_type.set_size(length);
+            variable_type = array_type;
         }
         for(int i=0; i<length; i++){
-            initializers.at(i)->initializer_analyze(array_type.element_type(), st);
+            initializers.at(i)->initializer_analyze(element_type, st);
         }
     }else{
         if(initializers.size() == 0){
@@ -254,10 +252,6 @@ void Variable::analyze(symbol::STable* st) {
     }
     if(type::is_type<type::FuncType>(type_in_table)){
         this->type = type::PointerType(type_in_table);
-        return;
-    }
-    if(type::is_type<type::ArrayType>(type_in_table)){
-        this->type = type::PointerType(type::get<type::ArrayType>(type_in_table).element_type());
         return;
     }
     this->type = type_in_table;
@@ -321,7 +315,7 @@ void Postfix::analyze(symbol::STable* st) {
     //Typechecking
     switch(this->tok.type){
         case token::TokenType::Plusplus:
-            if(!is_lval(this->arg.get(), st)){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of increment",tok);
             }
             if(type::is_arith(this->arg->type)){
@@ -329,12 +323,12 @@ void Postfix::analyze(symbol::STable* st) {
                 break;
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
-                this->type = this->arg->type;
+                this->type = type::get<type::PointerType>(this->arg->type);
                 break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Minusminus:
-            if(!is_lval(this->arg.get(),st)){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
             }
             if(type::is_arith(this->arg->type)){
@@ -342,7 +336,7 @@ void Postfix::analyze(symbol::STable* st) {
                 break;
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
-                this->type = this->arg->type;
+                this->type = type::get<type::PointerType>(this->arg->type);
                 break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
@@ -371,14 +365,14 @@ void UnaryOp::analyze(symbol::STable* st) {
             break;
         case token::TokenType::Amp:
             {
+                //Must come before lvalue check, since this is an exception where arrays are lvalues
                 auto p= dynamic_cast<ast::Variable*>(this->arg.get());
-                if(is_array_ident(p, st)){
-                    //Must come before lvalue check
-                    this->type = type::PointerType(st->symbol_type(p->variable_name));
+                if(p && type::is_type<type::ArrayType>(p->type)){
+                    this->type = type::PointerType(p->type);
                     return;
                 }
             }
-            if(!is_lval(this->arg.get(),st)){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of address operator",tok);
             }
             if(is_func_designator(this->arg.get())){
@@ -390,7 +384,7 @@ void UnaryOp::analyze(symbol::STable* st) {
             this->type = type::PointerType(this->arg->type);
             break;
         case token::TokenType::Plusplus:
-            if(!is_lval(this->arg.get(),st)){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of increment",tok);
             }
             if(type::is_arith(this->arg->type)){
@@ -398,12 +392,12 @@ void UnaryOp::analyze(symbol::STable* st) {
                 break;
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
-                this->type = this->arg->type;
+                this->type = type::get<type::PointerType>(this->arg->type);
                 break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Minusminus:
-            if(!is_lval(this->arg.get(),st)){
+            if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of decrement",tok);
             }
             if(type::is_arith(this->arg->type)){
@@ -411,7 +405,7 @@ void UnaryOp::analyze(symbol::STable* st) {
                 break;
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
-                this->type = this->arg->type;
+                this->type = type::get<type::PointerType>(this->arg->type);
                 break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
@@ -452,7 +446,7 @@ void BinaryOp::analyze(symbol::STable* st){
             //For null ptr constants, we can't do the checking just from the argument types
             if(type::is_type<type::PointerType>(this->left->type) && type::is_type<type::IType>(this->right->type)){
                 if(is_nullptr_constant(this->right.get())){
-                    this->new_left_type = this->left->type;
+                    this->new_left_type = type::get<type::PointerType>(this->left->type);
                     this->new_right_type = this->left->type;
                 }else{
                     throw sem_error::TypeError("Cannot compare pointer with int other than null ptr constant", this->tok);
@@ -461,7 +455,7 @@ void BinaryOp::analyze(symbol::STable* st){
             if(type::is_type<type::PointerType>(this->right->type) && type::is_type<type::IType>(this->left->type)){
                 if(is_nullptr_constant(this->left.get())){
                     this->new_left_type = this->right->type;
-                    this->new_right_type = this->right->type;
+                    this->new_right_type = type::get<type::PointerType>(this->right->type);
                 }else{
                     throw sem_error::TypeError("Cannot compare pointer with int other than null ptr constant", this->tok);
                 }
@@ -478,12 +472,13 @@ void BinaryOp::analyze(symbol::STable* st){
             this->new_left_type=types[1];
             this->new_right_type=types[2];
         }
-        if(!is_lval(this->left.get(),st)){
+        if(!is_lval(this->left.get())){
             throw sem_error::TypeError("Lvalue required on left hand side of assignment",tok);
         }
         if(!type::can_assign(this->right->type,this->left->type) 
             && !(type::is_type<type::PointerType>(this->left->type) && is_nullptr_constant(this->right.get()))){
-            throw sem_error::TypeError("Invalid types for assignment",tok);
+            throw sem_error::TypeError("Invalid types "+type::to_string(this->right->type)+
+                " and "+type::to_string(this->left->type)+" for assignment",tok);
         }
     }
     

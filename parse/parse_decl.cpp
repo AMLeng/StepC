@@ -88,8 +88,8 @@ namespace{
             }
             unapplied.at(index).push_back(
                 std::make_pair([=](type::CType t){
-                    for(auto size : sizes){
-                        t = type::ArrayType(t, size);
+                    for(int i=sizes.size()-1; i>=0; i--){
+                        t =  type::ArrayType(t, sizes.at(i));
                     }
                     return t;
                 },tok)
@@ -183,7 +183,7 @@ namespace{
                     sizes.push_back(size);
                     check_token_type(l.get_token(),token::TokenType::RBrack);
                 }
-                for(int i=0; i<sizes.size() - 1; i++){
+                for(int i=1; i<sizes.size(); i++){
                     if(!sizes.at(i).has_value()){
                         throw sem_error::TypeError("Cannot have inner nested array of indeterminate size", l.peek_token());
                     }
@@ -201,7 +201,8 @@ namespace{
         //This does not parse declarators for function definitions
         auto builder = TypeBuilder();
         parse_declarator_helper(l,builder);
-        return builder.build_declarator(type);
+        auto ret =  builder.build_declarator(type);
+        return ret;
     }
 } //namespace
 

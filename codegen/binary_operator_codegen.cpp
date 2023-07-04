@@ -16,12 +16,6 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     right = convert(type::CType(type::IType::LLong), right, output, c);
                     return make_command(type::CType(type::IType::LLong), "sub", left, right, output, c);
                     },
-                [&](type::ArrayType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::CType(type::IType::LLong), "sub", left, right, output, c);
-                    },
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type());
             break;
@@ -100,17 +94,6 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     output <<" 0, "<< diff->get_value()<<std::endl;
                     return intermediate_bool;
                     },
-                [&](type::ArrayType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    auto diff = make_command(type::CType(type::IType::LLong), "sub", left, right, output, c);
-                    print_whitespace(c.depth(), output);
-                    auto intermediate_bool = c.new_temp(type::IType::Bool);
-                    output << intermediate_bool->get_value() <<" = icmp eq "<<type::ir_type(diff->get_type());
-                    output <<" 0, "<< diff->get_value()<<std::endl;
-                    return intermediate_bool;
-                    },
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type());
             break;
@@ -120,17 +103,6 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp one", left, right, output, c);},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    auto diff = make_command(type::CType(type::IType::LLong), "sub", left, right, output, c);
-                    print_whitespace(c.depth(), output);
-                    auto intermediate_bool = c.new_temp(type::IType::Bool);
-                    output << intermediate_bool->get_value() <<" = icmp ne "<<type::ir_type(diff->get_type());
-                    output <<" 0, "<< diff->get_value()<<std::endl;
-                    return intermediate_bool;
-                    },
-                [&](type::ArrayType){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);
@@ -161,12 +133,6 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     right = convert(type::CType(type::IType::LLong), right, output, c);
                     return make_command(type::from_str("_Bool"), "icmp slt", left, right, output, c);
                     },
-                [&](type::ArrayType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::from_str("_Bool"), "icmp slt", left, right, output, c);
-                    },
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type());
             break;
@@ -182,12 +148,6 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp ogt", left, right, output, c);},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::from_str("_Bool"), "icmp sgt", left, right, output, c);
-                    },
-                [&](type::ArrayType){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);
@@ -213,12 +173,6 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     right = convert(type::CType(type::IType::LLong), right, output, c);
                     return make_command(type::from_str("_Bool"), "icmp sle", left, right, output, c);
                     },
-                [&](type::ArrayType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::from_str("_Bool"), "icmp sle", left, right, output, c);
-                    },
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type());
             break;
@@ -234,12 +188,6 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp oge", left, right, output, c);},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::from_str("_Bool"), "icmp sge", left, right, output, c);
-                    },
-                [&](type::ArrayType){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);

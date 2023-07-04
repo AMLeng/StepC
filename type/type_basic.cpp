@@ -206,6 +206,7 @@ BasicType from_str(const std::string& type){
         return make_basic(float_types.at(type));
     }
     assert(false && "Unknown basic type name");
+    __builtin_unreachable();
 }
 
 BasicType from_str_multiset(const std::multiset<std::string>& keywords){

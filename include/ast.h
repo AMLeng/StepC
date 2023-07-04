@@ -36,7 +36,7 @@ struct Initializer{
     virtual ~Initializer() = 0;
     virtual void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const = 0;
     virtual void initializer_print(int depth) const = 0;
-    virtual void initializer_analyze(type::CType variable_type, symbol::STable* st) = 0;
+    virtual void initializer_analyze(type::CType& variable_type, symbol::STable* st) = 0;
 };
 struct InitializerList : public Initializer{
     token::Token tok;
@@ -44,7 +44,7 @@ struct InitializerList : public Initializer{
     InitializerList(token::Token tok, std::vector<std::unique_ptr<Initializer>> inits) : tok(tok), initializers(std::move(inits)) {}
     void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const;
     void initializer_print(int depth) const;
-    void initializer_analyze(type::CType variable_type, symbol::STable* st);
+    void initializer_analyze(type::CType& variable_type, symbol::STable* st);
 };
 
 struct Program : public AST{
@@ -77,7 +77,7 @@ struct NullStmt : public Stmt{
 struct Decl : virtual public AST{
     const std::string name;
     const token::Token tok;
-    const type::CType type;
+    type::CType type;
     Decl(token::Token tok, type::CType type) : tok(tok), name(tok.value), type(type) {}
     virtual ~Decl() = 0;
 };
@@ -249,7 +249,7 @@ struct Expr : virtual public Stmt, public Initializer{
     virtual ~Expr() = 0;
     void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const override;
     void initializer_print(int depth) const override;
-    void initializer_analyze(type::CType variable_type, symbol::STable* st) override;
+    void initializer_analyze(type::CType& variable_type, symbol::STable* st) override;
 };
 struct Conditional : public Expr{
     std::unique_ptr<Expr> cond;

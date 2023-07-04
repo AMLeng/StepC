@@ -4,20 +4,16 @@
 namespace type{
 
 namespace{
-template <typename T>
-std::unique_ptr<T> copy_ptr(const std::unique_ptr<T>& p){
-    return std::make_unique<T>(*p);
-}
 
 } //namespace
 DerivedType::DerivedType(const DerivedType& other){
     this->type = std::visit(overloaded{
-        [](const auto& p)-> std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, std::unique_ptr<ArrayType>> {return copy_ptr(p);}
+        [](const auto& p)-> std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> {return p->copy();}
     }, other.type);
 }
 DerivedType& DerivedType::operator=(const DerivedType& other){
     this->type = std::visit(overloaded{
-        [](const auto& p)-> std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, std::unique_ptr<ArrayType>> {return copy_ptr(p);}
+        [](const auto& p)-> std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> {return p->copy();}
     }, other.type);
     return *this;
 }
@@ -39,16 +35,12 @@ bool DerivedType::operator ==(const DerivedType& other) const{
             }
             const auto& t2 = std::get<std::unique_ptr<PointerType>>(type2);
             assert(type1 && t2 && "Invalid derived type containing nullptr");
-            return *type1 == *std::get<std::unique_ptr<PointerType>>(type2);
-            },
-        [&type2 = std::as_const(other.type)](const std::unique_ptr<ArrayType>& type1){
-            if(!std::holds_alternative<std::unique_ptr<ArrayType>>(type2)){
-                return false;
+            if(auto p = dynamic_cast<ArrayType*>(type1.get())){
+                return *p == *dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(type2).get());
+            }else{
+                return *type1 == *std::get<std::unique_ptr<PointerType>>(type2);
             }
-            const auto& t2 = std::get<std::unique_ptr<ArrayType>>(type2);
-            assert(type1 && t2 && "Invalid derived type containing nullptr");
-            return *type1 == *std::get<std::unique_ptr<ArrayType>>(type2);
-            },
+            }
     }, this->type);
 }
 bool DerivedType::operator !=(const DerivedType& other) const{
@@ -71,16 +63,12 @@ bool is_compatible(const DerivedType& type1, const DerivedType& type2){
             }
             const auto& t2 = std::get<std::unique_ptr<PointerType>>(type2);
             assert(type1 && t2 && "Invalid derived type containing nullptr");
-            return is_compatible(*type1, *std::get<std::unique_ptr<PointerType>>(type2));
-            },
-        [&type2 = std::as_const(type2.type)](const std::unique_ptr<ArrayType>& type1){
-            if(!std::holds_alternative<std::unique_ptr<ArrayType>>(type2)){
-                return false;
+            if(auto p = dynamic_cast<ArrayType*>(type1.get())){
+                return is_compatible(*p, *dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(type2).get()));
+            }else{
+                return is_compatible(*type1, *std::get<std::unique_ptr<PointerType>>(type2));
             }
-            const auto& t2 = std::get<std::unique_ptr<ArrayType>>(type2);
-            assert(type1 && t2 && "Invalid derived type containing nullptr");
-            return is_compatible(*type1, *std::get<std::unique_ptr<ArrayType>>(type2));
-            },
+        }
     }, type1.type);
 }
 
@@ -88,7 +76,7 @@ std::string to_string(const DerivedType& arg){
     try{
         return std::visit(overloaded{
             [](const auto& type)->std::string{
-                return to_string(*type);
+                return type->to_string();
             }
         }, arg.type);
     }catch(std::exception& e){

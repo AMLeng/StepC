@@ -1,6 +1,7 @@
 #ifndef _TYPE_
 #define _TYPE_
 #include <variant>
+#include <cassert>
 #include <set>
 #include <vector>
 #include <memory>
@@ -29,9 +30,7 @@ class DerivedType;
 typedef std::variant<VoidType, BasicType, DerivedType> CType;
 
 class DerivedType{
-    std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, std::unique_ptr<ArrayType>> type;
-    template <typename ReturnType, typename Visitor>
-    auto visit_helper(Visitor&& v) const;
+    std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> type;
 public:
     DerivedType(FuncType f); //Defined in type_func.cpp
     DerivedType(PointerType f); //Defined in type_pointer.cpp
@@ -53,33 +52,39 @@ public:
 
     template<typename T>
     friend T get(const CType& type);
+
+    template<typename T>
+    friend bool is_type(const CType& type);
 };
 class PointerType{
+protected:
     CType underlying_type;
 public:
+    virtual std::string to_string() const;
+    virtual std::string ir_type() const;
     explicit PointerType(CType t) : underlying_type(t) {}
     bool operator ==(const PointerType& other) const;
     bool operator !=(const PointerType& other) const;
+    virtual std::unique_ptr<PointerType> copy() const;
     CType pointed_type() const;
     friend bool is_compatible(const PointerType& type1, const PointerType& type2);
-    friend std::string to_string(const PointerType& type);
     friend std::string ir_type(const PointerType& type);
+    virtual ~PointerType();
 };
-class ArrayType{
-    CType underlying_type;
+class ArrayType : public PointerType{
     std::optional<int> allocated_size;
 public:
-    ArrayType(CType t, std::optional<int> s) : underlying_type(t), allocated_size(s){}
+    std::string to_string() const override;
+    std::string ir_type() const override;
+    ArrayType(CType t, std::optional<int> s) : PointerType(t), allocated_size(s){}
     bool operator ==(const ArrayType& other) const;
     bool operator !=(const ArrayType& other) const;
+    std::unique_ptr<PointerType> copy() const override;
     CType element_type() const;
-    PointerType decay() const;
     void set_size(int size);
     int size() const;
     bool is_complete() const;
     friend bool is_compatible(const ArrayType& type1, const ArrayType& type2);
-    friend std::string to_string(const ArrayType& type);
-    friend std::string ir_type(const ArrayType& type);
 };
 
 class FuncType{
@@ -97,9 +102,10 @@ public:
     explicit FuncType(CType ret);
     bool operator ==(const FuncType& other) const;
     bool operator !=(const FuncType& other) const;
+    std::unique_ptr<FuncType> copy() const;
     friend bool is_compatible(const FuncType& type1, const FuncType& type2);
-    friend std::string to_string(const FuncType& type);
-    friend std::string ir_type(const FuncType& type);
+    std::string to_string() const;
+    std::string ir_type() const;
     bool has_prototype() const; 
     bool is_variadic() const; 
     std::vector<CType> param_types() const; 
@@ -143,21 +149,30 @@ template <class... Ts> struct overloaded : Ts...{using Ts::operator()...;};
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 
 
-template <typename ReturnType, typename Visitor>
-auto DerivedType::visit_helper(Visitor&& v) const{
-    return [&v](const auto& pointer) -> ReturnType{
-        if constexpr(std::is_convertible_v<decltype(std::invoke(v,*pointer)),ReturnType>){
-            return std::invoke(v,*pointer);
-        }else{
-            std::invoke(v,*pointer);//Give this function a chance to throw an exception
-            throw std::runtime_error("Tried to call visit helper on "+type::to_string(*pointer)+" returning incompatible return type");
-        }
-    };
+template <typename ReturnType, typename Pointer, typename Visitor>
+ReturnType try_invoke(Visitor& v,Pointer p){
+    if constexpr(std::is_convertible_v<decltype(std::invoke(v,*p)),ReturnType>){
+        return std::invoke(v,*p);
+    }else{
+        std::invoke(v,*p);//Give this function a chance to throw an exception
+        throw std::runtime_error("Tried to call visit helper on "+p->to_string()+" returning incompatible return type");
+    }
 }
 
 template <typename ReturnType, typename Visitor>
 ReturnType DerivedType::visit(Visitor&& v) const{
-    return std::visit(visit_helper<ReturnType>(v),type);
+    if(std::holds_alternative<std::unique_ptr<PointerType>>(type)){
+        auto pointer = std::get<std::unique_ptr<PointerType>>(type).get();
+        if(auto p = dynamic_cast<ArrayType*>(pointer)){
+            return try_invoke<ReturnType>(v,p);
+        }else{
+            return try_invoke<ReturnType>(v,pointer);
+        }
+    }else{
+        assert(std::holds_alternative<std::unique_ptr<FuncType>>(type) && "Other derived types not yet implemented");
+        auto pointer = std::get<std::unique_ptr<FuncType>>(type).get();
+        return try_invoke<ReturnType>(v, pointer);
+    }
 }
 
 template<typename ReturnType, typename...Ts>
@@ -197,23 +212,42 @@ type_visitor<ReturnType, Ts...> make_visitor(Ts... args){
 
 template<typename T>
 bool is_type(const CType& type){
-    return std::visit(make_visitor<bool>(
-        [](const auto& type){return std::is_convertible_v<std::decay_t<decltype(type)>,T>;}
-    ), type);
+    if constexpr(std::is_same_v<T,ArrayType>){
+        try{
+            return type::is_type<PointerType>(type)
+                && dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type).type).get());
+        }catch(std::exception& e){
+            throw std::runtime_error("Failed to check if "+to_string(type)+ " is array type");
+        }
+    }else{
+        return std::visit(make_visitor<bool>(
+            [](const auto& type){return std::is_convertible_v<std::decay_t<decltype(type)>,T>;}
+        ), type);
+    }
 }
 
 template<typename T>
 T get(const CType& type){
     try{
-        if constexpr(std::is_convertible_v<T,DerivedType>){
-            return *std::get<std::unique_ptr<T>>(std::get<DerivedType>(type).type);
+        if constexpr(std::is_same_v<T,ArrayType>){
+            auto pointer = std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type).type).get();
+            if(auto p = dynamic_cast<ArrayType*>(pointer)){
+                return *p;
+            }
         }else{
-            return std::get<T>(type);
+            if constexpr(std::is_convertible_v<T,DerivedType>){
+                return *std::get<std::unique_ptr<T>>(std::get<DerivedType>(type).type).get();
+            }else{
+                return std::get<T>(type);
+            }
         }
     }catch(std::exception& e){
+        throw std::runtime_error("Incorrect type for type::get, cannot get "+std::string(typeid(T).name())+" from "+to_string(type)
+            +"\n"+ e.what()+std::string("\n branch: ")+std::to_string(std::is_convertible_v<T,DerivedType>));
     }
-    throw std::runtime_error("Incorrect type for type::get");
+    throw std::runtime_error("Incorrect type for type::get, cannot get "+std::string(typeid(T).name())+" from "+to_string(type));
 }
+
 
 }
 #endif

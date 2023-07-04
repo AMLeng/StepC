@@ -13,16 +13,19 @@ bool is_compatible(const ArrayType& type1, const ArrayType& type2){
     }
     return false;
 }
-std::string to_string(const ArrayType& type){
-    return "array of "+to_string(type.underlying_type);
-}
-std::string ir_type(const ArrayType& type){
-    std::string size = "0";
-    if(type.allocated_size.has_value()){
-        size = std::to_string(type.allocated_size.value());
+std::string ArrayType::to_string() const{
+    if(allocated_size.has_value()){
+        return "size "+std::to_string(allocated_size.value())+" array of "+type::to_string(this->underlying_type);
+    }else{
+        return "unknown size array of "+type::to_string(this->underlying_type);
     }
-    return "["+size+" x "+ir_type(type.underlying_type)+"]";
-    //return ir_type(type.underlying_type) + "*";
+}
+std::string ArrayType::ir_type() const{
+    std::string size = "0";
+    if(this->allocated_size.has_value()){
+        size = std::to_string(this->allocated_size.value());
+    }
+    return "["+size+" x "+type::ir_type(this->underlying_type)+"]";
 }
 bool ArrayType::operator ==(const ArrayType& other) const{
     return this->underlying_type == other.underlying_type;
@@ -30,11 +33,11 @@ bool ArrayType::operator ==(const ArrayType& other) const{
 bool ArrayType::operator !=(const ArrayType& other) const{
     return !this->operator==(other);
 }
+std::unique_ptr<PointerType> ArrayType::copy() const{
+    return std::make_unique<ArrayType>(*this);
+}
 CType ArrayType::element_type() const{
     return this->underlying_type;
-}
-PointerType ArrayType::decay() const{
-    return type::PointerType(this->underlying_type);
 }
 void ArrayType::set_size(int size){
     if(size < 0){

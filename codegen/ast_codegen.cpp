@@ -611,6 +611,7 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
         default:
             assert(false && "Operator Not Implemented");
     }
+    __builtin_unreachable();
 }
 value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
@@ -738,6 +739,7 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
         default:
             assert(false && "Operator Not Implemented");
     }
+    __builtin_unreachable();
 }
 
 
@@ -780,6 +782,7 @@ value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const 
         default:
             assert(false && "Unknown binary assignment op during codegen");
     }
+    __builtin_unreachable();
 }
 
 } //namespace ast
