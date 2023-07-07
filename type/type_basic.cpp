@@ -112,38 +112,49 @@ std::string ir_type(FType type){
     __builtin_unreachable();
     assert(false);
 }
-std::string ir_type(IType type){
-    int bits = 0;
+int basic_bit_size(const FType& type){
+    switch(type){
+        case FType::Float:
+            return 32;
+        case FType::LDouble:
+        case FType::Double:
+            return 64;
+    }
+    __builtin_unreachable();
+    assert(false);
+}
+int basic_bit_size(const IType& type){
     switch(type){
         case IType::Bool:
-            bits = 1;
-            break;
+            return 1;
         case IType::SChar:
         case IType::Char:
         case IType::UChar:
-            bits = std::numeric_limits<unsigned char>::digits;
-            break;
+            return std::numeric_limits<unsigned char>::digits;
         case IType::Short:
         case IType::UShort:
-            bits = std::numeric_limits<unsigned short int>::digits;
-            break;
+            return std::numeric_limits<unsigned short int>::digits;
         case IType::Int:
         case IType::UInt:
-            bits = std::numeric_limits<unsigned int>::digits;
-            break;
+            return std::numeric_limits<unsigned int>::digits;
         case IType::Long:
         case IType::ULong:
-            bits = std::numeric_limits<unsigned long>::digits;
-            break;
+            return std::numeric_limits<unsigned long>::digits;
         case IType::LLong:
         case IType::ULLong:
-            bits = std::numeric_limits<unsigned long long>::digits;
-            break;
+            return std::numeric_limits<unsigned long long>::digits;
     }
-    return "i" + std::to_string(bits);
+    __builtin_unreachable();
+    assert(false && "Missing case in basic type");
+}
+std::string ir_type(IType type){
+    return "i" + std::to_string(basic_bit_size(type));
 }
 
 }//namespace
+int byte_size(const BasicType& type){
+    return std::visit([](const auto& t){return basic_bit_size(t)/8;},type);
+}
 
 BasicType make_basic(IType type){
     return std::variant<IType,FType>(type);

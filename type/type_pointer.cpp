@@ -38,4 +38,10 @@ std::unique_ptr<PointerType> PointerType::copy() const{
 CType PointerType::pointed_type() const{
     return this->underlying_type;
 }
+CType PointerType::element_type() const{
+    if(type::is_type<ArrayType>(underlying_type)){
+        return type::get<ArrayType>(underlying_type).pointed_type();
+    }
+    return this->underlying_type;
+}
 } //namespace type

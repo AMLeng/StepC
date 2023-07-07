@@ -21,6 +21,7 @@ bool promote_one_rank(FType& type);
 bool is_signed_int(BasicType type);
 bool is_unsigned_int(BasicType type);
 
+int byte_size(const BasicType& type);
 //Printing
 std::string to_string(BasicType type);
 std::string ir_type(BasicType type);

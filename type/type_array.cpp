@@ -36,9 +36,6 @@ bool ArrayType::operator !=(const ArrayType& other) const{
 std::unique_ptr<PointerType> ArrayType::copy() const{
     return std::make_unique<ArrayType>(*this);
 }
-CType ArrayType::element_type() const{
-    return this->underlying_type;
-}
 void ArrayType::set_size(int size){
     if(size < 0){
         throw std::runtime_error("Cannot have array of negative size");

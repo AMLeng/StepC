@@ -10,11 +10,14 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [&](type::IType){return make_command(left->get_type(), "sub", left, right, output, c);},
                 [&](type::FType){return make_command(left->get_type(), "fsub", left, right, output, c);},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [&](type::PointerType){
+                [&](type::PointerType ptr){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
+                    auto element_type = ptr.element_type();
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::CType(type::IType::LLong), "sub", left, right, output, c);
+                    auto diff = make_command(type::CType(type::IType::LLong), "sub", left, right, output, c);
+                    auto size_value = value::Value(std::to_string(type::size(element_type)), type::IType::LLong);
+                    return make_command(type::CType(type::IType::LLong), "sdiv", diff, &size_value, output, c);
                     },
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type());

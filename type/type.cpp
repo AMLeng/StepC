@@ -98,5 +98,14 @@ std::string ir_type(const CType& type){
         [](const ArrayType& at){return at.ir_type();}
     ), type);
 }
+int size(const CType& type){
+    return std::visit(make_visitor<int>(
+        [](VoidType v){return 0;},
+        [](BasicType bt){return byte_size(bt);},
+        [](const FuncType& ft){throw std::runtime_error("Cannot take size of function type");},
+        [](const PointerType& pt){return 8;},
+        [](const ArrayType& at){return at.size()*type::size(at.pointed_type());}
+    ), type);
+}
 
 } //namespace type

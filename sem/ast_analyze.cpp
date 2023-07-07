@@ -221,7 +221,7 @@ void Expr::initializer_analyze(type::CType& variable_type, symbol::STable* st){
 void InitializerList::initializer_analyze(type::CType& variable_type, symbol::STable* st){
     if(type::is_type<type::ArrayType>(variable_type)){
         auto array_type = type::get<type::ArrayType>(variable_type);
-        auto element_type = array_type.element_type();
+        auto element_type = array_type.pointed_type();
         int length = initializers.size();
         if(array_type.is_complete() && array_type.size() < length){
             length = array_type.size();

@@ -67,6 +67,7 @@ public:
     bool operator !=(const PointerType& other) const;
     virtual std::unique_ptr<PointerType> copy() const;
     CType pointed_type() const;
+    CType element_type() const;
     friend bool is_compatible(const PointerType& type1, const PointerType& type2);
     friend std::string ir_type(const PointerType& type);
     virtual ~PointerType();
@@ -80,7 +81,6 @@ public:
     bool operator ==(const ArrayType& other) const;
     bool operator !=(const ArrayType& other) const;
     std::unique_ptr<PointerType> copy() const override;
-    CType element_type() const;
     void set_size(int size);
     int size() const;
     bool is_complete() const;
@@ -138,6 +138,7 @@ BasicType from_str(const std::string& type);
 bool promote_one_rank(IType& type);
 IType to_unsigned(IType type); 
 bool can_represent(IType type, unsigned long long int value);
+int size(const CType& type);
 
 
 //bool can_represent(BasicType target, BasicType source);

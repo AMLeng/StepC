@@ -128,22 +128,23 @@ value::Value* convert(type::CType target_type, value::Value* val,
 value::Value* make_command(type::CType t, std::string command, value::Value* left, value::Value* right, 
     std::ostream& output, context::Context& c){
     //Perhaps confusingly, note that the type specified is always the type of the left operand
+    auto lt = left->get_type();
+    if(type::is_type<type::ArrayType>(lt)){
+        lt = type::get<type::ArrayType>(lt).pointed_type();
+    }
     print_whitespace(c.depth(), output);
     auto new_temp = c.new_temp(t);
-    output << new_temp->get_value()<<" = "<<command<<" "<<type::ir_type(left->get_type())<<" " << left->get_value() <<", "<< right->get_value()<<std::endl;
+    output << new_temp->get_value()<<" = "<<command<<" "<<type::ir_type(lt)<<" " << left->get_value() <<", "<< right->get_value()<<std::endl;
     return new_temp;
 }
 //Basically returns result = *data_pointer
 value::Value* make_load(value::Value* data_pointer, std::ostream& output, context::Context& c){
     assert(type::is_type<type::PointerType>(data_pointer->get_type()) && "Can only load from a pointer");
-    auto result_type = type::get<type::PointerType>(data_pointer->get_type()).pointed_type();
+    auto result_type = type::get<type::PointerType>(data_pointer->get_type()).element_type();
+    //Loads the pointed type, unless it's an array in which case we get the element instead
     if(type::is_type<type::FuncType>(result_type)){
         //Loading from a function pointer just gives back the function pointer
         return data_pointer;
-    }
-    if(type::is_type<type::ArrayType>(result_type)){
-        //Loading from an array will fetch an element
-        result_type = type::get<type::ArrayType>(result_type).element_type();
     }
     auto result = c.new_temp(result_type);
     print_whitespace(c.depth(), output);

@@ -482,14 +482,14 @@ void InitializerList::initializer_codegen(value::Value* variable, std::ostream& 
         auto array_type = type::get<type::ArrayType>(var_type);
         assert(array_type.is_complete() && "Cannot have incomplete array types during codegen");
         for(int i=0; i<array_type.size(); i++){
-            auto element_ptr = c.new_temp(type::PointerType(array_type.element_type()));
+            auto element_ptr = c.new_temp(type::PointerType(array_type.pointed_type()));
             codegen_utility::print_whitespace(c.depth(), output);
             output << element_ptr->get_value() <<" = getelementptr inbounds "+type::ir_type(var_type)+", ptr ";
             output <<variable->get_value()<<", i64 0, i32 "<<i<<std::endl;
             if(i<initializers.size()){
                 initializers.at(i)->initializer_codegen(element_ptr, output, c);
             }else{
-                auto default_val = value::Value(codegen_utility::default_value(array_type.element_type()), array_type.element_type());
+                auto default_val = value::Value(codegen_utility::default_value(array_type.pointed_type()), array_type.pointed_type());
                 codegen_utility::make_store(&default_val,element_ptr, output, c);
             }
         }
