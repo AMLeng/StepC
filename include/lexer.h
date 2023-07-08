@@ -42,6 +42,9 @@ class Lexer{
         token::Token peek_token(int n = 1) {
             while(n >next_tokens.size()){
                 next_tokens.push_back(read_token_from_stream());
+                if(next_tokens.back().type == token::TokenType::COMMENT){
+                    next_tokens.pop_back();
+                }
             }
             return next_tokens.at(n-1);
         }

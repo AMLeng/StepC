@@ -157,6 +157,31 @@ token::Token Lexer::read_token_from_stream() {
     //More complicated cases
     std::pair<int, int> starting_position = current_pos;
     std::string token_value = "";
+    if(c == '/'){
+        advance_input(token_value, c);
+        if(c == '/'){
+            advance_input(token_value, c);
+            while(current_pos.first == starting_position.first){
+                advance_input(token_value, c);
+            }
+            return create_token(token::TokenType::COMMENT, token_value, starting_position, current_pos, current_line);
+        }
+        if(c == '*'){
+            advance_input(token_value, c);
+            while(true){
+                if(c == '*'){
+                    advance_input(token_value, c);
+                    if(c == '/'){
+                        advance_input(token_value, c);
+                        return create_token(token::TokenType::COMMENT, token_value, starting_position, current_pos, current_line);
+                    }
+                }else{
+                    advance_input(token_value, c);
+                }
+            }
+        }
+        return create_token(token::TokenType::Div, token_value, starting_position, current_pos, current_line);
+    }
     if(c == '.'){
         advance_input(token_value, c);
         if(c == '.'){
