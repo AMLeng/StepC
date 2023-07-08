@@ -124,8 +124,10 @@ int main(){
 TEST_CASE("Pointer to array vs pointer to pointer error"){
     auto ss = std::stringstream(
 R"(
+int main(){
 int a[4];
 int **b = &a;
+}
 )");
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
@@ -143,6 +145,55 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::TypeError);
 }
+TEST_CASE("Array in function def can have unknown size"){
+    auto ss = std::stringstream(
+R"(
+int f(int a[]){
+    return 4;
+}
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+
+TEST_CASE("Function decl decay to ptr"){
+    auto ss = std::stringstream(
+R"(
+int f(double *a);
+
+int main(){
+    double *a = 0;
+    return f(a);
+}
+int f(double a[4]){
+    return 4;
+}
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+
+TEST_CASE("Function call decay to ptr"){
+    auto ss = std::stringstream(
+R"(
+int f(double a[4]){
+    return 4;
+}
+int g(int b(double * a)){
+    double *x = 0;
+    return b(x);
+}
+int main(){
+    return g(f);
+}
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+
 
 
 

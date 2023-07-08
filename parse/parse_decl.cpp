@@ -236,6 +236,10 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
         if(type::is_type<type::FuncType>(declarators.back().second)){
             declarators.back().second = type::PointerType(declarators.back().second);
         }
+        if(type::is_type<type::ArrayType>(declarators.back().second)){
+            //Splice array type to just be a pointer
+            declarators.back().second = type::get<type::PointerType>(declarators.back().second);
+        }
         if(declarators.back().first.has_value() &&names.insert(declarators.back().first.value().value).second == false){
             throw sem_error::STError("Duplicate variable name in function parameter list",declarators.back().first.value());
         }
@@ -267,7 +271,7 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
 }
 
 std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, Declarator func){
-    auto param_decls = std::vector<std::unique_ptr<ast::Decl>>{};
+    auto param_decls = std::vector<std::unique_ptr<ast::VarDecl>>{};
     for(const auto& param_declarator: params){
         if(!param_declarator.first.has_value()){
             if(params.size() > 1 || !type::is_type<type::VoidType>(param_declarator.second)){

@@ -191,9 +191,9 @@ struct CompoundStmt : public Stmt{
 };
 
 struct FunctionDef : public ExtDecl, public FunctionDecl{
-    std::vector<std::unique_ptr<Decl>> params;
+    std::vector<std::unique_ptr<VarDecl>> params;
     std::unique_ptr<CompoundStmt> function_body;
-    FunctionDef(token::Token tok, type::FuncType type, std::vector<std::unique_ptr<Decl>> param_decls, std::unique_ptr<CompoundStmt> body) : 
+    FunctionDef(token::Token tok, type::FuncType type, std::vector<std::unique_ptr<VarDecl>> param_decls, std::unique_ptr<CompoundStmt> body) : 
         FunctionDecl(tok, type), params(std::move(param_decls)), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;

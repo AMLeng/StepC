@@ -63,8 +63,12 @@ bool is_compatible(const DerivedType& type1, const DerivedType& type2){
             }
             const auto& t2 = std::get<std::unique_ptr<PointerType>>(type2);
             assert(type1 && t2 && "Invalid derived type containing nullptr");
-            if(auto p = dynamic_cast<ArrayType*>(type1.get())){
-                return is_compatible(*p, *dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(type2).get()));
+            if(auto p1 = dynamic_cast<ArrayType*>(type1.get())){
+                auto p2 = dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(type2).get());
+                if(!p2){
+                    return false;
+                }
+                return is_compatible(*p1, *p2);
             }else{
                 return is_compatible(*type1, *std::get<std::unique_ptr<PointerType>>(type2));
             }

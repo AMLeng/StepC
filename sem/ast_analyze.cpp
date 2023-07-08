@@ -288,7 +288,11 @@ void FuncCall::analyze(symbol::STable* st) {
     try{
         auto f_type = type::get<type::FuncType>(original_type);
         if(!f_type.params_match(arg_types)){
-            throw sem_error::TypeError("Cannot call function of type "+type::to_string(f_type)+" on types of provided arguments",this->tok);
+            auto error_str = "Cannot call function of type \""+type::to_string(f_type)+"\" on types of provided arguments:\n";
+            for(const auto& arg : arg_types){
+                error_str += type::to_string(arg)+"\n";
+            }
+            throw sem_error::TypeError(error_str,this->tok);
         }
         this->type = f_type.return_type();
     }catch(std::runtime_error& e){ //Won't catch the STError
