@@ -95,6 +95,16 @@ type::CType parse_specifiers(lexer::Lexer& l){
     }
 }
 //Definitions for parsing methods
+std::unique_ptr<ast::StrLiteral> parse_str_literal(lexer::Lexer& l){
+    auto literals = std::vector<token::Token>{};
+    if(l.peek_token().type != token::TokenType::StrLiteral){
+        throw parse_error::ParseError("Expected string",l.peek_token());
+    }
+    do{
+        literals.push_back(l.get_token());
+    }while(l.peek_token().type == token::TokenType::StrLiteral);
+    return std::make_unique<ast::StrLiteral>(literals);
+}
 std::unique_ptr<ast::Constant> parse_constant(lexer::Lexer& l){
     auto constant_value = l.get_token();
     if(!token::matches_type(constant_value, 
@@ -200,6 +210,9 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
             l.get_token();
             expr_ptr = parse_expr(l);
             check_token_type(l.get_token(), token::TokenType::RParen);
+            break;
+        case token::TokenType::StrLiteral:
+            expr_ptr =  parse_str_literal(l);
             break;
     }
     if(expr_ptr == nullptr){

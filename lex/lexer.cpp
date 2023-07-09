@@ -154,9 +154,25 @@ token::Token Lexer::read_token_from_stream() {
         return Lexer::LexingSubmethods::lex_numeric_literals(*this);
     }
 
-    //More complicated cases
     std::pair<int, int> starting_position = current_pos;
     std::string token_value = "";
+    //String literals
+    if(c == '"'){
+        advance_input(token_value, c);
+        while(c != '"'){
+            if(c == '\\'){
+                advance_input(token_value, c);
+            }
+            if(c == EOF){
+                throw lexer_error::InvalidLiteral("Reached EOF in string literal", token_value, c, starting_position);
+            }
+            advance_input(token_value, c);
+        }
+        advance_input(token_value, c);
+        return create_token(token::TokenType::StrLiteral, token_value, starting_position, current_pos, current_line);
+    }
+
+    //More complicated cases
     if(c == '/'){
         advance_input(token_value, c);
         if(c == '/'){

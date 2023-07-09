@@ -248,6 +248,40 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
 }
+TEST_CASE("String literal lexing"){
+    auto ss = std::stringstream(
+R"(
+    "This is a string literal"
+ "This is
+        also a valid\n
+            string literal!!!";
+)");
+    lexer::Lexer l(ss);
+    l.get_token();
+    l.get_token();
+    REQUIRE(l.get_token().type == token::TokenType::Semicolon);
+}
+TEST_CASE("String literal lexing error"){
+    auto ss = std::stringstream(
+R"("This is not a valid string literal;
+
+)");
+    REQUIRE_THROWS_AS(lexer::Lexer(ss).get_token(),lexer_error::InvalidLiteral);
+}
+
+TEST_CASE("String literal parse"){
+    auto ss = std::stringstream(
+R"(
+int printf();
+int main(){
+    char a[] = "This is a string literal";
+    printf("This is another string literal");
+}
+
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+}
 
 
 

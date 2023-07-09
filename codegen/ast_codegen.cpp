@@ -539,6 +539,9 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     }
 }
 
+value::Value* StrLiteral::codegen(std::ostream& output, context::Context& c)const {
+    return nullptr;
+}
 value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     return c.add_literal(type::ir_literal(this->literal,std::get<type::BasicType>(this->type)), this->type);

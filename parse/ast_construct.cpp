@@ -1,8 +1,10 @@
 #include "ast.h"
 #include "type.h"
+#include "parse_error.h"
 #include "sem_error.h"
 #include <cassert>
 #include <limits>
+#include <sstream>
 namespace ast{
 namespace{
 void finish_literal_int_parse(type::CType& original_type, std::string& original_value, token::Token tok){
@@ -30,6 +32,11 @@ void finish_literal_int_parse(type::CType& original_type, std::string& original_
     }while(type::promote_one_rank(int_type));
     throw sem_error::TypeError("Unsigned long long required to hold signed integer literal",tok);
 }
+std::map<char, char> escape_chars = {{
+    {'a','\a'},{'b','\b'},{'f','\f'},{'n','\n'},
+    {'r','\r'},{'t','\t'},{'v','\v'},{'\\','\\'},
+    {'\'','\''},{'\"','\"'},{'\?','\?'}
+}};
 
 } //namespace
 
@@ -39,6 +46,30 @@ Decl::~Decl(){}
 Stmt::~Stmt(){}
 BlockItem::~BlockItem(){}
 Expr::~Expr(){}
+
+StrLiteral::StrLiteral(std::vector<token::Token> toks) : Expr(toks.front()){
+    auto ss = std::stringstream{};
+    char back;
+    for(const auto& tok : toks){
+        auto string = tok.value.substr(1,tok.value.size()-2);
+        for(int i=0; i<string.size(); i++){
+            if(string.at(i) != '\\'){
+                ss << string.at(i);
+            }else{
+                i++;
+                if(escape_chars.find(string.at(i)) == escape_chars.end()){
+                    throw parse_error::ParseError("Unknown escape sequence",tok);
+                }
+                ss << escape_chars.at(string.at(i));
+            }
+        }
+    }
+    if(back != '\0'){
+        ss << '\0';
+    }
+    this->literal = ss.str();
+
+}
 
 Constant::Constant(const token::Token& tok) : Expr(tok){
     literal = tok.value;

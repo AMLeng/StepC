@@ -186,6 +186,10 @@ void InitializerList::initializer_print(int depth) const{
         i->initializer_print(depth+1);
     }
 }
+void StrLiteral::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"STRING LITERAL "<<literal<<std::endl;
+}
 void Constant::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"CONSTANT "<<literal<<" OF TYPE "<< type::to_string(type) <<std::endl;

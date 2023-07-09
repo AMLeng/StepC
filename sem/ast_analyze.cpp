@@ -707,6 +707,9 @@ void BinaryOp::analyze(symbol::STable* st){
 }
 void NullStmt::analyze(symbol::STable* st){
 }
+void StrLiteral::analyze(symbol::STable* st){
+    this->analyzed = true;
+}
 void Constant::analyze(symbol::STable* st){
     this->analyzed = true;
     if(type::is_type<type::BasicType>(this->type)){

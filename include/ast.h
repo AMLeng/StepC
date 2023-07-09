@@ -275,6 +275,14 @@ struct Variable : public Expr{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct StrLiteral : public Expr{
+    std::string literal;
+    StrLiteral(std::vector<token::Token> toks);
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+
 struct Constant : public Expr{
     std::string literal;
     Constant(const token::Token& tok);
