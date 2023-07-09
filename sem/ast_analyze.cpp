@@ -55,8 +55,10 @@ bool is_nullptr_constant(const ast::Expr* node){
             return false;
         }
     }
-    auto p = dynamic_cast<const ast::Constant*>(node);
-    return p && std::stoull(p->literal) == 0;
+    return std::visit(overloaded{
+        [](std::monostate){return false;},
+        [](auto val){return val == 0;},
+    }, node->constant_value);
 }
 std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, token::TokenType op, token::Token tok){
     //Returns an array of: {result type, converted left type, converted right type}
@@ -183,6 +185,187 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
     assert(false && "Unknown binary operator type");
     __builtin_unreachable();
 }
+ConstantExprType compute_binary_constant(ConstantExprType left, ConstantExprType right, token::TokenType op){
+    switch(op){
+        case token::TokenType::Plus:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left + right;
+                }
+            }, left, right);
+        case token::TokenType::Minus:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left - right;
+                }
+            }, left, right);
+        case token::TokenType::Star:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left * right;
+                }
+            }, left, right);
+        case token::TokenType::Div:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    if(right == 0){
+                        return ConstantExprType();
+                    }
+                    return left / right;
+                }
+            }, left, right);
+        case token::TokenType::Mod:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    if(right == 0){
+                        return ConstantExprType();
+                    }
+                    return left % right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::Amp:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left & right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::BitwiseOr:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left | right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::BitwiseXor:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left ^ right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::LShift:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left << right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::RShift:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left >> right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::And:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto left, std::monostate )->ConstantExprType{
+                    if(left == 0){
+                        return 0;
+                    }else{
+                        return ConstantExprType();
+                    }},
+                [](auto left, auto right)->ConstantExprType{
+                    if(left == 0){
+                        return 0;
+                    }else{
+                        return right != 0;
+                    }
+                }
+            }, left, right);
+        case token::TokenType::Or:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto left, std::monostate )->ConstantExprType{
+                    if(left != 0){
+                        return 1;
+                    }else{
+                        return ConstantExprType();
+                    }},
+                [](auto left, auto right)->ConstantExprType{
+                    if(left != 0){
+                        return 1;
+                    }else{
+                        return right != 0;
+                    }
+                }
+            }, left, right);
+        case token::TokenType::Equal:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left == right;
+                }
+            }, left, right);
+        case token::TokenType::NEqual:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left != right;
+                }
+            }, left, right);
+        case token::TokenType::Less:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left < right;
+                }
+            }, left, right);
+        case token::TokenType::Greater:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left > right;
+                }
+            }, left, right);
+        case token::TokenType::LEq:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left <= right;
+                }
+            }, left, right);
+        case token::TokenType::GEq:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left >= right;
+                }
+            }, left, right);
+        default:
+            return ConstantExprType();
+    }
+    __builtin_unreachable();
+}
 
 } //namespace
 
@@ -202,12 +385,6 @@ void VarDecl::analyze(symbol::STable* st) {
     }
     //If we have a declaration attached
     if(this->assignment.has_value()){
-        if(!st->in_function()){
-            //If not in function, is global and needs to be
-            if(!dynamic_cast<ast::Constant*>(this->assignment.value().get())){
-                throw sem_error::FlowError("Global variable def must be constant",this->tok);
-            }
-        }
         this->assignment.value()->initializer_analyze(this->type, st);
     }
 }
@@ -216,6 +393,12 @@ void Expr::initializer_analyze(type::CType& variable_type, symbol::STable* st){
     if(!type::can_assign(this->type,variable_type) 
             && !(type::is_type<type::PointerType>(variable_type) && is_nullptr_constant(this))){
         throw sem_error::TypeError("Invalid types "+type::to_string(this->type)+" and "+type::to_string(variable_type)+" for initialization",tok);
+    }
+    if(!st->in_function()){
+        //If not in function, is global and needs to be constant
+        if(std::holds_alternative<std::monostate>(this->constant_value)){
+            throw sem_error::FlowError("Global variable def must be constant",this->tok);
+        }
     }
 }
 void InitializerList::initializer_analyze(type::CType& variable_type, symbol::STable* st){
@@ -268,6 +451,21 @@ void Conditional::analyze(symbol::STable* st){
         throw sem_error::UnknownError("Ternary conditional returning non arithmetic type no yet implemented",this->tok);
     }
     this->type = type::usual_arithmetic_conversions(this->true_expr->type, this->false_expr->type);
+
+    std::visit(overloaded{
+        [&](std::monostate ){},
+        [&](auto val){
+            if(val == 0){
+                if(!std::holds_alternative<std::monostate>(false_expr->constant_value)){
+                    this->constant_value = true_expr->constant_value;
+                }
+            }else{
+                if(!std::holds_alternative<std::monostate>(true_expr->constant_value)){
+                    this->constant_value = true_expr->constant_value;
+                }
+            }
+        },
+    }, this->cond->constant_value);
 }
 void FuncCall::analyze(symbol::STable* st) {
     this->analyzed = true;
@@ -414,23 +612,42 @@ void UnaryOp::analyze(symbol::STable* st) {
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Plus:
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",this->arg->tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            this->constant_value=this->arg->constant_value;
+            break;
         case token::TokenType::Minus:
             if(!type::is_arith(this->arg->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",this->arg->tok);
             }
             this->type = type::integer_promotions(this->arg->type);
+            std::visit(type::overloaded{
+                [&](std::monostate ){},
+                [&](auto val){this->constant_value = -val;},
+            }, this->arg->constant_value);
             break;
         case token::TokenType::Not:
             if(!type::is_scalar(this->arg->type)){
                 throw sem_error::TypeError("Operand of scalar type required",this->arg->tok);
             }
             this->type = type::from_str("int");
+            std::visit(type::overloaded{
+                [&](std::monostate ){},
+                [&](auto val){this->constant_value = !val;},
+            }, this->arg->constant_value);
             break;
         case token::TokenType::BitwiseNot:
             if(!type::is_int(this->arg->type)){
                 throw sem_error::TypeError("Operand of integer type required", this->arg->tok);
             }
             this->type = type::integer_promotions(this->arg->type);
+            std::visit(type::overloaded{
+                [&](std::monostate ){},
+                [&](long double ){assert(false && "Bitwise not must be applied to an integer");},
+                [&](long long int val){this->constant_value = ~val;},
+            }, this->arg->constant_value);
             break;
         default:
             assert(false && "Unknown unary operator type");
@@ -443,6 +660,7 @@ void BinaryOp::analyze(symbol::STable* st){
     if(assignment_op.find(this->tok.type) == assignment_op.end()){
         //Non-assignment case
         auto types = analyze_bin_op(this->left->type,this->right->type,this->tok.type, this->tok);
+        this->constant_value = compute_binary_constant(this->left->constant_value, this->right->constant_value, this->tok.type);
         this->type = types[0];
         this->new_left_type=types[1];
         this->new_right_type=types[2];
@@ -491,6 +709,13 @@ void NullStmt::analyze(symbol::STable* st){
 }
 void Constant::analyze(symbol::STable* st){
     this->analyzed = true;
+    if(type::is_type<type::BasicType>(this->type)){
+        std::visit(type::overloaded{
+            [&](type::IType){this->constant_value =  std::stoll(this->literal);},
+            [&](type::FType){this->constant_value = std::stold(this->literal);}
+        }, type::get<type::BasicType>(this->type));
+    }
+
 }
 void IfStmt::analyze(symbol::STable* st){
     this->if_condition->analyze(st);
@@ -584,12 +809,10 @@ void CaseStmt::analyze(symbol::STable* st){
     if(!type::is_int(label->type)){
         throw sem_error::TypeError("Case label must have integer type",this->tok);
     }
-    unsigned long long int case_val = 42ull;
-    try{
-        case_val = std::stoull(this->label->literal);
-    }catch(std::runtime_error& e){
-        throw sem_error::FlowError("Invalid label value for case",this->label->tok);
+    if(!std::holds_alternative<long long int>(label->constant_value)){
+        throw sem_error::TypeError("Case label must have constant integer type",this->tok);
     }
+    unsigned long long int case_val = std::get<long long int>(label->constant_value);
     try{
         bt->add_case(case_val);
     }catch(std::runtime_error& e){

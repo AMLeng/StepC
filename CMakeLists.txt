@@ -8,7 +8,7 @@ project(IncrementalC
     LANGUAGES 
         CXX
 )
-
+set(CMAKE_CXX_FLAGS "-Wno-psabi")
 add_library(type
     type/type_basic.cpp type/type_func.cpp type/type_derived.cpp type/type_pointer.cpp type/type_array.cpp type/type.cpp 
 )

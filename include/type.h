@@ -139,7 +139,7 @@ bool promote_one_rank(IType& type);
 IType to_unsigned(IType type); 
 bool can_represent(IType type, unsigned long long int value);
 int size(const CType& type);
-
+std::string ir_literal(const std::string& c_literal,BasicType type);
 
 //bool can_represent(BasicType target, BasicType source);
 //bool is_complete(CType type);

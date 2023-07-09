@@ -18,6 +18,7 @@ struct FunctionDef;
 struct ReturnStmt;
 struct Expr;
 struct Decl;
+struct Stmt;
 struct ExtDecl;
 struct Constant;
 struct UnaryOp;
@@ -32,11 +33,20 @@ struct AST{
     virtual ~AST() = 0;
     virtual value::Value* codegen(std::ostream& output, context::Context& c) const = 0;
 };
+struct BlockItem : virtual public AST{
+    //Block items can appear in compound statements
+    virtual ~BlockItem() = 0;
+};
+struct Stmt : virtual public BlockItem{
+    //Statements are things that can appear in the body of a function
+    virtual ~Stmt() = 0;
+};
 struct Initializer{
     virtual ~Initializer() = 0;
     virtual void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const = 0;
     virtual void initializer_print(int depth) const = 0;
     virtual void initializer_analyze(type::CType& variable_type, symbol::STable* st) = 0;
+    virtual std::string compute_constant(type::CType type) const = 0;
 };
 struct InitializerList : public Initializer{
     token::Token tok;
@@ -45,6 +55,20 @@ struct InitializerList : public Initializer{
     void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const;
     void initializer_print(int depth) const;
     void initializer_analyze(type::CType& variable_type, symbol::STable* st);
+    std::string compute_constant(type::CType type) const override;
+};
+typedef std::variant<std::monostate,long long int, long double> ConstantExprType;
+struct Expr : virtual public Stmt, public Initializer{
+    type::CType type;
+    bool analyzed = false;
+    ConstantExprType constant_value;
+    token::Token tok;
+    Expr(token::Token tok) : tok(tok), analyzed(){}
+    virtual ~Expr() = 0;
+    void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const override;
+    void initializer_print(int depth) const override;
+    void initializer_analyze(type::CType& variable_type, symbol::STable* st) override;
+    std::string compute_constant(type::CType type) const override;
 };
 
 struct Program : public AST{
@@ -59,14 +83,6 @@ struct Program : public AST{
     }
 };
 
-struct BlockItem : virtual public AST{
-    //Block items can appear in compound statements
-    virtual ~BlockItem() = 0;
-};
-struct Stmt : virtual public BlockItem{
-    //Statements are things that can appear in the body of a function
-    virtual ~Stmt() = 0;
-};
 struct NullStmt : public Stmt{
     NullStmt(){}
     void analyze(symbol::STable*) override;
@@ -153,9 +169,9 @@ struct IfStmt : public Stmt{
 };
 struct CaseStmt : public Stmt{
     token::Token tok;
-    std::unique_ptr<Constant> label;
+    std::unique_ptr<Expr> label;
     std::unique_ptr<Stmt> stmt;
-    CaseStmt(token::Token tok, std::unique_ptr<Constant> c, std::unique_ptr<Stmt> stmt) 
+    CaseStmt(token::Token tok, std::unique_ptr<Expr> c, std::unique_ptr<Stmt> stmt) 
         : tok(tok), label(std::move(c)), stmt(std::move(stmt)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
@@ -240,17 +256,6 @@ struct ReturnStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
-
-struct Expr : virtual public Stmt, public Initializer{
-    type::CType type;
-    bool analyzed = false;
-    token::Token tok;
-    Expr(token::Token tok) : tok(tok){}
-    virtual ~Expr() = 0;
-    void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const override;
-    void initializer_print(int depth) const override;
-    void initializer_analyze(type::CType& variable_type, symbol::STable* st) override;
-};
 struct Conditional : public Expr{
     std::unique_ptr<Expr> cond;
     std::unique_ptr<Expr> true_expr;

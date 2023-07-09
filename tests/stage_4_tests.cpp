@@ -281,7 +281,7 @@ R"(1.1f)");
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type ==  type::CType(type::FType::Float));
-    REQUIRE(c.literal == "0x3FF19999A0000000");
+    REQUIRE(type::ir_literal(c.literal,type::FType::Float) == "0x3FF19999A0000000");
 }
 TEST_CASE("parse_double_dec"){
     auto ss = std::stringstream(
@@ -290,7 +290,7 @@ R"(1.1)");
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type ==  type::CType(type::FType::Double));
-    REQUIRE(c.literal == "0x3FF199999999999A");
+    REQUIRE(type::ir_literal(c.literal,type::FType::Double) == "0x3FF199999999999A");
 }
 TEST_CASE("parse_hex_float"){
     auto ss = std::stringstream(
@@ -299,7 +299,7 @@ R"(0x1.1999999999999999Ap-64f)");
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type ==  type::CType(type::FType::Float));
-    REQUIRE(c.literal == "0x3BF19999A0000000");
+    REQUIRE(type::ir_literal(c.literal,type::FType::Float) == "0x3BF19999A0000000");
 }
 TEST_CASE("parse_hex_float_normal"){
     auto ss = std::stringstream(
@@ -308,7 +308,7 @@ R"(0x1.19999Ap-64f)");
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type ==  type::CType(type::FType::Float));
-    REQUIRE(c.literal == "0x3BF19999A0000000");
+    REQUIRE(type::ir_literal(c.literal,type::FType::Float) == "0x3BF19999A0000000");
 }
 TEST_CASE("parse_hex_float_barely_subnormal"){
     auto ss = std::stringstream(
@@ -317,7 +317,7 @@ R"(0x1.19999Ap-127F)");
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type ==  type::CType(type::FType::Float));
-    REQUIRE(c.literal == "0x3801999980000000");
+    REQUIRE(type::ir_literal(c.literal,type::FType::Float) == "0x3801999980000000");
 }
 TEST_CASE("parse_hex_float_subnormal_2"){
     auto ss = std::stringstream(
@@ -326,7 +326,7 @@ R"(0x1.19999Ap-129f)");
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type ==  type::CType(type::FType::Float));
-    REQUIRE(c.literal == "0x37E1999A00000000");
+    REQUIRE(type::ir_literal(c.literal,type::FType::Float) == "0x37E1999A00000000");
 }
 TEST_CASE("parse_hex_double"){
     auto ss = std::stringstream(
@@ -335,7 +335,7 @@ R"(0x1.1999999999999999Ap-64)");
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type ==  type::CType(type::FType::Double));
-    REQUIRE(c.literal == "0x3BF199999999999A");
+    REQUIRE(type::ir_literal(c.literal,type::FType::Double) == "0x3BF199999999999A");
 }
 TEST_CASE("parse_hex_long_double"){
     auto ss = std::stringstream(
@@ -344,7 +344,7 @@ R"(0x1.19999999999999999Ap-64l)");
     auto t = l.get_token();
     auto c = ast::Constant(t);
     REQUIRE(c.type ==  type::CType(type::FType::LDouble));
-    REQUIRE(c.literal == "0x3BF199999999999A");
+    REQUIRE(type::ir_literal(c.literal,type::FType::LDouble) == "0x3BF199999999999A");
 }
 TEST_CASE("parse_decimal_U"){
     auto ss = std::stringstream("2532U");

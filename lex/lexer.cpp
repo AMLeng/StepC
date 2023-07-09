@@ -180,6 +180,10 @@ token::Token Lexer::read_token_from_stream() {
                 }
             }
         }
+        if(c == '='){
+            advance_input(token_value, c);
+            return create_token(token::TokenType::DivAssign, token_value, starting_position, current_pos, current_line);
+        }
         return create_token(token::TokenType::Div, token_value, starting_position, current_pos, current_line);
     }
     if(c == '.'){

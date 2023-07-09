@@ -174,11 +174,12 @@ namespace{
                     std::optional<int> size = std::nullopt;
                     if(l.peek_token().type != token::TokenType::RBrack){
                         auto expr = parse_expr(l);
-                        auto constant = dynamic_cast<ast::Constant*>(expr.get());
-                        if(!constant){
+                        auto temp_st = symbol::GlobalTable();
+                        expr->analyze(&temp_st);
+                        if(!std::holds_alternative<long long int>(expr->constant_value)){
                             throw sem_error::TypeError("Invalid constant integer expr for array size", expr->tok);
                         }
-                        size = std::stoi(constant->literal);
+                        size = std::get<long long int>(expr->constant_value);
                     }
                     sizes.push_back(size);
                     check_token_type(l.get_token(),token::TokenType::RBrack);

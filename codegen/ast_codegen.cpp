@@ -170,9 +170,8 @@ void global_array_type_codegen(const std::string& name, value::Value* def, std::
     //Sample code:
     //@a = dso_local global [4 x i32] [i32 1, i32 2, i32 3, i32 4]
     //@b = dso_local global [3 x i32] zeroinitializer
-    output << name <<" = dso_local global ptr ";
+    output << name <<" = dso_local global "<<type::ir_type(def->get_type())<<" ";
     if(def){
-        throw std::runtime_error("Have not yet implemented global arrays with initializers");
         output << def->get_value() << std::endl;
     }else{
         output << "zero_initializer"<<std::endl;
@@ -193,6 +192,59 @@ void global_decl_codegen(value::Value* value, std::ostream& output, context::Con
 
 } //namespace
 
+std::string InitializerList::compute_constant(type::CType type) const{
+    if(type::is_type<type::ArrayType>(type)){
+        auto array_type = type::get<type::ArrayType>(type);
+        std::string literal = "[ ";
+        auto element_type = array_type.pointed_type();
+        assert(array_type.size() > 0 && "Cannot have array of size 0");
+        for(int i=0; i< array_type.size()-1; i++){
+            literal += type::ir_type(element_type) + " ";
+            if(i<this->initializers.size()){
+                literal += this->initializers.at(i)->compute_constant(element_type);
+            }else{
+                literal += codegen_utility::default_value(element_type);
+            }
+            literal += ", ";
+        }
+        literal += type::ir_type(element_type) + " ";
+        if(array_type.size() <= this->initializers.size()){
+            literal += this->initializers.at(array_type.size() - 1)->compute_constant(element_type);
+        }else{
+            literal += codegen_utility::default_value(element_type);
+        }
+        literal += "]";
+        return literal;
+    }else{
+        if(this->initializers.size() == 0){
+            return codegen_utility::default_value(type);
+        }else{
+            return this->initializers.front()->compute_constant(type);
+        }
+    }
+}
+std::string Expr::compute_constant(type::CType type) const{
+    if(!type::is_type<type::BasicType>(type)){
+        assert(false && "Cannot have non-basic constant type in codegen yet");
+    }
+    return std::visit(overloaded{
+        [](std::monostate)->std::string{return std::string{};},
+        [&](long long int i)->std::string{
+            if(type::is_type<type::FType>(type)){
+                return std::to_string(static_cast<long double>(i));
+            }else{
+                return std::to_string(i);
+            }
+        },
+        [&](long double d)->std::string{
+            if(type::is_type<type::FType>(type)){
+                return type::ir_literal(std::to_string(d), std::get<type::BasicType>(type));
+            }else{
+                return std::to_string(d);
+            }
+        },
+    }, this->constant_value);
+}
 
 value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     output<<R"(target triple = "x86_64-unknown-linux-gnu")"<<std::endl;
@@ -346,7 +398,7 @@ value::Value* DoStmt::codegen(std::ostream& output, context::Context& c)const {
     return nullptr;
 }
 value::Value* CaseStmt::codegen(std::ostream& output, context::Context& c)const {
-    std::string case_val = std::to_string(std::stoull(this->label->literal));
+    std::string case_val = std::to_string(std::get<long long int>(this->label->constant_value));
     std::string case_label = "case."+std::to_string(c.switch_numbers.back())+"."+case_val;
     c.change_block(case_label, output, nullptr);
     stmt->codegen(output, c);
@@ -507,10 +559,9 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
         return variable;
     }else{
         auto value = c.add_global(this->name, this->type, assignment.has_value());
-        if(assignment.has_value()){
-            auto const_value = dynamic_cast<ast::Constant*>(assignment.value().get());
-            assert(const_value && "Global var must be initalized by literal");
-            global_decl_codegen(value, output, c, const_value->codegen(output,c));
+        if(this->assignment.has_value()){
+            auto def = c.add_literal(this->assignment.value()->compute_constant(this->type),this->type);
+            global_decl_codegen(value, output, c, def);
         }
         return value;
     }
@@ -518,7 +569,7 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
 
 value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    return c.add_literal(this->literal, this->type);
+    return c.add_literal(type::ir_literal(this->literal,std::get<type::BasicType>(this->type)), this->type);
 }
 value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");

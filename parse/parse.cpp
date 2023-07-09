@@ -372,7 +372,7 @@ std::unique_ptr<ast::CaseStmt> parse_case_stmt(lexer::Lexer& l){
     if(!token::matches_keyword(case_keyword, "case")){
         throw parse_error::ParseError("Expected keyword \"case\"", case_keyword);
     }
-    auto c = parse_constant(l);
+    auto c = parse_expr(l);
     check_token_type(l.get_token(), token::TokenType::Colon);
     auto body = parse_stmt(l);
     return std::make_unique<ast::CaseStmt>(case_keyword, std::move(c), std::move(body));

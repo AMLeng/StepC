@@ -194,7 +194,60 @@ int main(){
     program_pointer->analyze();
 }
 
+TEST_CASE("Constant expr evaluation"){
+    auto ss = std::stringstream(
+R"(
+int b = (!~-1 || 1/0) && 14;
+int main(){
+    int a[(((3+1)*2/4)-(-3))%4 +(+4 & 3^1 |2)]; //Evaluates to 4
+    return b;
+}
 
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("Switch statement const expr"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int a = 4;
+    switch(a){
+        case 3*2-1:
+            return 1;
+        case 8/3:
+            return 2;
+        case 7 & 12:
+            return 3;
+    }
+}
+
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("Switch statement const expr duplicate error"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    int a = 4;
+    switch(a){
+        case 3*2-1:
+            return 1;
+        case 8/9:
+            return 2;
+        case 6%2:
+            return 3;
+    }
+}
+
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
 
 
 
