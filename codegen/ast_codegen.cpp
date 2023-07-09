@@ -129,25 +129,6 @@ value::Value* other_bin_op_codegen(const ast::BinaryOp* node, std::ostream& outp
     right_register = codegen_utility::convert(node->new_right_type, std::move(right_register), output, c);
     return codegen_utility::bin_op_codegen(left_register, right_register, node->tok.type, node->type, output, c);
 }
-void global_pointer_type_codegen(const std::string& name, value::Value* def, std::ostream& output){
-    output << name <<" = dso_local global ptr ";
-    if(def){
-        output << def->get_value() << std::endl;
-    }else{
-        output << "null"<<std::endl;
-    }
-}
-void global_basic_type_codegen(const std::string& name, type::BasicType t, value::Value* def, std::ostream& output){
-    output << name <<" = dso_local global "<<type::ir_type(t)<<" ";
-    if(def){
-        output << def->get_value() << std::endl;
-    }else{
-        output << std::visit(overloaded{
-                [](type::IType){return "0";},
-                [](type::FType){return "0.0";},
-                }, t) << std::endl;
-    }
-}
 void global_func_type_codegen(const std::string& name, const type::FuncType& t, std::ostream& output){
     output << "declare "<<type::ir_type(t.return_type())<<" "<<name<<"(";
     if(t.has_prototype()){
@@ -166,28 +147,19 @@ void global_func_type_codegen(const std::string& name, const type::FuncType& t, 
     }
     output<<")";
 }
-void global_array_type_codegen(const std::string& name, value::Value* def, std::ostream& output){
-    //Sample code:
-    //@a = dso_local global [4 x i32] [i32 1, i32 2, i32 3, i32 4]
-    //@b = dso_local global [3 x i32] zeroinitializer
-    output << name <<" = dso_local global "<<type::ir_type(def->get_type())<<" ";
-    if(def){
-        output << def->get_value() << std::endl;
-    }else{
-        output << "zero_initializer"<<std::endl;
-    }
-}
-
-
 void global_decl_codegen(value::Value* value, std::ostream& output, context::Context& c, value::Value* def = nullptr){
     assert(type::is_type<type::PointerType>(value->get_type()) && "Variable types must be stored as pointers");
-    std::visit(type::make_visitor<void>(
-        [&](const type::BasicType& bt){global_basic_type_codegen(value->get_value(),bt, def, output);}, 
-        [](const type::VoidType& ){assert(false && "Cannot have variable of void type");}, 
-        [&](const type::PointerType& ){global_pointer_type_codegen(value->get_value(), def, output);}, 
-        [&](const type::ArrayType& ){global_array_type_codegen(value->get_value(), def, output);}, 
-        [&value, &output](const type::FuncType& ft){global_func_type_codegen(value->get_value(), ft, output);}
-    ), type::get<type::PointerType>(value->get_type()).pointed_type());
+    auto t = type::get<type::PointerType>(value->get_type()).pointed_type();
+    if(type::is_type<type::FuncType>(t)){
+        global_func_type_codegen(value->get_value(), type::get<type::FuncType>(t), output);
+    }else{
+        output << value->get_value() <<" = dso_local global "<<type::ir_type(t)<<" ";
+        if(def){
+            output << def->get_value() << std::endl;
+        }else{
+            output << codegen_utility::default_value(t)<<std::endl;
+        }
+    }
 }
 
 } //namespace
