@@ -34,6 +34,9 @@ bool is_lval(const ast::AST* node){
     if(auto p = dynamic_cast<const ast::Variable*>(node)){
         return !type::is_type<type::ArrayType>(p->type);
     }
+    if(auto p = dynamic_cast<const ast::StrLiteral*>(node)){
+        return true;
+    }
     if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
         if(p->tok.type == token::TokenType::Star){
             return true;
@@ -400,6 +403,14 @@ void Expr::initializer_analyze(type::CType& variable_type, symbol::STable* st){
             throw sem_error::FlowError("Global variable def must be constant",this->tok);
         }
     }
+    if(type::is_type<type::ArrayType>(variable_type) && type::is_type<type::ArrayType>(this->type)){
+        auto array_type = type::get<type::ArrayType>(variable_type);
+        auto expr_type = type::get<type::ArrayType>(this->type);
+        if(!array_type.is_complete() && expr_type.is_complete()){
+            array_type.set_size(expr_type.size());
+            variable_type = array_type;
+        }
+    }
 }
 void InitializerList::initializer_analyze(type::CType& variable_type, symbol::STable* st){
     if(type::is_type<type::ArrayType>(variable_type)){
@@ -709,6 +720,7 @@ void NullStmt::analyze(symbol::STable* st){
 }
 void StrLiteral::analyze(symbol::STable* st){
     this->analyzed = true;
+    this->type = type::ArrayType(type::IType::Char, this->literal.size());
 }
 void Constant::analyze(symbol::STable* st){
     this->analyzed = true;

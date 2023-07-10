@@ -52,11 +52,18 @@ StrLiteral::StrLiteral(std::vector<token::Token> toks) : Expr(toks.front()){
     char back;
     for(const auto& tok : toks){
         auto string = tok.value.substr(1,tok.value.size()-2);
+        back = string.back();
         for(int i=0; i<string.size(); i++){
             if(string.at(i) != '\\'){
                 ss << string.at(i);
             }else{
                 i++;
+                if(string.at(i) == '0'){
+                    //Hit an early null character
+                    ss << '\0';
+                    this->literal = ss.str();
+                    return;
+                }
                 if(escape_chars.find(string.at(i)) == escape_chars.end()){
                     throw parse_error::ParseError("Unknown escape sequence",tok);
                 }

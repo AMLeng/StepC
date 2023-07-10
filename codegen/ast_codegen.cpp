@@ -540,6 +540,8 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
 }
 
 value::Value* StrLiteral::codegen(std::ostream& output, context::Context& c)const {
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    assert(false && "Not yet implemented");
     return nullptr;
 }
 value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {

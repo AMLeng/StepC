@@ -282,6 +282,42 @@ int main(){
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
 }
+TEST_CASE("String literal address"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    char (*a)[25] = &"This is a string literal";
+}
+
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+TEST_CASE("String literal address error"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    char (*a)[24] = &"This is a string literal";
+}
+
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(),sem_error::TypeError);
+}
+TEST_CASE("String literal deduce size"){
+    auto ss = std::stringstream(
+R"(
+int main(){
+    char a[] = "This is a string literal";
+}
+
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
 
 
 
