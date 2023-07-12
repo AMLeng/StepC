@@ -222,7 +222,9 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
             expr_ptr =  parse_str_literal(l);
             break;
         case token::TokenType::Keyword:
-            assert(expr_start.value == "sizeof" && "Unknown keyword starting expression");
+            if(expr_start.value != "sizeof"){
+                throw parse_error::ParseError("Unknown keyword starting expression",expr_start);
+            }
             expr_ptr =  parse_sizeof(l);
             break;
     }
