@@ -399,7 +399,7 @@ void Expr::initializer_analyze(type::CType& variable_type, symbol::STable* st){
     }
     if(!st->in_function()){
         //If not in function, is global and needs to be constant
-        if(std::holds_alternative<std::monostate>(this->constant_value)){
+        if(std::holds_alternative<std::monostate>(this->constant_value) && !dynamic_cast<ast::StrLiteral*>(this)){
             throw sem_error::FlowError("Global variable def must be constant",this->tok);
         }
     }

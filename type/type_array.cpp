@@ -1,4 +1,6 @@
 #include "type.h"
+#include <sstream>
+#include <map>
 namespace type{
 
 DerivedType::DerivedType(ArrayType p) 
@@ -35,6 +37,24 @@ bool ArrayType::operator !=(const ArrayType& other) const{
 }
 std::unique_ptr<PointerType> ArrayType::copy() const{
     return std::make_unique<ArrayType>(*this);
+}
+std::string ir_literal(const std::string& c_literal){
+    static const std::map<char, std::string> special_chars = {{
+        {'\a',"\\07"},{'\b',"\\08"},{'\f',"\\0C"},{'\n',"\\0A"},
+        {'\r',"\\0D"},{'\t',"\\09"},{'\v',"\\0B"},{'\\',"\\5C"},
+        {'\'',"\\27"},{'\"',"\\22"},{'\?',"\\3F"},{'\0',"\\00"}
+    }};
+    auto ss = std::stringstream{};
+    ss << "c\"";
+    for(const auto& c : c_literal){
+        if(special_chars.find(c) != special_chars.end()){
+            ss << special_chars.at(c);
+        }else{
+            ss << c;
+        }
+    }
+    ss << "\"";
+    return ss.str();
 }
 void ArrayType::set_size(int size){
     if(size < 0){

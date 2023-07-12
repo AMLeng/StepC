@@ -145,7 +145,7 @@ void global_func_type_codegen(const std::string& name, const type::FuncType& t, 
     }else{
         output<<"...";
     }
-    output<<")";
+    output<<")"<<std::endl;
 }
 void global_decl_codegen(value::Value* value, std::ostream& output, context::Context& c, value::Value* def = nullptr){
     assert(type::is_type<type::PointerType>(value->get_type()) && "Variable types must be stored as pointers");
@@ -160,6 +160,11 @@ void global_decl_codegen(value::Value* value, std::ostream& output, context::Con
             output << codegen_utility::default_value(t)<<std::endl;
         }
     }
+}
+void string_codegen(value::Value* value, std::string literal, std::ostream& output, context::Context& c){
+    auto t = type::get<type::PointerType>(value->get_type()).pointed_type();
+    output << value->get_value() <<" = private unnamed_addr constant "<<type::ir_type(t);
+    output << type::ir_literal(literal) <<std::endl;
 }
 
 } //namespace
@@ -226,6 +231,10 @@ value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     auto undefined_symbols = c.undefined_globals();
     for(const auto& value : undefined_symbols){
         global_decl_codegen(value, output, c);
+    }
+    auto strings = c.undefined_strings();
+    for(const auto& pair : strings){
+        string_codegen(pair.first, pair.second, output, c);
     }
     return nullptr;
 }
@@ -315,7 +324,7 @@ value::Value* FunctionDef::codegen(std::ostream& output, context::Context& c)con
     for(const auto& p : params){
         param_types.push_back(p->type);
     }
-    c.enter_function(f_type.return_type(), param_types, output); 
+    c.enter_function(this->name, f_type.return_type(), param_types, output); 
     for(int i = 0; i < params.size(); i++){
         auto memory_var = params.at(i)->codegen(output, c);
         auto passed_val = c.prev_temp(params.size()-1-i);
@@ -526,14 +535,24 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
         AST::print_whitespace(c.depth(), output);
         output << variable->get_value() <<" = alloca "<<type::ir_type(type) <<std::endl;
         if(this->assignment.has_value()){
-            this->assignment.value()->initializer_codegen(variable, output, c);
+            if(auto str = dynamic_cast<ast::StrLiteral*>(this->assignment.value().get())){
+                auto literal = c.add_literal(type::ir_literal(str->literal), this->type);
+                codegen_utility::make_store(literal,variable, output, c);
+            }else{
+                this->assignment.value()->initializer_codegen(variable, output, c);
+            }
         }
         return variable;
     }else{
-        auto value = c.add_global(this->name, this->type, assignment.has_value());
+            auto value = c.add_global(this->name, this->type, assignment.has_value());
         if(this->assignment.has_value()){
-            auto def = c.add_literal(this->assignment.value()->compute_constant(this->type),this->type);
-            global_decl_codegen(value, output, c, def);
+            if(auto str = dynamic_cast<ast::StrLiteral*>(this->assignment.value().get())){
+                auto def_value = value::Value(type::ir_literal(str->literal),this->type);
+                global_decl_codegen(value, output, c, &def_value);
+            }else{
+                auto def = c.add_literal(this->assignment.value()->compute_constant(this->type),this->type);
+                global_decl_codegen(value, output, c, def);
+            }
         }
         return value;
     }
@@ -541,12 +560,12 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
 
 value::Value* StrLiteral::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    assert(false && "Not yet implemented");
-    return nullptr;
+    //To be generated later
+    return c.add_string(this->literal, this->type);
 }
 value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    return c.add_literal(type::ir_literal(this->literal,std::get<type::BasicType>(this->type)), this->type);
+    return c.add_literal(type::ir_literal(this->literal,type::get<type::BasicType>(this->type)), this->type);
 }
 value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
