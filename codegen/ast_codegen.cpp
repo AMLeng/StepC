@@ -563,6 +563,10 @@ value::Value* StrLiteral::codegen(std::ostream& output, context::Context& c)cons
     //To be generated later
     return c.add_string(this->literal, this->type);
 }
+value::Value* Sizeof::codegen(std::ostream& output, context::Context& c)const {
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    return c.add_literal(std::to_string(size(arg->type)), this->type);
+}
 value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     return c.add_literal(type::ir_literal(this->literal,type::get<type::BasicType>(this->type)), this->type);

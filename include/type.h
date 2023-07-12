@@ -81,8 +81,8 @@ public:
     bool operator ==(const ArrayType& other) const;
     bool operator !=(const ArrayType& other) const;
     std::unique_ptr<PointerType> copy() const override;
-    void set_size(int size);
-    int size() const;
+    void set_size(long long int size);
+    long long int size() const;
     bool is_complete() const;
     friend bool is_compatible(const ArrayType& type1, const ArrayType& type2);
 };
@@ -138,7 +138,7 @@ BasicType from_str(const std::string& type);
 bool promote_one_rank(IType& type);
 IType to_unsigned(IType type); 
 bool can_represent(IType type, unsigned long long int value);
-int size(const CType& type);
+long long int size(const CType& type);
 std::string ir_literal(const std::string& c_literal,BasicType type);
 std::string ir_literal(const std::string& c_literal);
 

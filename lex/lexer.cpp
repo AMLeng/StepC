@@ -29,6 +29,7 @@ bool is_keyword(const std::string& word){
         || word == "double"
         || word == "signed"
         || word == "unsigned"
+        || word == "sizeof"
         || word == "_Bool";
 }
 

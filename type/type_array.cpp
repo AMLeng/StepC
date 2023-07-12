@@ -56,7 +56,7 @@ std::string ir_literal(const std::string& c_literal){
     ss << "\"";
     return ss.str();
 }
-void ArrayType::set_size(int size){
+void ArrayType::set_size(long long int size){
     if(size < 0){
         throw std::runtime_error("Cannot have array of negative size");
     }
@@ -65,7 +65,7 @@ void ArrayType::set_size(int size){
     }
     allocated_size = size;
 }
-int ArrayType::size() const{
+long long int ArrayType::size() const{
     if(!allocated_size.has_value()){
         throw std::runtime_error("Size of array is undetermined");
     }

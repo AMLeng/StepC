@@ -98,7 +98,7 @@ std::string ir_type(const CType& type){
         [](const ArrayType& at){return at.ir_type();}
     ), type);
 }
-int size(const CType& type){
+long long int size(const CType& type){
     return std::visit(make_visitor<int>(
         [](VoidType v){return 0;},
         [](BasicType bt){return byte_size(bt);},

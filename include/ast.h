@@ -301,6 +301,14 @@ struct ArrayAccess : public Expr{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct Sizeof : public Expr{
+    std::unique_ptr<Expr> arg;
+    Sizeof(token::Token tok, std::unique_ptr<Expr> arg) :
+        Expr(tok), arg(std::move(arg)) {}
+    void analyze(symbol::STable* st) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct FuncCall : public Expr{
     std::unique_ptr<Expr> func;
     std::vector<std::unique_ptr<Expr>> args;

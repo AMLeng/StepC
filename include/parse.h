@@ -5,6 +5,7 @@
 #include <memory>
 namespace parse{
 std::unique_ptr<ast::Constant> parse_constant(lexer::Lexer& l);
+std::unique_ptr<ast::Sizeof> parse_sizeof(lexer::Lexer& l);
 std::unique_ptr<ast::StrLiteral> parse_str_literal(lexer::Lexer& l);
 std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::Lexer& l);
 std::unique_ptr<ast::BinaryOp> parse_binary_op(lexer::Lexer& l, std::unique_ptr<ast::Expr> left, int min_bind_power);

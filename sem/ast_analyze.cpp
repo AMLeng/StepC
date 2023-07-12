@@ -374,12 +374,6 @@ ConstantExprType compute_binary_constant(ConstantExprType left, ConstantExprType
 
 void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
-    //Add symbol to symbol table, check that not already present
-    try{
-        st->add_symbol(this->name,this->type, this->assignment.has_value());
-    }catch(std::runtime_error& e){
-        throw sem_error::STError(e.what(),this->tok);
-    }
     if(type::is_type<type::ArrayType>(this->type)){
         auto array_type = type::get<type::ArrayType>(this->type);
         if(!this->assignment.has_value() && !array_type.is_complete()){
@@ -389,6 +383,12 @@ void VarDecl::analyze(symbol::STable* st) {
     //If we have a declaration attached
     if(this->assignment.has_value()){
         this->assignment.value()->initializer_analyze(this->type, st);
+    }
+    //Add symbol to symbol table, check that not already present
+    try{
+        st->add_symbol(this->name,this->type, this->assignment.has_value());
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
     }
 }
 void Expr::initializer_analyze(type::CType& variable_type, symbol::STable* st){
@@ -477,6 +477,12 @@ void Conditional::analyze(symbol::STable* st){
             }
         },
     }, this->cond->constant_value);
+}
+void Sizeof::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    this->type = type::IType::LLong;
+    this->constant_value = size(arg->type);
 }
 void FuncCall::analyze(symbol::STable* st) {
     this->analyzed = true;

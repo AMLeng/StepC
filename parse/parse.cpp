@@ -154,6 +154,13 @@ std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique
     return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
 }
 
+std::unique_ptr<ast::Sizeof> parse_sizeof(lexer::Lexer& l){
+    auto tok = l.get_token();
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    auto arg = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    return std::make_unique<ast::Sizeof>(tok, std::move(arg));
+}
 std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l, std::unique_ptr<ast::Expr> func){
     auto tok = l.get_token();
     check_token_type(tok, token::TokenType::LParen);
@@ -213,6 +220,10 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
             break;
         case token::TokenType::StrLiteral:
             expr_ptr =  parse_str_literal(l);
+            break;
+        case token::TokenType::Keyword:
+            assert(expr_start.value == "sizeof" && "Unknown keyword starting expression");
+            expr_ptr =  parse_sizeof(l);
             break;
     }
     if(expr_ptr == nullptr){
@@ -358,7 +369,7 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "default")){
         return parse_default_stmt(l);
     }
-    if(next_token.type == token::TokenType::Keyword){
+    if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, "sizeof")){
         throw parse_error::ParseError("Unknown keyword in statement beginning", next_token);
     }
     if(next_token.type == token::TokenType::LBrace){
