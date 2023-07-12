@@ -43,11 +43,16 @@ value::Value* convert(type::BasicType target_type, value::Value* val,
         if(type::is_type<type::FType>(target_type)){
             assert(false && "Tried to convert pointer to float");
         }
-        auto new_tmp = c.new_temp(target_type);
-        print_whitespace(c.depth(), output);
-        output << new_tmp->get_value() <<" = ptrtoint "<<type::ir_type(val->get_type());
-        output << " "<<val->get_value()<<" to "<<type::ir_type(new_tmp->get_type())<<std::endl;
-        return new_tmp;
+        if(target_type == type::BasicType(type::IType::Bool)){
+            auto first_stage = convert(type::IType::LLong, val, output, c);
+            return convert(type::IType::Bool, first_stage, output, c);
+        }else{
+            auto new_tmp = c.new_temp(target_type);
+            print_whitespace(c.depth(), output);
+            output << new_tmp->get_value() <<" = ptrtoint "<<type::ir_type(val->get_type());
+            output << " "<<val->get_value()<<" to "<<type::ir_type(new_tmp->get_type())<<std::endl;
+            return new_tmp;
+        }
     }
     if(!std::holds_alternative<type::BasicType>(val->get_type())){
         assert(false && "Tried to convert non-basic, non-pointer type to basic type");
