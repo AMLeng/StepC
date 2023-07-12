@@ -95,6 +95,16 @@ type::CType parse_specifiers(lexer::Lexer& l){
     }
 }
 //Definitions for parsing methods
+std::unique_ptr<ast::StrLiteral> parse_str_literal(lexer::Lexer& l){
+    auto literals = std::vector<token::Token>{};
+    if(l.peek_token().type != token::TokenType::StrLiteral){
+        throw parse_error::ParseError("Expected string",l.peek_token());
+    }
+    do{
+        literals.push_back(l.get_token());
+    }while(l.peek_token().type == token::TokenType::StrLiteral);
+    return std::make_unique<ast::StrLiteral>(literals);
+}
 std::unique_ptr<ast::Constant> parse_constant(lexer::Lexer& l){
     auto constant_value = l.get_token();
     if(!token::matches_type(constant_value, 
@@ -144,6 +154,13 @@ std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique
     return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
 }
 
+std::unique_ptr<ast::Sizeof> parse_sizeof(lexer::Lexer& l){
+    auto tok = l.get_token();
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    auto arg = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    return std::make_unique<ast::Sizeof>(tok, std::move(arg));
+}
 std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l, std::unique_ptr<ast::Expr> func){
     auto tok = l.get_token();
     check_token_type(tok, token::TokenType::LParen);
@@ -159,6 +176,13 @@ std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l, std::unique_
     return std::make_unique<ast::FuncCall>(tok, std::move(func), std::move(args));
 }
 
+std::unique_ptr<ast::ArrayAccess> parse_array_access(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
+    auto op_token = l.get_token();
+    check_token_type(op_token, token::TokenType::LBrack);
+    auto index = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RBrack);
+    return std::make_unique<ast::ArrayAccess>(op_token,std::move(arg), std::move(index));
+}
 std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
     auto op_token = l.get_token();
     if(!token::matches_type(op_token,
@@ -194,6 +218,15 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
             expr_ptr = parse_expr(l);
             check_token_type(l.get_token(), token::TokenType::RParen);
             break;
+        case token::TokenType::StrLiteral:
+            expr_ptr =  parse_str_literal(l);
+            break;
+        case token::TokenType::Keyword:
+            if(expr_start.value != "sizeof"){
+                throw parse_error::ParseError("Unknown keyword starting expression",expr_start);
+            }
+            expr_ptr =  parse_sizeof(l);
+            break;
     }
     if(expr_ptr == nullptr){
         throw parse_error::ParseError("Expected beginning of expression",l.peek_token());
@@ -213,6 +246,14 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
                 break;
             }
             expr_ptr = parse_function_call(l, std::move(expr_ptr));
+            continue;
+        }
+        if(potential_op_token.type == token::TokenType::LBrack){
+            //postfix array access
+            if(unary_op_binding_power+1 < min_bind_power){
+                break;
+            }
+            expr_ptr = parse_array_access(l, std::move(expr_ptr));
             continue;
         }
         if(potential_op_token.type == token::TokenType::Plusplus ||
@@ -330,7 +371,7 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l){
     if(next_token.type == token::TokenType::Keyword && token::matches_keyword(next_token, "default")){
         return parse_default_stmt(l);
     }
-    if(next_token.type == token::TokenType::Keyword){
+    if(next_token.type == token::TokenType::Keyword && !token::matches_keyword(next_token, "sizeof")){
         throw parse_error::ParseError("Unknown keyword in statement beginning", next_token);
     }
     if(next_token.type == token::TokenType::LBrace){
@@ -357,7 +398,7 @@ std::unique_ptr<ast::CaseStmt> parse_case_stmt(lexer::Lexer& l){
     if(!token::matches_keyword(case_keyword, "case")){
         throw parse_error::ParseError("Expected keyword \"case\"", case_keyword);
     }
-    auto c = parse_constant(l);
+    auto c = parse_expr(l);
     check_token_type(l.get_token(), token::TokenType::Colon);
     auto body = parse_stmt(l);
     return std::make_unique<ast::CaseStmt>(case_keyword, std::move(c), std::move(body));
@@ -471,33 +512,51 @@ std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::RBrace);
     return std::make_unique<ast::CompoundStmt>(std::move(stmt_body));
 }
+std::unique_ptr<ast::InitializerList> parse_initializer_list(lexer::Lexer& l){
+    auto inits = std::vector<std::unique_ptr<ast::Initializer>>{};
+    auto tok = l.get_token();
+    check_token_type(tok, token::TokenType::LBrace);
+    while(l.peek_token().type != token::TokenType::RBrace){
+        if(l.peek_token().type == token::TokenType::LBrace){
+            inits.push_back(parse_initializer_list(l));
+        }else{
+            inits.push_back(parse_expr(l,binary_op_binding_power.at(token::TokenType::Assign).second));
+        }
+        if(token::matches_type(l.peek_token(),token::TokenType::RBrace)){
+            break;
+        }
+        check_token_type(l.get_token(), token::TokenType::Comma);
+    }
+    check_token_type(l.get_token(), token::TokenType::RBrace);
+    return std::make_unique<ast::InitializerList>(tok, std::move(inits));
+}
 std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarator){
     auto var_name = declarator.first.value();
     check_token_type(var_name, token::TokenType::Identifier);
     if(l.peek_token().type == token::TokenType::Assign){
-        return std::visit(type::make_visitor<std::unique_ptr<ast::Decl>>(
-                [&var_name](type::VoidType vt){
-                    throw sem_error::TypeError("Invalid type 'void'", var_name);},
-                [&var_name,&l,bind = binary_op_binding_power.at(token::TokenType::Assign).second](type::BasicType bt){
-                    auto assign = parse_binary_op(l,std::make_unique<ast::Variable>(var_name),bind);
-                    return std::make_unique<ast::VarDecl>(var_name, bt, std::move(assign));},
-                [&var_name,&l,bind = binary_op_binding_power.at(token::TokenType::Assign).second](type::PointerType pt){
-                    auto assign = parse_binary_op(l,std::make_unique<ast::Variable>(var_name),bind);
-                    return std::make_unique<ast::VarDecl>(var_name, pt, std::move(assign));},
-                 [&var_name](type::FuncType ft){
-                     throw sem_error::TypeError("Invalid assignment to function type", var_name);}
-                ), declarator.second);
+        if(type::is_type<type::VoidType>(declarator.second)){
+            throw sem_error::TypeError("Invalid type 'void'", var_name);
+        }
+        if(type::is_type<type::FuncType>(declarator.second)){
+            throw sem_error::TypeError("Invalid assignment to function type", var_name);
+        }
+        l.get_token();
+        if(l.peek_token().type == token::TokenType::LBrace){
+            auto assign = parse_initializer_list(l);
+            return std::make_unique<ast::VarDecl>(var_name, declarator.second, std::move(assign));
+        }else{
+            auto assign = parse_expr(l,binary_op_binding_power.at(token::TokenType::Assign).second);
+            return std::make_unique<ast::VarDecl>(var_name, declarator.second, std::move(assign));
+        }
     }else{
-        return std::visit(type::make_visitor<std::unique_ptr<ast::Decl>>(
-            [&var_name](type::BasicType bt){
-                return std::make_unique<ast::VarDecl>(var_name, bt);},
-            [&var_name](type::VoidType vt){
-                throw sem_error::TypeError("Invalid type 'void'", var_name);},
-            [&var_name](type::FuncType ft){
-                return std::make_unique<ast::FunctionDecl>(var_name, ft);},
-            [&var_name](type::PointerType pt){
-                return std::make_unique<ast::VarDecl>(var_name, pt);}
-            ), declarator.second);
+        if(type::is_type<type::VoidType>(declarator.second)){
+            throw sem_error::TypeError("Invalid type 'void'", var_name);
+        }
+        if(type::is_type<type::FuncType>(declarator.second)){
+            return std::make_unique<ast::FunctionDecl>(var_name, type::get<type::FuncType>(declarator.second));
+        }else{
+            return std::make_unique<ast::VarDecl>(var_name, declarator.second);
+        }
     }
 }
 

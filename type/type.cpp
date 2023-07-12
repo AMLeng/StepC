@@ -93,8 +93,18 @@ std::string ir_type(const CType& type){
     return std::visit(make_visitor<std::string>(
         [](VoidType v)->std::string{return "void";},
         [](BasicType bt)->std::string{return ir_type(bt);},
-        [](const FuncType& ft){return ir_type(ft);},
-        [](const PointerType& ft){return ir_type(ft);}
+        [](const FuncType& ft){return ft.ir_type();},
+        [](const PointerType& pt){return pt.ir_type();},
+        [](const ArrayType& at){return at.ir_type();}
+    ), type);
+}
+long long int size(const CType& type){
+    return std::visit(make_visitor<int>(
+        [](VoidType v){return 0;},
+        [](BasicType bt){return byte_size(bt);},
+        [](const FuncType& ft){throw std::runtime_error("Cannot take size of function type");},
+        [](const PointerType& pt){return 8;},
+        [](const ArrayType& at){return at.size()*type::size(at.pointed_type());}
     ), type);
 }
 

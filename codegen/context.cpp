@@ -62,6 +62,22 @@ value::Value* Context::add_global(std::string name, type::CType type, bool defin
     }
     return global_sym_map.at(name).first.get();
 }
+value::Value* Context::add_string(std::string s, type::CType type){
+    std::string name = "@__const.";
+    if(this->in_function()){
+        name += this->current_function->function_name+".";
+    }
+    name += std::to_string(string_map.size());
+    auto emplace_pair = string_map.emplace(s,std::make_unique<value::Value>(name,type::PointerType(type)));
+    return string_map.at(s).get();
+}
+std::vector<std::pair<value::Value*,std::string>> Context::undefined_strings() const{
+    auto undefined_symbols = std::vector<std::pair<value::Value*,std::string>>{};
+    for(const auto& map_pair : string_map){
+        undefined_symbols.emplace_back(map_pair.second.get(),map_pair.first);
+    }
+    return undefined_symbols;
+}
 std::vector<value::Value*> Context::undefined_globals() const{
     auto undefined_symbols = std::vector<value::Value*>{};
     for(const auto& map_pair : global_sym_map){
@@ -102,9 +118,9 @@ void Context::exit_scope(){
     current_scope = current_scope->parent;
     current_scope->children.pop_back();
 }
-void Context::enter_function(type::CType t, const std::vector<type::CType>& params, std::ostream& output){
+void Context::enter_function(std::string name, type::CType t, const std::vector<type::CType>& params, std::ostream& output){
     assert(!current_scope && !current_function && "Cannot enter function from local scope");
-    current_function = std::make_unique<FunctionScope>(t);
+    current_function = std::make_unique<FunctionScope>(name, t);
     current_scope = current_function.get();
     output<<"(";
     if(params.size() > 0){

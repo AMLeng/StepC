@@ -21,6 +21,9 @@ FuncType::FuncType(CType ret, std::vector<CType> param, bool variadic)
 FuncType::FuncType(CType ret)
     : ret_type(ret), prototype(std::nullopt) {
 };
+std::unique_ptr<FuncType> FuncType::copy() const{
+    return std::make_unique<FuncType>(*this);
+}
 bool FuncType::has_prototype() const{
     return prototype.has_value();
 }
@@ -109,23 +112,23 @@ std::string FuncType::to_string(const FuncType::FuncPrototype& t){
     s += ")";
     return s;
 }
-std::string to_string(const FuncType& t){
-    if(t.prototype.has_value()){
-        return "function on " + FuncType::to_string(t.prototype.value()) + " returning "+to_string(t.ret_type);
+std::string FuncType::to_string() const{
+    if(this->prototype.has_value()){
+        return "function on " + FuncType::to_string(this->prototype.value()) + " returning "+type::to_string(this->ret_type);
     }else{
-        return "function with unknown args returning "+to_string(t.ret_type);
+        return "function with unknown args returning "+type::to_string(this->ret_type);
     }
 }
-std::string ir_type(const FuncType& type){
-    std::string s = ir_type(type.ret_type)+"(";
-    if(type.prototype.has_value()){
-        auto t = type.prototype.value();
+std::string FuncType::ir_type() const{
+    std::string s = type::ir_type(this->ret_type)+"(";
+    if(this->prototype.has_value()){
+        auto t = this->prototype.value();
         if(t.param_types.size() > 0){
             for(int i=0; i<t.param_types.size()-1; i++){
-                s += ir_type(t.param_types.at(i));
+                s += type::ir_type(t.param_types.at(i));
                 s+= ",";
             }
-            s += ir_type(t.param_types.back());
+            s += type::ir_type(t.param_types.back());
             if(t.variadic){
                 s+=",...";
             }

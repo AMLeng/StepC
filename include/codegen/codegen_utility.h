@@ -23,6 +23,7 @@ void make_store(value::Value* val, value::Value* reg, std::ostream& output, cont
 value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::TokenType op_type, type::CType result_type,
     std::ostream& output, context::Context& c);
 
+std::string default_value(type::CType type);
 
 }//namespace codegen_utility
 #endif

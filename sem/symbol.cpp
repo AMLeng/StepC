@@ -115,8 +115,8 @@ bool STable::has_symbol(std::string name){
     return false;
 }
 
-type::CType STable::symbol_type(std::string name){
-    STable* to_search = this;
+type::CType STable::symbol_type(std::string name) const{
+    const STable* to_search = this;
     while(to_search != nullptr){
         if(to_search->sym_map.find(name) != to_search->sym_map.end()){
             return to_search->sym_map.at(name).first;

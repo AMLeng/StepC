@@ -79,6 +79,22 @@ namespace{
                 std::make_pair([](type::CType t){return type::PointerType(t);},tok)
             );
         }
+        void add_array(token::Token tok, std::vector<std::optional<int>> sizes){ 
+            if(unapplied.at(index).size() > 0 ){
+                auto prev_type = unapplied.at(index).back().second.type;
+                if(prev_type == token::TokenType::LParen){
+                    throw parse_error::ParseError("Array element cannot have function type",tok);
+                }
+            }
+            unapplied.at(index).push_back(
+                std::make_pair([=](type::CType t){
+                    for(int i=sizes.size()-1; i>=0; i--){
+                        t =  type::ArrayType(t, sizes.at(i));
+                    }
+                    return t;
+                },tok)
+            );
+        }
         void add_func(std::pair<std::vector<Declarator>,bool>&& parsed_param_list, token::Token tok){ 
             if(index == unapplied.size()-1 && ident.has_value()){
                 //If this is the parameter list immediately following the identifier at the deepest level we've seen
@@ -150,7 +166,33 @@ namespace{
                 parse_declarator_helper(l,builder);
                 return;
             case token::TokenType::LBrack:
-                throw parse_error::ParseError("Unexpected token when parsing declarator", next_tok);
+                {
+                auto lbrack = l.peek_token();
+                auto sizes = std::vector<std::optional<int>>{};
+                while(l.peek_token().type == token::TokenType::LBrack){
+                    l.get_token();
+                    std::optional<int> size = std::nullopt;
+                    if(l.peek_token().type != token::TokenType::RBrack){
+                        auto expr = parse_expr(l);
+                        auto temp_st = symbol::GlobalTable();
+                        expr->analyze(&temp_st);
+                        if(!std::holds_alternative<long long int>(expr->constant_value)){
+                            throw sem_error::TypeError("Invalid constant integer expr for array size", expr->tok);
+                        }
+                        size = std::get<long long int>(expr->constant_value);
+                    }
+                    sizes.push_back(size);
+                    check_token_type(l.get_token(),token::TokenType::RBrack);
+                }
+                for(int i=1; i<sizes.size(); i++){
+                    if(!sizes.at(i).has_value()){
+                        throw sem_error::TypeError("Cannot have inner nested array of indeterminate size", l.peek_token());
+                    }
+                }
+                builder.add_array(lbrack, sizes);
+                parse_declarator_helper(l,builder);
+                return;
+                }
             default:
                 return;
         }
@@ -160,7 +202,8 @@ namespace{
         //This does not parse declarators for function definitions
         auto builder = TypeBuilder();
         parse_declarator_helper(l,builder);
-        return builder.build_declarator(type);
+        auto ret =  builder.build_declarator(type);
+        return ret;
     }
 } //namespace
 
@@ -194,6 +237,10 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
         if(type::is_type<type::FuncType>(declarators.back().second)){
             declarators.back().second = type::PointerType(declarators.back().second);
         }
+        if(type::is_type<type::ArrayType>(declarators.back().second)){
+            //Splice array type to just be a pointer
+            declarators.back().second = type::get<type::PointerType>(declarators.back().second);
+        }
         if(declarators.back().first.has_value() &&names.insert(declarators.back().first.value().value).second == false){
             throw sem_error::STError("Duplicate variable name in function parameter list",declarators.back().first.value());
         }
@@ -225,7 +272,7 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
 }
 
 std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, Declarator func){
-    auto param_decls = std::vector<std::unique_ptr<ast::Decl>>{};
+    auto param_decls = std::vector<std::unique_ptr<ast::VarDecl>>{};
     for(const auto& param_declarator: params){
         if(!param_declarator.first.has_value()){
             if(params.size() > 1 || !type::is_type<type::VoidType>(param_declarator.second)){

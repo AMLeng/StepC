@@ -29,6 +29,7 @@ bool is_keyword(const std::string& word){
         || word == "double"
         || word == "signed"
         || word == "unsigned"
+        || word == "sizeof"
         || word == "_Bool";
 }
 
@@ -73,6 +74,8 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {'>',token::TokenType::Greater},
     {':',token::TokenType::Colon},
     {'?',token::TokenType::Question},
+    {'[',token::TokenType::LBrack},
+    {']',token::TokenType::RBrack},
 }};
 
 } //namespace
@@ -152,9 +155,54 @@ token::Token Lexer::read_token_from_stream() {
         return Lexer::LexingSubmethods::lex_numeric_literals(*this);
     }
 
-    //More complicated cases
     std::pair<int, int> starting_position = current_pos;
     std::string token_value = "";
+    //String literals
+    if(c == '"'){
+        advance_input(token_value, c);
+        while(c != '"'){
+            if(c == '\\'){
+                advance_input(token_value, c);
+            }
+            if(c == EOF){
+                throw lexer_error::InvalidLiteral("Reached EOF in string literal", token_value, c, starting_position);
+            }
+            advance_input(token_value, c);
+        }
+        advance_input(token_value, c);
+        return create_token(token::TokenType::StrLiteral, token_value, starting_position, current_pos, current_line);
+    }
+
+    //More complicated cases
+    if(c == '/'){
+        advance_input(token_value, c);
+        if(c == '/'){
+            advance_input(token_value, c);
+            while(current_pos.first == starting_position.first){
+                advance_input(token_value, c);
+            }
+            return create_token(token::TokenType::COMMENT, token_value, starting_position, current_pos, current_line);
+        }
+        if(c == '*'){
+            advance_input(token_value, c);
+            while(true){
+                if(c == '*'){
+                    advance_input(token_value, c);
+                    if(c == '/'){
+                        advance_input(token_value, c);
+                        return create_token(token::TokenType::COMMENT, token_value, starting_position, current_pos, current_line);
+                    }
+                }else{
+                    advance_input(token_value, c);
+                }
+            }
+        }
+        if(c == '='){
+            advance_input(token_value, c);
+            return create_token(token::TokenType::DivAssign, token_value, starting_position, current_pos, current_line);
+        }
+        return create_token(token::TokenType::Div, token_value, starting_position, current_pos, current_line);
+    }
     if(c == '.'){
         advance_input(token_value, c);
         if(c == '.'){

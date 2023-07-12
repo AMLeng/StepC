@@ -43,10 +43,16 @@ value::Value* convert(type::BasicType target_type, value::Value* val,
         if(type::is_type<type::FType>(target_type)){
             assert(false && "Tried to convert pointer to float");
         }
-        auto new_tmp = c.new_temp(target_type);
-        output << new_tmp->get_value() <<" = ptrtoint "<<type::ir_type(val->get_type());
-        output << " "<<val->get_value()<<" to "<<type::ir_type(new_tmp->get_type())<<std::endl;
-        return new_tmp;
+        if(target_type == type::BasicType(type::IType::Bool)){
+            auto first_stage = convert(type::IType::LLong, val, output, c);
+            return convert(type::IType::Bool, first_stage, output, c);
+        }else{
+            auto new_tmp = c.new_temp(target_type);
+            print_whitespace(c.depth(), output);
+            output << new_tmp->get_value() <<" = ptrtoint "<<type::ir_type(val->get_type());
+            output << " "<<val->get_value()<<" to "<<type::ir_type(new_tmp->get_type())<<std::endl;
+            return new_tmp;
+        }
     }
     if(!std::holds_alternative<type::BasicType>(val->get_type())){
         assert(false && "Tried to convert non-basic, non-pointer type to basic type");
@@ -98,11 +104,20 @@ value::Value* convert(type::PointerType target_type, value::Value* val,
 } //namespace
 
 void print_whitespace(int depth, std::ostream& output){
-    for(int i=0; i<depth; i++){
+    if(depth > 0){
         output << "  ";
     }
 }
-
+std::string default_value(type::CType type){
+    return std::visit(type::make_visitor<std::string>(
+                [](const type::IType& i){return "0";},
+                [](const type::FType& f){return "0.0";},
+                [](const type::VoidType& v){return "void";},
+                [](const type::ArrayType& ){return "zeroinitializer";},
+                [](const type::PointerType& p){return "null";},
+                [](const type::FuncType& ){throw std::runtime_error("No default function value");}
+                ), type);
+}
 value::Value* convert(type::CType target_type, value::Value* val, 
         std::ostream& output, context::Context& c){
     if(!type::can_cast(val->get_type(),target_type)){
@@ -118,15 +133,20 @@ value::Value* convert(type::CType target_type, value::Value* val,
 value::Value* make_command(type::CType t, std::string command, value::Value* left, value::Value* right, 
     std::ostream& output, context::Context& c){
     //Perhaps confusingly, note that the type specified is always the type of the left operand
+    auto lt = left->get_type();
+    if(type::is_type<type::ArrayType>(lt)){
+        lt = type::get<type::ArrayType>(lt).pointed_type();
+    }
     print_whitespace(c.depth(), output);
     auto new_temp = c.new_temp(t);
-    output << new_temp->get_value()<<" = "<<command<<" "<<type::ir_type(left->get_type())<<" " << left->get_value() <<", "<< right->get_value()<<std::endl;
+    output << new_temp->get_value()<<" = "<<command<<" "<<type::ir_type(lt)<<" " << left->get_value() <<", "<< right->get_value()<<std::endl;
     return new_temp;
 }
 //Basically returns result = *data_pointer
 value::Value* make_load(value::Value* data_pointer, std::ostream& output, context::Context& c){
     assert(type::is_type<type::PointerType>(data_pointer->get_type()) && "Can only load from a pointer");
-    auto result_type = type::get<type::PointerType>(data_pointer->get_type()).pointed_type();
+    auto result_type = type::get<type::PointerType>(data_pointer->get_type()).element_type();
+    //Loads the pointed type, unless it's an array in which case we get the element instead
     if(type::is_type<type::FuncType>(result_type)){
         //Loading from a function pointer just gives back the function pointer
         return data_pointer;

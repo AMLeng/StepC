@@ -8,9 +8,9 @@ project(IncrementalC
     LANGUAGES 
         CXX
 )
-
+set(CMAKE_CXX_FLAGS "-Wno-psabi")
 add_library(type
-    type/type_basic.cpp type/type_func.cpp type/type_derived.cpp type/type_pointer.cpp type/type.cpp 
+    type/type_basic.cpp type/type_func.cpp type/type_derived.cpp type/type_pointer.cpp type/type_array.cpp type/type.cpp 
 )
 add_library (codegen_utils
     codegen/codegen_utility.cpp codegen/binary_operator_codegen.cpp
@@ -60,6 +60,10 @@ target_link_libraries(stage_9_tests PRIVATE Catch2::Catch2WithMain core)
 add_executable(stage_10_tests tests/stage_10_tests.cpp)
 set_target_properties(stage_10_tests PROPERTIES SUFFIX ".out")
 target_link_libraries(stage_10_tests PRIVATE Catch2::Catch2WithMain core)
+
+add_executable(stage_11_tests tests/stage_11_tests.cpp)
+set_target_properties(stage_11_tests PROPERTIES SUFFIX ".out")
+target_link_libraries(stage_11_tests PRIVATE Catch2::Catch2WithMain core)
 
 add_executable(step_c step_c.cpp)
 target_link_libraries(step_c PRIVATE core)

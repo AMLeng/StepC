@@ -30,13 +30,20 @@ bool is_func_designator(const ast::AST* node){
         && type::is_type<type::FuncType>(type::get<type::PointerType>(var->type).pointed_type());
 }
 bool is_lval(const ast::AST* node){
-    if(dynamic_cast<const ast::Variable*>(node)){
+    //We assume that arrays will all decay to pointers, so that nothing of array type is an lvalue
+    if(auto p = dynamic_cast<const ast::Variable*>(node)){
+        return !type::is_type<type::ArrayType>(p->type);
+    }
+    if(auto p = dynamic_cast<const ast::StrLiteral*>(node)){
         return true;
     }
     if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
         if(p->tok.type == token::TokenType::Star){
             return true;
         }
+    }
+    if(dynamic_cast<const ast::ArrayAccess*>(node)){
+        return true;
     }
     return false;
 }
@@ -51,8 +58,10 @@ bool is_nullptr_constant(const ast::Expr* node){
             return false;
         }
     }
-    auto p = dynamic_cast<const ast::Constant*>(node);
-    return p && std::stoull(p->literal) == 0;
+    return std::visit(overloaded{
+        [](std::monostate){return false;},
+        [](auto val){return val == 0;},
+    }, node->constant_value);
 }
 std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, token::TokenType op, token::Token tok){
     //Returns an array of: {result type, converted left type, converted right type}
@@ -63,10 +72,12 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
                 return std::array<type::CType, 3>{type, type, type};
             }
             if(type::is_type<type::IType>(left) && type::is_type<type::PointerType>(right)){
-                return std::array<type::CType, 3>{right, left, right};
+                //Splices right in the case that it's an array type
+                return std::array<type::CType, 3>{type::get<type::PointerType>(right), left, right};
             }
             if(type::is_type<type::PointerType>(left) && type::is_type<type::IType>(right)){
-                return std::array<type::CType, 3>{left, left, right};
+                //Splices left in the case that it's an array type
+                return std::array<type::CType, 3>{type::get<type::PointerType>(left), left, right};
             }
             throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
                 +type::to_string(right)+"\" for addition",tok);
@@ -84,7 +95,7 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
                 return std::array<type::CType, 3>{type::CType(type::IType::LLong), left, right};
             }
             if(type::is_type<type::PointerType>(left) && type::is_type<type::IType>(right)){
-                return std::array<type::CType, 3>{left, left, right};
+                return std::array<type::CType, 3>{type::get<type::PointerType>(left), left, right};
             }
             throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
                 +type::to_string(right)+"\" for subtraction",tok);
@@ -138,15 +149,15 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
                 auto l = type::get<type::PointerType>(left);
                 auto r = type::get<type::PointerType>(right);
                 if(l.pointed_type() == type::CType(type::VoidType())){
-                    return std::array<type::CType, 3>{type::from_str("int"), left, left};
+                    return std::array<type::CType, 3>{type::from_str("int"), l, l};
                 }
                 if(r.pointed_type() == type::CType(type::VoidType())){
-                    return std::array<type::CType, 3>{type::from_str("int"), right, right};
+                    return std::array<type::CType, 3>{type::from_str("int"), r, r};
                 }
                 if(!type::is_compatible(l.pointed_type(),r.pointed_type())){
                     throw sem_error::TypeError("Pointer types being compared for equality must be to compatible types",tok);
                 }else{
-                    return std::array<type::CType, 3>{type::from_str("int"), left, right};
+                    return std::array<type::CType, 3>{type::from_str("int"), l, r};
                 }
             }
             throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
@@ -166,7 +177,7 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
                 if(!type::is_compatible(l.pointed_type(),r.pointed_type())){
                     throw sem_error::TypeError("Pointer types being compared for equality must be to compatible types",tok);
                 }else{
-                    return std::array<type::CType, 3>{type::from_str("int"), left, right};
+                    return std::array<type::CType, 3>{type::from_str("int"), l, r};
                 }
             }
             throw sem_error::TypeError("Invalid types \""+type::to_string(left)+"\" and \""
@@ -177,26 +188,250 @@ std::array<type::CType,3> analyze_bin_op(type::CType left, type::CType right, to
     assert(false && "Unknown binary operator type");
     __builtin_unreachable();
 }
+ConstantExprType compute_binary_constant(ConstantExprType left, ConstantExprType right, token::TokenType op){
+    switch(op){
+        case token::TokenType::Plus:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left + right;
+                }
+            }, left, right);
+        case token::TokenType::Minus:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left - right;
+                }
+            }, left, right);
+        case token::TokenType::Star:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left * right;
+                }
+            }, left, right);
+        case token::TokenType::Div:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    if(right == 0){
+                        return ConstantExprType();
+                    }
+                    return left / right;
+                }
+            }, left, right);
+        case token::TokenType::Mod:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    if(right == 0){
+                        return ConstantExprType();
+                    }
+                    return left % right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::Amp:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left & right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::BitwiseOr:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left | right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::BitwiseXor:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left ^ right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::LShift:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left << right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::RShift:
+            return std::visit(overloaded{
+                [](long long int left, long long int right)->ConstantExprType{
+                    return left >> right;
+                },
+                [](auto , auto ){return ConstantExprType();}
+            }, left, right);
+        case token::TokenType::And:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto left, std::monostate )->ConstantExprType{
+                    if(left == 0){
+                        return 0;
+                    }else{
+                        return ConstantExprType();
+                    }},
+                [](auto left, auto right)->ConstantExprType{
+                    if(left == 0){
+                        return 0;
+                    }else{
+                        return right != 0;
+                    }
+                }
+            }, left, right);
+        case token::TokenType::Or:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto left, std::monostate )->ConstantExprType{
+                    if(left != 0){
+                        return 1;
+                    }else{
+                        return ConstantExprType();
+                    }},
+                [](auto left, auto right)->ConstantExprType{
+                    if(left != 0){
+                        return 1;
+                    }else{
+                        return right != 0;
+                    }
+                }
+            }, left, right);
+        case token::TokenType::Equal:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left == right;
+                }
+            }, left, right);
+        case token::TokenType::NEqual:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left != right;
+                }
+            }, left, right);
+        case token::TokenType::Less:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left < right;
+                }
+            }, left, right);
+        case token::TokenType::Greater:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left > right;
+                }
+            }, left, right);
+        case token::TokenType::LEq:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left <= right;
+                }
+            }, left, right);
+        case token::TokenType::GEq:
+            return std::visit(overloaded{
+                [](std::monostate , std::monostate ){return ConstantExprType();},
+                [](std::monostate , auto ){return ConstantExprType();},
+                [](auto , std::monostate ){return ConstantExprType();},
+                [](auto left, auto right)->ConstantExprType{
+                    return left >= right;
+                }
+            }, left, right);
+        default:
+            return ConstantExprType();
+    }
+    __builtin_unreachable();
+}
 
 } //namespace
 
 void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
+    if(type::is_type<type::ArrayType>(this->type)){
+        auto array_type = type::get<type::ArrayType>(this->type);
+        if(!this->assignment.has_value() && !array_type.is_complete()){
+            throw sem_error::TypeError("Cannot infer size of declared array without initialization",this->tok);
+        }
+    }
+    //If we have a declaration attached
+    if(this->assignment.has_value()){
+        this->assignment.value()->initializer_analyze(this->type, st);
+    }
     //Add symbol to symbol table, check that not already present
     try{
         st->add_symbol(this->name,this->type, this->assignment.has_value());
     }catch(std::runtime_error& e){
         throw sem_error::STError(e.what(),this->tok);
     }
-    //If we have a declaration attached
-    if(this->assignment.has_value()){
-        this->assignment.value()->analyze(st);
-        if(!st->in_function()){
-            //If not in function, is global and needs to be
-            if(!dynamic_cast<ast::Constant*>(this->assignment.value()->right.get())){
-                throw sem_error::FlowError("Global variable def must be constant",this->assignment.value()->tok);
-            }
+}
+void Expr::initializer_analyze(type::CType& variable_type, symbol::STable* st){
+    this->analyze(st);
+    if(!type::can_assign(this->type,variable_type) 
+            && !(type::is_type<type::PointerType>(variable_type) && is_nullptr_constant(this))){
+        throw sem_error::TypeError("Invalid types "+type::to_string(this->type)+" and "+type::to_string(variable_type)+" for initialization",tok);
+    }
+    if(!st->in_function()){
+        //If not in function, is global and needs to be constant
+        if(std::holds_alternative<std::monostate>(this->constant_value) && !dynamic_cast<ast::StrLiteral*>(this)){
+            throw sem_error::FlowError("Global variable def must be constant",this->tok);
         }
+    }
+    if(type::is_type<type::ArrayType>(variable_type) && type::is_type<type::ArrayType>(this->type)){
+        auto array_type = type::get<type::ArrayType>(variable_type);
+        auto expr_type = type::get<type::ArrayType>(this->type);
+        if(!array_type.is_complete() && expr_type.is_complete()){
+            array_type.set_size(expr_type.size());
+            variable_type = array_type;
+        }
+    }
+}
+void InitializerList::initializer_analyze(type::CType& variable_type, symbol::STable* st){
+    if(type::is_type<type::ArrayType>(variable_type)){
+        auto array_type = type::get<type::ArrayType>(variable_type);
+        auto element_type = array_type.pointed_type();
+        int length = initializers.size();
+        if(array_type.is_complete() && array_type.size() < length){
+            length = array_type.size();
+        }
+        if(!array_type.is_complete()){
+            array_type.set_size(length);
+            variable_type = array_type;
+        }
+        for(int i=0; i<length; i++){
+            initializers.at(i)->initializer_analyze(element_type, st);
+        }
+    }else{
+        if(initializers.size() == 0){
+            throw sem_error::TypeError("Cannot have empty initializer for scalar", this->tok);
+        }
+        initializers.front()->initializer_analyze(variable_type, st);
     }
 }
 void Variable::analyze(symbol::STable* st) {
@@ -211,9 +446,9 @@ void Variable::analyze(symbol::STable* st) {
     }
     if(type::is_type<type::FuncType>(type_in_table)){
         this->type = type::PointerType(type_in_table);
-    }else{
-        this->type = type_in_table;
+        return;
     }
+    this->type = type_in_table;
 }
 void Conditional::analyze(symbol::STable* st){
     this->analyzed = true;
@@ -227,6 +462,27 @@ void Conditional::analyze(symbol::STable* st){
         throw sem_error::UnknownError("Ternary conditional returning non arithmetic type no yet implemented",this->tok);
     }
     this->type = type::usual_arithmetic_conversions(this->true_expr->type, this->false_expr->type);
+
+    std::visit(overloaded{
+        [&](std::monostate ){},
+        [&](auto val){
+            if(val == 0){
+                if(!std::holds_alternative<std::monostate>(false_expr->constant_value)){
+                    this->constant_value = true_expr->constant_value;
+                }
+            }else{
+                if(!std::holds_alternative<std::monostate>(true_expr->constant_value)){
+                    this->constant_value = true_expr->constant_value;
+                }
+            }
+        },
+    }, this->cond->constant_value);
+}
+void Sizeof::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    this->type = type::IType::LLong;
+    this->constant_value = size(arg->type);
 }
 void FuncCall::analyze(symbol::STable* st) {
     this->analyzed = true;
@@ -247,11 +503,29 @@ void FuncCall::analyze(symbol::STable* st) {
     try{
         auto f_type = type::get<type::FuncType>(original_type);
         if(!f_type.params_match(arg_types)){
-            throw sem_error::TypeError("Cannot call function of type "+type::to_string(f_type)+" on types of provided arguments",this->tok);
+            auto error_str = "Cannot call function of type \""+type::to_string(f_type)+"\" on types of provided arguments:\n";
+            for(const auto& arg : arg_types){
+                error_str += type::to_string(arg)+"\n";
+            }
+            throw sem_error::TypeError(error_str,this->tok);
         }
         this->type = f_type.return_type();
     }catch(std::runtime_error& e){ //Won't catch the STError
         throw sem_error::STError("Function call with expression not referring to a function or function pointer",this->tok);
+    }
+}
+void ArrayAccess::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    if(!type::is_type<type::PointerType>(this->arg->type)){
+        throw sem_error::TypeError("Can only perform array access on pointer type",tok);
+    }
+    if(type::is_type<type::PointerType>(this->arg->type)){
+        this->type = type::get<type::PointerType>(this->arg->type).pointed_type();
+    }
+    this->index->analyze(st);
+    if(!type::is_type<type::IType>(this->index->type)){
+        throw sem_error::TypeError("Array index required to be an integer",tok);
     }
 }
 void Postfix::analyze(symbol::STable* st) {
@@ -268,7 +542,7 @@ void Postfix::analyze(symbol::STable* st) {
                 break;
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
-                this->type = this->arg->type;
+                this->type = type::get<type::PointerType>(this->arg->type);
                 break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
@@ -281,7 +555,7 @@ void Postfix::analyze(symbol::STable* st) {
                 break;
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
-                this->type = this->arg->type;
+                this->type = type::get<type::PointerType>(this->arg->type);
                 break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
@@ -309,6 +583,14 @@ void UnaryOp::analyze(symbol::STable* st) {
             }
             break;
         case token::TokenType::Amp:
+            {
+                //Must come before lvalue check, since this is an exception where arrays are lvalues
+                auto p= dynamic_cast<ast::Variable*>(this->arg.get());
+                if(p && type::is_type<type::ArrayType>(p->type)){
+                    this->type = type::PointerType(p->type);
+                    return;
+                }
+            }
             if(!is_lval(this->arg.get())){
                 throw sem_error::TypeError("Lvalue required as argument of address operator",tok);
             }
@@ -329,7 +611,7 @@ void UnaryOp::analyze(symbol::STable* st) {
                 break;
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
-                this->type = this->arg->type;
+                this->type = type::get<type::PointerType>(this->arg->type);
                 break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
@@ -342,28 +624,47 @@ void UnaryOp::analyze(symbol::STable* st) {
                 break;
             }
             if(type::is_type<type::PointerType>(this->arg->type)){
-                this->type = this->arg->type;
+                this->type = type::get<type::PointerType>(this->arg->type);
                 break;
             }
             throw sem_error::TypeError("Operand of real or pointer type required",tok);
         case token::TokenType::Plus:
+            if(!type::is_arith(this->arg->type)){
+                throw sem_error::TypeError("Operand of arithmetic type required",this->arg->tok);
+            }
+            this->type = type::integer_promotions(this->arg->type);
+            this->constant_value=this->arg->constant_value;
+            break;
         case token::TokenType::Minus:
             if(!type::is_arith(this->arg->type)){
                 throw sem_error::TypeError("Operand of arithmetic type required",this->arg->tok);
             }
             this->type = type::integer_promotions(this->arg->type);
+            std::visit(type::overloaded{
+                [&](std::monostate ){},
+                [&](auto val){this->constant_value = -val;},
+            }, this->arg->constant_value);
             break;
         case token::TokenType::Not:
             if(!type::is_scalar(this->arg->type)){
                 throw sem_error::TypeError("Operand of scalar type required",this->arg->tok);
             }
             this->type = type::from_str("int");
+            std::visit(type::overloaded{
+                [&](std::monostate ){},
+                [&](auto val){this->constant_value = !val;},
+            }, this->arg->constant_value);
             break;
         case token::TokenType::BitwiseNot:
             if(!type::is_int(this->arg->type)){
                 throw sem_error::TypeError("Operand of integer type required", this->arg->tok);
             }
             this->type = type::integer_promotions(this->arg->type);
+            std::visit(type::overloaded{
+                [&](std::monostate ){},
+                [&](long double ){assert(false && "Bitwise not must be applied to an integer");},
+                [&](long long int val){this->constant_value = ~val;},
+            }, this->arg->constant_value);
             break;
         default:
             assert(false && "Unknown unary operator type");
@@ -376,6 +677,7 @@ void BinaryOp::analyze(symbol::STable* st){
     if(assignment_op.find(this->tok.type) == assignment_op.end()){
         //Non-assignment case
         auto types = analyze_bin_op(this->left->type,this->right->type,this->tok.type, this->tok);
+        this->constant_value = compute_binary_constant(this->left->constant_value, this->right->constant_value, this->tok.type);
         this->type = types[0];
         this->new_left_type=types[1];
         this->new_right_type=types[2];
@@ -383,7 +685,7 @@ void BinaryOp::analyze(symbol::STable* st){
             //For null ptr constants, we can't do the checking just from the argument types
             if(type::is_type<type::PointerType>(this->left->type) && type::is_type<type::IType>(this->right->type)){
                 if(is_nullptr_constant(this->right.get())){
-                    this->new_left_type = this->left->type;
+                    this->new_left_type = type::get<type::PointerType>(this->left->type);
                     this->new_right_type = this->left->type;
                 }else{
                     throw sem_error::TypeError("Cannot compare pointer with int other than null ptr constant", this->tok);
@@ -392,7 +694,7 @@ void BinaryOp::analyze(symbol::STable* st){
             if(type::is_type<type::PointerType>(this->right->type) && type::is_type<type::IType>(this->left->type)){
                 if(is_nullptr_constant(this->left.get())){
                     this->new_left_type = this->right->type;
-                    this->new_right_type = this->right->type;
+                    this->new_right_type = type::get<type::PointerType>(this->right->type);
                 }else{
                     throw sem_error::TypeError("Cannot compare pointer with int other than null ptr constant", this->tok);
                 }
@@ -414,15 +716,27 @@ void BinaryOp::analyze(symbol::STable* st){
         }
         if(!type::can_assign(this->right->type,this->left->type) 
             && !(type::is_type<type::PointerType>(this->left->type) && is_nullptr_constant(this->right.get()))){
-            throw sem_error::TypeError("Invalid types for assignment",tok);
+            throw sem_error::TypeError("Invalid types "+type::to_string(this->right->type)+
+                " and "+type::to_string(this->left->type)+" for assignment",tok);
         }
     }
     
 }
 void NullStmt::analyze(symbol::STable* st){
 }
+void StrLiteral::analyze(symbol::STable* st){
+    this->analyzed = true;
+    this->type = type::ArrayType(type::IType::Char, this->literal.size());
+}
 void Constant::analyze(symbol::STable* st){
     this->analyzed = true;
+    if(type::is_type<type::BasicType>(this->type)){
+        std::visit(type::overloaded{
+            [&](type::IType){this->constant_value =  std::stoll(this->literal);},
+            [&](type::FType){this->constant_value = std::stold(this->literal);}
+        }, type::get<type::BasicType>(this->type));
+    }
+
 }
 void IfStmt::analyze(symbol::STable* st){
     this->if_condition->analyze(st);
@@ -516,12 +830,10 @@ void CaseStmt::analyze(symbol::STable* st){
     if(!type::is_int(label->type)){
         throw sem_error::TypeError("Case label must have integer type",this->tok);
     }
-    unsigned long long int case_val = 42ull;
-    try{
-        case_val = std::stoull(this->label->literal);
-    }catch(std::runtime_error& e){
-        throw sem_error::FlowError("Invalid label value for case",this->label->tok);
+    if(!std::holds_alternative<long long int>(label->constant_value)){
+        throw sem_error::TypeError("Case label must have constant integer type",this->tok);
     }
+    unsigned long long int case_val = std::get<long long int>(label->constant_value);
     try{
         bt->add_case(case_val);
     }catch(std::runtime_error& e){

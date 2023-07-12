@@ -10,11 +10,14 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 [&](type::IType){return make_command(left->get_type(), "sub", left, right, output, c);},
                 [&](type::FType){return make_command(left->get_type(), "fsub", left, right, output, c);},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [&](type::PointerType){
+                [&](type::PointerType ptr){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
+                    auto element_type = ptr.element_type();
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::CType(type::IType::LLong), "sub", left, right, output, c);
+                    auto diff = make_command(type::CType(type::IType::LLong), "sub", left, right, output, c);
+                    auto size_value = value::Value(std::to_string(type::size(element_type)), type::IType::LLong);
+                    return make_command(type::CType(type::IType::LLong), "sdiv", diff, &size_value, output, c);
                     },
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type());
@@ -25,55 +28,58 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     if(type::is_type<type::IType>(right->get_type())){
                         return make_command(left->get_type(), "add", left, right, output, c);
                     }else{
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                        left = convert(type::CType(type::IType::LLong), left, output, c);
-                        right = convert(type::CType(type::IType::LLong), right, output, c);
-                        return make_command(type::CType(type::IType::LLong), "add", left, right, output, c);
+                        auto new_var = c.new_temp(result_type);
+                        print_whitespace(c.depth(), output);
+                        output << new_var->get_value() <<" = getelementptr inbounds ";
+                        output <<type::ir_type(type::get<type::PointerType>(right->get_type()).pointed_type());
+                        output <<", ptr "<<right->get_value()<<", i64 0, ";
+                        output<<type::ir_type(left->get_type())<<" "<<left->get_value()<<std::endl;
+                        return new_var;
                     }
                 },
                 [&](type::FType){return make_command(left->get_type(), "fadd", left, right, output, c);},
                 [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
-                    //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
-                    left = convert(type::CType(type::IType::LLong), left, output, c);
-                    right = convert(type::CType(type::IType::LLong), right, output, c);
-                    return make_command(type::CType(type::IType::LLong), "add", left, right, output, c);
+                    auto new_var = c.new_temp(result_type);
+                    print_whitespace(c.depth(), output);
+                    output << new_var->get_value() <<" = getelementptr inbounds ";
+                    output <<type::ir_type(type::get<type::PointerType>(left->get_type()).pointed_type());
+                    output <<", ptr "<<left->get_value()<<", i64 0, ";
+                    output<<type::ir_type(right->get_type())<<" "<<right->get_value()<<std::endl;
+                    return new_var;
+                    },
+                [&](type::ArrayType){
+                    throw std::runtime_error("Cannot do operation on array type");
                     },
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
                 ), left->get_type());
             break;
         case token::TokenType::Star:
-            result = make_command(left->get_type(),std::visit(type::make_visitor<std::string>(
+            assert(type::is_type<type::BasicType>(left->get_type()) && "Can only do operation on basic types");
+            result = make_command(left->get_type(),std::visit(type::overloaded{
                 [](type::IType){return "mul";},
                 [](type::FType){return "fmul";},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), left->get_type()), left,right,output,c);
+                }, type::get<type::BasicType>(left->get_type())), left,right,output,c);
             break;
         case token::TokenType::Div:
-            result = make_command(left->get_type(),std::visit(type::make_visitor<std::string>(
+            assert(type::is_type<type::BasicType>(left->get_type()) && "Can only do operation on basic types");
+            result = make_command(left->get_type(),std::visit(type::overloaded{
                 [](type::IType t){
                     if(type::is_signed_int(t)){return "sdiv";}
                     else{return "udiv";}},
                 [](type::FType){return "fdiv";},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), left->get_type()), left,right,output,c);
+                }, type::get<type::BasicType>(left->get_type())), left,right,output,c);
             break;
         case token::TokenType::Mod:
-            result = make_command(left->get_type(),std::visit(type::make_visitor<std::string>(
+            assert(type::is_type<type::BasicType>(left->get_type()) && "Can only do operation on basic types");
+            result = make_command(left->get_type(),std::visit(type::overloaded{
                 [](type::IType t){
                     if(type::is_signed_int(t)){return "srem";}
                     else{return "urem";}},
                 [](type::FType){
                     assert(false && "C does not allow mod to take floating point arguments");
                     return "frem";},
-                [](type::PointerType){throw std::runtime_error("Cannot do operation on pointer type");},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
-                ), left->get_type()), left,right,output,c);
+                }, type::get<type::BasicType>(left->get_type())), left,right,output,c);
             break;
         case token::TokenType::Equal:
             result = std::visit(type::make_visitor<value::Value*>(

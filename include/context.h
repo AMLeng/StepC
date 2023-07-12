@@ -28,14 +28,16 @@ class Context{
             Scope() : parent(nullptr), current_depth(0){}
     };
     struct FunctionScope : public Scope{
-        FunctionScope(type::CType t) : Scope(), ret_type(t),total_locals(0), instructions(0){
+        FunctionScope(std::string name, type::CType t) : Scope(), function_name(name), ret_type(t),total_locals(0), instructions(0){
             current_depth = 1;
         }
+        std::string function_name;
         type::CType ret_type;
         int total_locals;
         int instructions;
     };
     std::map<std::string, std::unique_ptr<value::Value>> literal_map;
+    std::map<std::string, std::unique_ptr<value::Value>> string_map;
     std::map<std::string, std::pair<std::unique_ptr<value::Value>,bool>> global_sym_map;
     std::unique_ptr<FunctionScope> current_function;
     Scope* current_scope;
@@ -50,12 +52,14 @@ public:
     value::Value* add_literal(std::string literal, type::CType type);
     value::Value* add_global(std::string name, type::CType type, bool defined = false);
     value::Value* add_local(std::string name, type::CType type);
+    value::Value* add_string(std::string s, type::CType type);
+    std::vector<std::pair<value::Value*,std::string>> undefined_strings() const;
     std::vector<value::Value*> undefined_globals() const;
     bool has_symbol(std::string name) const;
     value::Value* get_value(std::string name) const;
     void enter_scope();
     void exit_scope();
-    void enter_function(type::CType t, const std::vector<type::CType>& params, std::ostream& output);
+    void enter_function(std::string name, type::CType t, const std::vector<type::CType>& params, std::ostream& output);
     void exit_function(std::ostream& output, std::unique_ptr<basicblock::Terminator> t = nullptr);
     bool in_function() const;
     int depth() const;

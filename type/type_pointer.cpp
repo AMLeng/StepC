@@ -6,9 +6,10 @@ DerivedType::DerivedType(PointerType p)
 bool is_compatible(const PointerType& type1, const PointerType& type2){
     return is_compatible(type1.underlying_type, type2.underlying_type);
 }
-std::string to_string(const PointerType& type){
-    return "pointer to "+to_string(type.underlying_type);
+std::string PointerType::to_string() const{
+    return "pointer to "+type::to_string(this->underlying_type);
 }
+PointerType::~PointerType(){}
 bool can_assign(const PointerType& right, const PointerType& left){
     return std::visit(overloaded{
             [](const FuncType& type)-> bool{
@@ -21,7 +22,7 @@ bool can_assign(const PointerType& right, const PointerType& left){
             }
         }, right.pointed_type());
 }
-std::string ir_type(const PointerType& type){
+std::string PointerType::ir_type() const{
     return "ptr";
     //return ir_type(type.underlying_type) + "*";
 }
@@ -31,7 +32,16 @@ bool PointerType::operator ==(const PointerType& other) const{
 bool PointerType::operator !=(const PointerType& other) const{
     return !this->operator==(other);
 }
+std::unique_ptr<PointerType> PointerType::copy() const{
+    return std::make_unique<PointerType>(*this);
+}
 CType PointerType::pointed_type() const{
+    return this->underlying_type;
+}
+CType PointerType::element_type() const{
+    if(type::is_type<ArrayType>(underlying_type)){
+        return type::get<ArrayType>(underlying_type).pointed_type();
+    }
     return this->underlying_type;
 }
 } //namespace type
