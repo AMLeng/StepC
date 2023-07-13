@@ -115,7 +115,8 @@ std::string default_value(type::CType type){
                 [](const type::VoidType& v){return "void";},
                 [](const type::ArrayType& ){return "zeroinitializer";},
                 [](const type::PointerType& p){return "null";},
-                [](const type::FuncType& ){throw std::runtime_error("No default function value");}
+                [](const type::FuncType& ){throw std::runtime_error("No default function value");},
+                [](const type::StructType& ){return "zeroinitializer";}
                 ), type);
 }
 value::Value* convert(type::CType target_type, value::Value* val, 
@@ -127,6 +128,7 @@ value::Value* convert(type::CType target_type, value::Value* val,
         [&](const type::BasicType& bt){return convert(bt, val, output, c);},
         [&](const type::VoidType& vt){throw std::runtime_error("Unable to convert value to void type");},
         [&](const type::FuncType& ft){throw std::runtime_error("Unable to convert value to function type");},
+        [&](const type::StructType& ft){throw std::runtime_error("Unable to convert value to struct type");},
         [&](const type::PointerType& pt){return convert(pt, val, output, c);}
     ),target_type);
 }

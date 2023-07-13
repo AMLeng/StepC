@@ -3,6 +3,7 @@
 #include <variant>
 #include <cassert>
 #include <set>
+#include <map>
 #include <vector>
 #include <memory>
 #include <optional>
@@ -26,11 +27,13 @@ typedef std::monostate VoidType;
 class FuncType;
 class ArrayType;
 class PointerType;
+class StructType;
 class DerivedType;
 typedef std::variant<VoidType, BasicType, DerivedType> CType;
 
+typedef std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, std::unique_ptr<StructType>> DerivedPointers;
 class DerivedType{
-    std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> type;
+    DerivedPointers type;
 public:
     DerivedType(FuncType f); //Defined in type_func.cpp
     DerivedType(PointerType f); //Defined in type_pointer.cpp
@@ -111,6 +114,20 @@ public:
     std::vector<CType> param_types() const; 
     CType return_type() const; 
     bool params_match(std::vector<CType> arg_types) const;
+};
+
+struct StructType{
+    std::string tag;
+    std::vector<CType> members;
+    std::map<std::string, int> indices;
+    StructType(std::string tag, std::vector<CType> members, std::map<std::string, int> indices) :
+        tag(tag), members(members), indices(indices) {}
+    std::string to_string() const;
+    std::string ir_type() const;
+    std::unique_ptr<StructType> copy() const;
+    long long int size() const;
+    bool operator ==(const StructType& other) const;
+    bool operator !=(const StructType& other) const;
 };
 
 std::string to_string(const CType& type);

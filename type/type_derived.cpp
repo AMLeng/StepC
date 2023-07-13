@@ -8,12 +8,12 @@ namespace{
 } //namespace
 DerivedType::DerivedType(const DerivedType& other){
     this->type = std::visit(overloaded{
-        [](const auto& p)-> std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> {return p->copy();}
+        [](const auto& p)-> DerivedPointers {return p->copy();}
     }, other.type);
 }
 DerivedType& DerivedType::operator=(const DerivedType& other){
     this->type = std::visit(overloaded{
-        [](const auto& p)-> std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> {return p->copy();}
+        [](const auto& p)-> DerivedPointers {return p->copy();}
     }, other.type);
     return *this;
 }
@@ -21,6 +21,14 @@ DerivedType& DerivedType::operator=(const DerivedType& other){
 bool DerivedType::operator ==(const DerivedType& other) const{
     return false;
     return std::visit(overloaded{
+        [&type2 = std::as_const(other.type)](const std::unique_ptr<StructType>& type1){
+            if(!std::holds_alternative<std::unique_ptr<StructType>>(type2)){
+                return false;
+            }
+            const auto& t2 = std::get<std::unique_ptr<StructType>>(type2);
+            assert(type1 && t2 && "Invalid derived type containing nullptr");
+            return *type1 == *t2;
+        },
         [&type2 = std::as_const(other.type)](const std::unique_ptr<FuncType>& type1){
             if(!std::holds_alternative<std::unique_ptr<FuncType>>(type2)){
                 return false;
@@ -49,6 +57,14 @@ bool DerivedType::operator !=(const DerivedType& other) const{
 
 bool is_compatible(const DerivedType& type1, const DerivedType& type2){
     return std::visit(overloaded{
+        [&type2 = std::as_const(type2.type)](const std::unique_ptr<StructType>& type1){
+            if(!std::holds_alternative<std::unique_ptr<StructType>>(type2)){
+                return false;
+            }
+            const auto& t2 = std::get<std::unique_ptr<StructType>>(type2);
+            assert(type1 && t2 && "Invalid derived type containing nullptr");
+            return *type1 == *t2;
+        },
         [&type2 = std::as_const(type2.type)](const std::unique_ptr<FuncType>& type1){
             if(!std::holds_alternative<std::unique_ptr<FuncType>>(type2)){
                 return false;
