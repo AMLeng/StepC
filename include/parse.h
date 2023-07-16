@@ -34,6 +34,7 @@ std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l);
 typedef std::pair<std::optional<token::Token>, type::CType> Declarator;
 std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarator);
 type::CType parse_specifiers(lexer::Lexer& l);
+Declarator parse_declarator(type::CType type, lexer::Lexer& l);
 
 //In parse_decl.cpp
 std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l);

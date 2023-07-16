@@ -38,6 +38,7 @@ public:
     DerivedType(FuncType f); //Defined in type_func.cpp
     DerivedType(PointerType f); //Defined in type_pointer.cpp
     DerivedType(ArrayType f); //Defined in type_array.cpp
+    DerivedType(StructType f); //Defined in type_struct.cpp
 
     DerivedType(const DerivedType& other); 
     DerivedType& operator=(const DerivedType& other);
@@ -120,14 +121,17 @@ struct StructType{
     std::string tag;
     std::vector<CType> members;
     std::map<std::string, int> indices;
+    explicit StructType(std::string tag) : tag(tag) {}
     StructType(std::string tag, std::vector<CType> members, std::map<std::string, int> indices) :
         tag(tag), members(members), indices(indices) {}
     std::string to_string() const;
     std::string ir_type() const;
+    bool is_complete() const;
     std::unique_ptr<StructType> copy() const;
     long long int size() const;
     bool operator ==(const StructType& other) const;
     bool operator !=(const StructType& other) const;
+    std::map<std::string, StructType> lookup;
 };
 
 std::string to_string(const CType& type);
@@ -160,7 +164,7 @@ std::string ir_literal(const std::string& c_literal,BasicType type);
 std::string ir_literal(const std::string& c_literal);
 
 //bool can_represent(BasicType target, BasicType source);
-//bool is_complete(CType type);
+bool is_complete(const CType& type);
 
 
 //Everything below is template stuff for type::make_visitor to work properly
@@ -188,9 +192,16 @@ ReturnType DerivedType::visit(Visitor&& v) const{
             return try_invoke<ReturnType>(v,pointer);
         }
     }else{
+        return std::visit(overloaded{
+            [&v](const auto& t)->ReturnType{return try_invoke<ReturnType>(v,t.get());}
+        }, type);
+        /*if(std::holds_alternative<std::unique_ptr<FuncType>>(type)){
+            auto pointer = std::get<std::unique_ptr<FuncType>>(type).get();
+            return try_invoke<ReturnType>(v, pointer);
+        }
         assert(std::holds_alternative<std::unique_ptr<FuncType>>(type) && "Other derived types not yet implemented");
         auto pointer = std::get<std::unique_ptr<FuncType>>(type).get();
-        return try_invoke<ReturnType>(v, pointer);
+        return try_invoke<ReturnType>(v, pointer);*/
     }
 }
 

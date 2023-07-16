@@ -75,12 +75,42 @@ bool is_specifier(const token::Token& tok){
         || tok.value == "double"
         || tok.value == "signed"
         || tok.value == "unsigned"
-        || tok.value == "_Bool";
+        || tok.value == "_Bool"
+        || tok.value == "struct";
 }
 
 type::CType parse_specifiers(lexer::Lexer& l){
-    auto specifier_list = std::multiset<std::string>{};
     auto next_tok = l.peek_token();
+    if(next_tok.value == "struct"){
+        l.get_token();
+        std::string ident = "";
+        if(l.peek_token().type == token::TokenType::Identifier){
+            ident = l.get_token().value;
+        }else{
+            check_token_type(l.peek_token(), token::TokenType::LBrace);
+        }
+        if(l.peek_token().type == token::TokenType::LBrace){
+            l.get_token();
+            auto members = std::vector<type::CType>{};
+            auto indices = std::map<std::string, int>{};
+            while(l.peek_token().type ==token::TokenType::Keyword){
+                auto type = parse_specifiers(l);
+                auto declarator = parse_declarator(type, l);
+                if(declarator.first.has_value()){
+                    indices.emplace(declarator.first.value().value,members.size());
+                }
+                members.push_back(declarator.second);
+                while(l.peek_token().type == token::TokenType::Semicolon){
+                    l.get_token();
+                }
+            }
+            check_token_type(l.get_token(), token::TokenType::RBrace);
+            return type::StructType(ident, members, indices);
+        }else{
+            return type::StructType(ident);
+        }
+    }
+    auto specifier_list = std::multiset<std::string>{};
     while(next_tok.type == token::TokenType::Keyword){
         if(!is_specifier(next_tok)){
             throw parse_error::ParseError("Expected specifier keyword",next_tok);

@@ -1,5 +1,8 @@
 #include "type.h"
 namespace type{
+DerivedType::DerivedType(StructType p) 
+    : type(std::make_unique<StructType>(p)){
+       }
 std::string StructType::to_string() const{
     std::string s = "Struct {";
     for(int i=0; i<members.size()-1; i++){
@@ -33,5 +36,8 @@ bool StructType::operator !=(const StructType& other) const{
 }
 std::unique_ptr<StructType> StructType::copy() const{
     return std::make_unique<StructType>(*this);
+}
+bool StructType::is_complete() const{
+    return members.size() > 0;
 }
 }

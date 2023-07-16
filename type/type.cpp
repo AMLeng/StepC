@@ -43,6 +43,7 @@ bool can_assign(const CType& type1, const CType& type2){
             },
         [&type2](PointerType type1){return type2 == CType(IType::Bool)
             || is_type<PointerType>(type2) && can_assign(type1, type::get<PointerType>(type2));},
+        [&type2](StructType type1){return is_type<StructType>(type2) && type1 == type::get<StructType>(type2);},
         [&type2](FuncType type1){return is_type<FuncType>(type2);}
     ),type1);
 }
@@ -95,7 +96,8 @@ std::string ir_type(const CType& type){
         [](BasicType bt)->std::string{return ir_type(bt);},
         [](const FuncType& ft){return ft.ir_type();},
         [](const PointerType& pt){return pt.ir_type();},
-        [](const ArrayType& at){return at.ir_type();}
+        [](const ArrayType& at){return at.ir_type();},
+        [](const StructType& st){return st.ir_type();}
     ), type);
 }
 long long int size(const CType& type){
@@ -104,7 +106,18 @@ long long int size(const CType& type){
         [](BasicType bt){return byte_size(bt);},
         [](const FuncType& ft){throw std::runtime_error("Cannot take size of function type");},
         [](const PointerType& pt){return 8;},
-        [](const ArrayType& at){return at.size()*type::size(at.pointed_type());}
+        [](const ArrayType& at){return at.size()*type::size(at.pointed_type());},
+        [](const StructType& st){return st.size();}
+    ), type);
+}
+bool is_complete(const CType& type){
+    return std::visit(make_visitor<int>(
+        [](VoidType v){return true;},
+        [](BasicType bt){return true;},
+        [](const FuncType& ft){throw std::runtime_error("Complete or incomplete does not make sense for function type");},
+        [](const PointerType& pt){return false;},
+        [](const ArrayType& at){return at.is_complete();},
+        [](const StructType& st){return st.is_complete();}
     ), type);
 }
 

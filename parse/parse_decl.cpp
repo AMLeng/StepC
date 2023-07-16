@@ -198,14 +198,21 @@ namespace{
         }
     }
 
-    Declarator parse_declarator(type::CType type, lexer::Lexer& l){
-        //This does not parse declarators for function definitions
-        auto builder = TypeBuilder();
-        parse_declarator_helper(l,builder);
-        auto ret =  builder.build_declarator(type);
-        return ret;
+void handle_abstract_decl(Declarator declarator, token::Token tok){
+    if(type::is_type<type::StructType>(declarator.second)){
+        return;
+        throw parse_error::ParseError("Struct decl not yet implemented", tok);
     }
+    throw parse_error::ParseError("Abstract declarator not permitted here", tok);
+}
 } //namespace
+Declarator parse_declarator(type::CType type, lexer::Lexer& l){
+    //This does not parse declarators for function definitions
+    auto builder = TypeBuilder();
+    parse_declarator_helper(l,builder);
+    auto ret =  builder.build_declarator(type);
+    return ret;
+}
 
 std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::LParen);
@@ -260,9 +267,10 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     while(true){
         auto declarator = parse_declarator(specifiers, l);
         if(!declarator.first.has_value()){
-            throw parse_error::ParseError("Abstract declarator not permitted here", l.peek_token());
+            handle_abstract_decl(declarator, l.peek_token());
+        }else{
+            decls.push_back(parse_init_decl(l, declarator));
         }
-        decls.push_back(parse_init_decl(l, declarator));
         if(token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
             break;
         }
@@ -303,7 +311,11 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
             }
             return parse_function_def(l, params.value(), declarator);
         }
-        decls.push_back(parse_init_decl(l,declarator));
+        if(!declarator.first.has_value()){
+            handle_abstract_decl(declarator, l.peek_token());
+        }else{
+            decls.push_back(parse_init_decl(l,declarator));
+        }
     }
 
     while(true){
@@ -314,9 +326,10 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
         check_token_type(l.get_token(), token::TokenType::Comma);
         auto declarator = parse_declarator(specified_type, l);
         if(!declarator.first.has_value()){
-            throw parse_error::ParseError("Abstract declarator not permitted here", l.peek_token());
+            handle_abstract_decl(declarator, l.peek_token());
+        }else{
+            decls.push_back(parse_init_decl(l, declarator));
         }
-        decls.push_back(parse_init_decl(l, declarator));
     }
     return std::make_unique<ast::DeclList>(std::move(decls));
 }
