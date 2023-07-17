@@ -231,8 +231,11 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
             l.get_token();
             break;
         }
-        type::CType param_specifiers = parse_specifiers(l);
-        declarators.push_back(parse_declarator(param_specifiers,l));
+        auto param_specifiers = parse_specifiers(l);
+        if(param_specifiers.second.size() > 0){
+            throw sem_error::TypeError("Struct definition in function parameter list is useless", l.peek_token());
+        }
+        declarators.push_back(parse_declarator(param_specifiers.first,l));
         if(type::is_type<type::VoidType>(declarators.back().second)){
             if(declarators.back().first.has_value()){
                 throw sem_error::TypeError("Cannot have named variable of void type",declarators.back().first.value());
@@ -262,10 +265,10 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
 }
 
 std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
-    auto specifiers = parse_specifiers(l);
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
+    auto specifiers = parse_specifiers(l);
     while(true){
-        auto declarator = parse_declarator(specifiers, l);
+        auto declarator = parse_declarator(specifiers.first, l);
         if(!declarator.first.has_value()){
             handle_abstract_decl(declarator, l.peek_token());
         }else{
@@ -276,10 +279,11 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
         }
         check_token_type(l.get_token(), token::TokenType::Comma);
     }
-    return std::make_unique<ast::DeclList>(std::move(decls));
+    return std::make_unique<ast::DeclList>(std::move(decls), std::move(specifiers.second));
 }
 
-std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, Declarator func){
+std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, 
+    Declarator func, std::vector<std::unique_ptr<ast::TagDecl>> tags){
     auto param_decls = std::vector<std::unique_ptr<ast::VarDecl>>{};
     for(const auto& param_declarator: params){
         if(!param_declarator.first.has_value()){
@@ -291,14 +295,16 @@ std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vecto
         param_decls.push_back(std::make_unique<ast::VarDecl>(param_declarator.first.value(),param_declarator.second));
     }
     auto function_body = parse_compound_stmt(l);
-    return std::make_unique<ast::FunctionDef>(func.first.value(), type::get<type::FuncType>(func.second), std::move(param_decls), std::move(function_body));
+    return std::make_unique<ast::FunctionDef>(func.first.value(), type::get<type::FuncType>(func.second), 
+        std::move(param_decls), std::move(function_body), std::move(tags));
 }
 
 std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
     while(l.peek_token().type == token::TokenType::Semicolon){
         l.get_token();
     }
-    auto specified_type = parse_specifiers(l);
+    auto specifiers = parse_specifiers(l);
+    auto specified_type = specifiers.first;
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
     {
         auto builder = TypeBuilder();
@@ -309,7 +315,7 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
             if(!params.has_value()){
                 throw parse_error::ParseError("Unexpected beginning of function definition", l.peek_token());
             }
-            return parse_function_def(l, params.value(), declarator);
+            return parse_function_def(l, params.value(), declarator, std::move(specifiers.second));
         }
         if(!declarator.first.has_value()){
             handle_abstract_decl(declarator, l.peek_token());
@@ -331,6 +337,6 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
             decls.push_back(parse_init_decl(l, declarator));
         }
     }
-    return std::make_unique<ast::DeclList>(std::move(decls));
+    return std::make_unique<ast::DeclList>(std::move(decls), std::move(specifiers.second));
 }
 } //namespace parse

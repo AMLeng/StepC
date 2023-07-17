@@ -79,7 +79,7 @@ bool is_specifier(const token::Token& tok){
         || tok.value == "struct";
 }
 
-type::CType parse_specifiers(lexer::Lexer& l){
+std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifiers(lexer::Lexer& l){
     auto next_tok = l.peek_token();
     if(next_tok.value == "struct"){
         l.get_token();
@@ -90,12 +90,16 @@ type::CType parse_specifiers(lexer::Lexer& l){
             check_token_type(l.peek_token(), token::TokenType::LBrace);
         }
         if(l.peek_token().type == token::TokenType::LBrace){
+            auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
             l.get_token();
             auto members = std::vector<type::CType>{};
             auto indices = std::map<std::string, int>{};
             while(l.peek_token().type ==token::TokenType::Keyword){
-                auto type = parse_specifiers(l);
-                auto declarator = parse_declarator(type, l);
+                auto specified = parse_specifiers(l);
+                for(auto& t : specified.second){
+                    tags.push_back(std::move(t));
+                }
+                auto declarator = parse_declarator(specified.first, l);
                 if(declarator.first.has_value()){
                     indices.emplace(declarator.first.value().value,members.size());
                 }
@@ -105,9 +109,11 @@ type::CType parse_specifiers(lexer::Lexer& l){
                 }
             }
             check_token_type(l.get_token(), token::TokenType::RBrace);
-            return type::StructType(ident, members, indices);
+            auto type = type::StructType(ident, members, indices);
+            tags.push_back(std::make_unique<ast::TagDecl>(next_tok, type));
+            return std::make_pair(type, std::move(tags));
         }else{
-            return type::StructType(ident);
+            return std::make_pair(type::StructType(ident),std::vector<std::unique_ptr<ast::TagDecl>>{});
         }
     }
     auto specifier_list = std::multiset<std::string>{};
@@ -119,7 +125,7 @@ type::CType parse_specifiers(lexer::Lexer& l){
         next_tok = l.peek_token();
     }
     try{
-        return convert_specifiers(specifier_list);
+        return std::make_pair(convert_specifiers(specifier_list),std::vector<std::unique_ptr<ast::TagDecl>>{});
     }catch(std::runtime_error& e){
         throw sem_error::TypeError(e.what(), l.peek_token());
     }

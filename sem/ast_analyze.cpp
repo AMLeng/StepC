@@ -372,6 +372,8 @@ ConstantExprType compute_binary_constant(ConstantExprType left, ConstantExprType
 
 } //namespace
 
+void TagDecl::analyze(symbol::STable* st) {
+}
 void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
     if(type::is_type<type::ArrayType>(this->type)){

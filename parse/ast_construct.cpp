@@ -46,6 +46,7 @@ Decl::~Decl(){}
 Stmt::~Stmt(){}
 BlockItem::~BlockItem(){}
 Expr::~Expr(){}
+ExtDecl::~ExtDecl(){}
 
 StrLiteral::StrLiteral(std::vector<token::Token> toks) : Expr(toks.front()){
     auto ss = std::stringstream{};

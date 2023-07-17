@@ -528,6 +528,10 @@ void InitializerList::initializer_codegen(value::Value* variable, std::ostream& 
         }
     }
 }
+value::Value* TagDecl::codegen(std::ostream& output, context::Context& c)const {
+    assert(false && "Not yet implemented");
+    return nullptr;
+}
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     if(c.in_function()){

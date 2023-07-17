@@ -29,6 +29,13 @@ void CompoundStmt::pretty_print(int depth) const{
 }
 void DeclList::pretty_print(int depth) const{
     AST::print_whitespace(depth);
+    if(tag_decls.size() > 0){
+        std::cout<<"DECLARING TAGS: "<<std::endl;
+        for(const auto& t : tag_decls){
+            t->pretty_print(depth+1);
+        }
+    }
+    AST::print_whitespace(depth);
     std::cout<< "DECLARATIONS:" << std::endl;
     for(const auto& decl : decls){
         decl -> pretty_print(depth + 1);
@@ -89,6 +96,13 @@ void ForStmt::pretty_print(int depth) const{
 
 
 void FunctionDef::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    if(tag_decls.size() > 0){
+        std::cout<<"DECLARING TAGS: "<<std::endl;
+        for(const auto& t : tag_decls){
+            t->pretty_print(depth+1);
+        }
+    }
     FunctionDecl::pretty_print(depth);
     AST::print_whitespace(depth);
     std::cout<< "FUNCTION DEF BODY: " << std::endl;
@@ -166,6 +180,12 @@ void Variable::pretty_print(int depth) const{
 void FunctionDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"FUNCTION DECL \""<<name<<"\" OF TYPE "<< type::to_string(type) <<std::endl;
+}
+void TagDecl::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"TAG "<<std::visit(type::overloaded{
+        [](auto& t)->std::string{return type::to_string(t);}
+    },type)<<std::endl;
 }
 void VarDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);

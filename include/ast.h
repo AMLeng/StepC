@@ -90,19 +90,33 @@ struct NullStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+typedef std::variant<type::StructType> TagType;
+struct TagDecl : public AST {
+    token::Token tok;
+    TagType type;
+    TagDecl(token::Token tok, TagType type) : tok(tok), type(std::move(type)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct ExtDecl : virtual public AST{
+    std::vector<std::unique_ptr<TagDecl>> tag_decls;
+    ExtDecl(std::vector<std::unique_ptr<TagDecl>> decls) : tag_decls(std::move(decls)) {}
+    virtual ~ExtDecl() = 0;
+};
 struct Decl : virtual public AST{
     const std::string name;
     const token::Token tok;
     type::CType type;
-    Decl(token::Token tok, type::CType type) : tok(tok), name(tok.value), type(type) {}
+    Decl(token::Token tok, type::CType type) 
+        : tok(tok), name(tok.value), type(type) {}
     virtual ~Decl() = 0;
-};
-struct ExtDecl : virtual public AST{
 };
 struct DeclList : public BlockItem, public ExtDecl{
     bool analyzed = false;
     std::vector<std::unique_ptr<Decl>> decls;
-    DeclList(std::vector<std::unique_ptr<Decl>> decls) : decls(std::move(decls)) {}
+    DeclList(std::vector<std::unique_ptr<Decl>> decls, std::vector<std::unique_ptr<TagDecl>> tags) 
+        : ExtDecl(std::move(tags)), decls(std::move(decls)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -115,7 +129,6 @@ struct FunctionDecl : public Decl{
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
-
 struct VarDecl : public Decl {
     bool analyzed = false;
     std::optional<std::unique_ptr<Initializer>> assignment;
@@ -209,8 +222,9 @@ struct CompoundStmt : public Stmt{
 struct FunctionDef : public ExtDecl, public FunctionDecl{
     std::vector<std::unique_ptr<VarDecl>> params;
     std::unique_ptr<CompoundStmt> function_body;
-    FunctionDef(token::Token tok, type::FuncType type, std::vector<std::unique_ptr<VarDecl>> param_decls, std::unique_ptr<CompoundStmt> body) : 
-        FunctionDecl(tok, type), params(std::move(param_decls)), function_body(std::move(body)) {}
+    FunctionDef(token::Token tok, type::FuncType type, std::vector<std::unique_ptr<VarDecl>> param_decls, 
+        std::unique_ptr<CompoundStmt> body, std::vector<std::unique_ptr<TagDecl>> tags) : 
+        ExtDecl(std::move(tags)), FunctionDecl(tok, type), params(std::move(param_decls)), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
