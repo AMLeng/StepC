@@ -104,6 +104,99 @@ void GlobalTable::add_extern_decl(const std::string& name, const type::CType& ty
 void BlockTable::add_extern_decl(const std::string& name, const type::CType& type) {
     global->add_extern_decl(name, type);
 }
+bool BlockTable::tag_declared(std::string tag) const{
+    if(this->tags.find(tag) != this->tags.end()){
+        return true;
+    }
+    return parent->tag_declared(tag);
+}
+bool GlobalTable::tag_declared(std::string tag) const{
+    return this->tags.find(tag) != this->tags.end();
+}
+type::CType BlockTable::get_tag(std::string tag) const{
+    return global->get_tag(this->mangle_name(tag));
+}
+type::CType GlobalTable::get_tag(std::string tag) const{
+    try{
+        return this->tags.at(tag);
+    }catch(std::runtime_error& e){
+        throw std::runtime_error("Tag "+tag+" not found in symbol table");
+    }
+}
+std::string BlockTable::mangle_name(std::string name) const{
+    if(this->tags.find(name) != this->tags.end()){
+        return  name + "."+std::to_string(this->tags.at(name));
+    }
+    return parent->mangle_name(name);
+}
+std::string GlobalTable::mangle_name(std::string name) const{
+    return name;
+}
+type::CType GlobalTable::mangle_type(type::CType type) const{
+    return type; //Global names are unmangled
+}
+type::CType BlockTable::mangle_type(type::CType type) const{
+    return std::visit(type::make_visitor<type::CType>(
+        [](type::BasicType t){return t;},
+        [](type::VoidType t){return t;},
+        [&](const type::FuncType& t){
+            auto ret = this->mangle_type(t.return_type());
+            if(t.has_prototype()){
+                auto params = t.param_types();
+                for(auto& param : params){
+                    param = this->mangle_type(param);
+                }
+                return type::FuncType(ret, params,t.is_variadic());
+            }else{
+                return type::FuncType(ret);
+            }
+        },
+        [&](const type::PointerType& t){
+            return type::PointerType(this->mangle_type(t.pointed_type()));
+        },
+        [&](const type::ArrayType& t){
+            if(t.is_complete()){
+                return type::ArrayType(this->mangle_type(t.pointed_type()), t.size());
+            }else{
+                return type::ArrayType(this->mangle_type(t.pointed_type()), std::nullopt);
+            }
+        },
+        [&](const type::StructType& t){
+            auto mangled_tag = this->mangle_name(t.tag);
+            if(t.is_complete()){
+                auto mangled_members = t.members;
+                for(auto& member : mangled_members){
+                    member = this->mangle_type(member);
+                }
+                return type::StructType(mangled_tag, mangled_members,t.indices);
+            }else{
+                return type::StructType(mangled_tag);
+            }
+        }
+    ), type);
+}
+void GlobalTable::add_tag(std::string tag, type::TagType type){
+    std::visit(type::overloaded{
+        [&](type::StructType t)->void{
+            auto pair = this->tags.emplace(tag, t);
+            if(t.is_complete() && pair.second){
+                throw std::runtime_error("Tag "+tag+" already defined at global scope");
+            }
+        }
+    }, type);
+}
+void BlockTable::add_tag(std::string tag, type::TagType type){
+    std::visit(type::overloaded{
+        [&](type::StructType t){
+            if(tags.find(tag) == tags.end()){
+                this->global->local_tag_count[tag] += 1; 
+                this->tags.emplace(tag, this->global->local_tag_count[tag]);
+            }
+            auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
+            this->global->add_tag(mangled_tag, type::get<type::StructType>(this->mangle_type(t)));
+        }
+    }, type);
+}
 bool STable::has_symbol(std::string name){
     STable* to_search = this;
     while(to_search != nullptr){

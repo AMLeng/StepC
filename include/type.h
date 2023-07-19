@@ -133,6 +133,7 @@ struct StructType{
     bool operator !=(const StructType& other) const;
     std::map<std::string, StructType> lookup;
 };
+typedef std::variant<type::StructType> TagType;
 
 std::string to_string(const CType& type);
 bool is_compatible(const CType& , const CType&); //Defined in type.cpp

@@ -90,11 +90,10 @@ struct NullStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
-typedef std::variant<type::StructType> TagType;
 struct TagDecl : public AST {
     token::Token tok;
-    TagType type;
-    TagDecl(token::Token tok, TagType type) : tok(tok), type(std::move(type)) {}
+    type::TagType type;
+    TagDecl(token::Token tok, type::TagType type) : tok(tok), type(std::move(type)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;

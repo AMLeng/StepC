@@ -38,27 +38,47 @@ public:
     STable* most_recent_child();
     virtual bool in_function() const = 0;
     virtual void add_extern_decl(const std::string& name, const type::CType& type) = 0;
+    virtual bool tag_declared(std::string tag) const = 0;
+    virtual type::CType get_tag(std::string tag) const = 0;
+    virtual void add_tag(std::string tag, type::TagType type) = 0;
+    virtual type::CType mangle_type(type::CType type) const = 0;
+    virtual std::string mangle_name(std::string name) const = 0;
     void add_symbol(std::string name, type::CType type, bool has_def = false);
     bool has_symbol(std::string name);
     type::CType symbol_type(std::string name) const;
 };
 class GlobalTable : public STable{
     std::map<std::string, type::CType> external_type_map;
+    std::map<std::string, type::CType> tags;
 public:
+    std::map<std::string, int> local_tag_count;
     GlobalTable() : STable(nullptr), external_type_map() {}
     FuncTable* new_function_scope_child(type::CType t);
     bool in_function() const override;
     void add_extern_decl(const std::string& name, const type::CType& type) override;
+    bool tag_declared(std::string tag) const override;
+    type::CType get_tag(std::string tag) const override;
+    void add_tag(std::string tag, type::TagType type) override;
+    type::CType mangle_type(type::CType type) const override;
+    std::string mangle_name(std::string name) const override;
 };
+
 class BlockTable : public STable{
     GlobalTable* global;
     FuncTable* current_func;
     std::unique_ptr<std::set<std::optional<unsigned long long int>>> switch_cases;
+    std::map<std::string, int> tags;
 public:
     BlockTable(GlobalTable* global, FuncTable* func, STable* parent) : 
         STable(parent), global(global), current_func(func), switch_cases(nullptr) {}
     type::CType return_type();
     bool in_function() const override;
+    void add_extern_decl(const std::string& name, const type::CType& type) override;
+    bool tag_declared(std::string tag) const override;
+    type::CType get_tag(std::string tag) const override;
+    void add_tag(std::string tag, type::TagType type) override;
+    type::CType mangle_type(type::CType type) const override;
+    std::string mangle_name(std::string name) const override;
     bool in_switch() const;
     BlockTable* new_switch_scope_child();
     std::set<std::optional<unsigned long long int>>* get_switch() const;
@@ -67,7 +87,6 @@ public:
     void add_case(std::optional<unsigned long long int> case_val);
     std::unique_ptr<std::set<std::optional<unsigned long long int>>> transfer_switch_table();
     std::optional<token::Token> unmatched_label() const;
-    void add_extern_decl(const std::string& name, const type::CType& type) override;
     BlockTable* new_block_scope_child();
 };
 class FuncTable : public BlockTable{
