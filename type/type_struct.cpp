@@ -20,15 +20,15 @@ std::string StructType::to_string() const{
 }
 std::string StructType::ir_type() const{
     if(members.size() > 0){
-        std::string s = "<{";
+        std::string s = "{";
         for(int i=0; i<members.size()-1; i++){
             s += type::ir_type(members.at(i)) +", ";
         }
-        s += type::ir_type(members.back()) + "}>";
+        s += type::ir_type(members.back()) + "}";
         return s;
     }else{
         if(complete){
-            return "<{}>";
+            return "{}";
         }
         return "%"+tag;
     }
@@ -37,16 +37,40 @@ long long int StructType::size(const std::map<std::string, type::CType>& tags) c
     if(!is_complete()){
         try{
             auto type = tags.at(this->tag);
-            return type::size(type);
+            return type::size(type, tags);
         }catch(std::exception& e){
             throw std::runtime_error("Cannot take size of incomplete or undefined struct "+this->tag);
         }
     }else{
         int size = 0;
         for(const auto& member : members){
-            size += type::size(member);
+            auto member_size = type::size(member, tags);
+            auto member_align = type::align(member, tags);
+            if(size % member_align != 0){
+                size = ((size/member_align) + 1) * member_align;
+            }
+            size += member_size;
         }
         return size;
+    }
+}
+long long int StructType::align(const std::map<std::string, type::CType>& tags) const{
+    if(!is_complete()){
+        try{
+            auto type = tags.at(this->tag);
+            return type::align(type, tags);
+        }catch(std::exception& e){
+            throw std::runtime_error("Cannot take alignment of incomplete or undefined struct "+this->tag);
+        }
+    }else{
+        int align = 0;
+        for(const auto& member : members){
+            auto member_align = type::align(member, tags);
+            if(member_align > align){
+                align = member_align;
+            }
+        }
+        return align;
     }
 }
 bool StructType::operator ==(const StructType& other) const{

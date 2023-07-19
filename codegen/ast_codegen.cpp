@@ -228,6 +228,7 @@ value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     for(const auto& name_type : tags){
         output<<"%"<<name_type.first<<" = type "<<type::ir_type(name_type.second)<<std::endl;
     }
+    c.tags = this->tags;
     for(const auto& decl : decls){
         decl->codegen(output, c);
     }
@@ -572,7 +573,11 @@ value::Value* StrLiteral::codegen(std::ostream& output, context::Context& c)cons
 }
 value::Value* Sizeof::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    return c.add_literal(std::to_string(size(arg->type)), this->type);
+    return c.add_literal(std::to_string(type::size(arg->type, c.tags)), this->type);
+}
+value::Value* Alignof::codegen(std::ostream& output, context::Context& c)const {
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    return c.add_literal(std::to_string(type::align(arg->type, c.tags)), this->type);
 }
 value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");

@@ -215,6 +215,11 @@ void Sizeof::pretty_print(int depth) const{
     std::cout<<"SIZEOF EXPR:";
     arg->pretty_print(depth+1);
 }
+void Alignof::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"ALIGNOF EXPR:";
+    arg->pretty_print(depth+1);
+}
 void Constant::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"CONSTANT "<<literal<<" OF TYPE "<< type::to_string(type) <<std::endl;

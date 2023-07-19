@@ -100,7 +100,7 @@ std::string ir_type(const CType& type){
         [](const StructType& st){return st.ir_type();}
     ), type);
 }
-long long int size(const CType& type, std::map<std::string, type::CType> tags){
+long long int size(const CType& type, const std::map<std::string, type::CType>& tags){
     return std::visit(make_visitor<int>(
         [](VoidType v){return 0;},
         [](BasicType bt){return byte_size(bt);},
@@ -108,6 +108,16 @@ long long int size(const CType& type, std::map<std::string, type::CType> tags){
         [](const PointerType& pt){return 8;},
         [&](const ArrayType& at){return at.size()*type::size(at.pointed_type(),tags);},
         [&](const StructType& st){return st.size(tags);}
+    ), type);
+}
+long long int align(const CType& type, const std::map<std::string, type::CType>& tags){
+    return std::visit(make_visitor<int>(
+        [](VoidType v){return 0;},
+        [](BasicType bt){return byte_size(bt);},
+        [](const FuncType& ft){throw std::runtime_error("Cannot take alignment of function type");},
+        [](const PointerType& pt){return 8;},
+        [&](const ArrayType& at){return type::align(at.pointed_type(),tags);},
+        [&](const StructType& st){return st.align(tags);}
     ), type);
 }
 bool is_complete(const CType& type){

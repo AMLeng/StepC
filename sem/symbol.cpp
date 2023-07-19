@@ -207,13 +207,16 @@ void BlockTable::add_tag(std::string tag, type::TagType type){
             if(tags.find(tag) == tags.end()){
                 this->global->local_tag_count[tag] += 1; 
                 this->tags.emplace(tag, this->global->local_tag_count[tag]);
-                check_complete(t, this->global->tags);
+                check_complete(t, this->get_tags());
             }
             auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
             auto mangled_struct = type::get<type::StructType>(this->mangle_type_or_throw(t));
             this->global->add_tag(mangled_tag, mangled_struct);
         }
     }, type);
+}
+std::map<std::string, type::CType> BlockTable::get_tags(){
+    return this->global->get_tags();
 }
 std::map<std::string, type::CType> GlobalTable::get_tags(){
     return tags;

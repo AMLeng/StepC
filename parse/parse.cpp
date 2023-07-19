@@ -192,8 +192,17 @@ std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique
     return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
 }
 
+std::unique_ptr<ast::Alignof> parse_alignof(lexer::Lexer& l){
+    auto tok = l.get_token();
+    assert(tok.value == "_Alignof");
+    check_token_type(l.get_token(), token::TokenType::LParen);
+    auto arg = parse_expr(l);
+    check_token_type(l.get_token(), token::TokenType::RParen);
+    return std::make_unique<ast::Alignof>(tok, std::move(arg));
+}
 std::unique_ptr<ast::Sizeof> parse_sizeof(lexer::Lexer& l){
     auto tok = l.get_token();
+    assert(tok.value == "sizeof");
     check_token_type(l.get_token(), token::TokenType::LParen);
     auto arg = parse_expr(l);
     check_token_type(l.get_token(), token::TokenType::RParen);
@@ -260,10 +269,15 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
             expr_ptr =  parse_str_literal(l);
             break;
         case token::TokenType::Keyword:
-            if(expr_start.value != "sizeof"){
-                throw parse_error::ParseError("Unknown keyword starting expression",expr_start);
+            if(expr_start.value == "sizeof"){
+                expr_ptr =  parse_sizeof(l);
+                break;
             }
-            expr_ptr =  parse_sizeof(l);
+            if(expr_start.value == "_Alignof"){
+                expr_ptr =  parse_alignof(l);
+                break;
+            }
+            throw parse_error::ParseError("Unknown keyword starting expression",expr_start);
             break;
     }
     if(expr_ptr == nullptr){

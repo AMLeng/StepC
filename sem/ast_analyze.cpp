@@ -499,7 +499,13 @@ void Sizeof::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
     this->type = type::IType::LLong;
-    this->constant_value = type::size(arg->type);
+    this->constant_value = type::size(arg->type, st->get_tags());
+}
+void Alignof::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    this->type = type::IType::LLong;
+    this->constant_value = type::align(arg->type, st->get_tags());
 }
 void FuncCall::analyze(symbol::STable* st) {
     this->analyzed = true;

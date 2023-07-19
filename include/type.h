@@ -87,6 +87,7 @@ public:
     std::unique_ptr<PointerType> copy() const override;
     void set_size(long long int size);
     long long int size() const;
+    long long int align() const;
     bool is_complete() const;
     friend bool is_compatible(const ArrayType& type1, const ArrayType& type2);
 };
@@ -130,6 +131,7 @@ struct StructType{
     bool is_complete() const;
     std::unique_ptr<StructType> copy() const;
     long long int size(const std::map<std::string, type::CType>& tags) const;
+    long long int align(const std::map<std::string, type::CType>& tags) const;
     bool operator ==(const StructType& other) const;
     bool operator !=(const StructType& other) const;
     std::map<std::string, StructType> lookup;
@@ -161,7 +163,8 @@ BasicType from_str(const std::string& type);
 bool promote_one_rank(IType& type);
 IType to_unsigned(IType type); 
 bool can_represent(IType type, unsigned long long int value);
-long long int size(const CType& type, std::map<std::string, type::CType> tags = std::map<std::string, type::CType>{});
+long long int size(const CType& type, const std::map<std::string, type::CType>& tags);
+long long int align(const CType& type, const std::map<std::string, type::CType>& tags);
 std::string ir_literal(const std::string& c_literal,BasicType type);
 std::string ir_literal(const std::string& c_literal);
 

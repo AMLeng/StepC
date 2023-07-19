@@ -41,6 +41,7 @@ public:
     virtual bool tag_declared(std::string tag) const = 0;
     virtual type::CType get_tag(std::string tag) const = 0;
     virtual void add_tag(std::string tag, type::TagType type) = 0;
+    virtual std::map<std::string, type::CType> get_tags() = 0;
     type::CType mangle_type_or_throw(type::CType type) const;
     virtual std::string mangle_name(std::string name) const = 0;
     void add_symbol(std::string name, type::CType type, bool has_def = false);
@@ -48,7 +49,6 @@ public:
     type::CType symbol_type(std::string name) const;
 };
 class GlobalTable : public STable{
-    friend BlockTable;
     std::map<std::string, type::CType> external_type_map;
     std::map<std::string, type::CType> tags;
 public:
@@ -61,7 +61,7 @@ public:
     type::CType get_tag(std::string tag) const override;
     void add_tag(std::string tag, type::TagType type) override;
     std::string mangle_name(std::string name) const override;
-    std::map<std::string, type::CType> get_tags();
+    std::map<std::string, type::CType> get_tags() override;
 };
 
 class BlockTable : public STable{
@@ -79,6 +79,7 @@ public:
     type::CType get_tag(std::string tag) const override;
     void add_tag(std::string tag, type::TagType type) override;
     std::string mangle_name(std::string name) const override;
+    std::map<std::string, type::CType> get_tags() override;
     bool in_switch() const;
     BlockTable* new_switch_scope_child();
     std::set<std::optional<unsigned long long int>>* get_switch() const;

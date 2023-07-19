@@ -16,7 +16,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);
                     auto diff = make_command(type::CType(type::IType::LLong), "sub", left, right, output, c);
-                    auto size_value = value::Value(std::to_string(type::size(element_type)), type::IType::LLong);
+                    auto size_value = value::Value(std::to_string(type::size(element_type, c.tags)), type::IType::LLong);
                     return make_command(type::CType(type::IType::LLong), "sdiv", diff, &size_value, output, c);
                     },
                 [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");},
