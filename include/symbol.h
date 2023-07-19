@@ -39,7 +39,7 @@ public:
     virtual bool in_function() const = 0;
     virtual void add_extern_decl(const std::string& name, const type::CType& type) = 0;
     virtual bool tag_declared(std::string tag) const = 0;
-    virtual type::CType get_tag(std::string tag) const = 0;
+    virtual type::CType get_tag(std::string unmangled_tag) const = 0;
     virtual void add_tag(std::string tag, type::TagType type) = 0;
     virtual std::map<std::string, type::CType> get_tags() = 0;
     type::CType mangle_type_or_throw(type::CType type) const;

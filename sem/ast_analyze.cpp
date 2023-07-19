@@ -31,10 +31,10 @@ bool is_func_designator(const ast::AST* node){
 }
 bool is_lval(const ast::AST* node){
     //We assume that arrays will all decay to pointers, so that nothing of array type is an lvalue
-    if(auto p = dynamic_cast<const ast::Variable*>(node)){
+    if(const auto p = dynamic_cast<const ast::Variable*>(node)){
         return !type::is_type<type::ArrayType>(p->type);
     }
-    if(auto p = dynamic_cast<const ast::StrLiteral*>(node)){
+    if(dynamic_cast<const ast::StrLiteral*>(node)){
         return true;
     }
     if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
@@ -44,6 +44,9 @@ bool is_lval(const ast::AST* node){
     }
     if(dynamic_cast<const ast::ArrayAccess*>(node)){
         return true;
+    }
+    if(const auto p = dynamic_cast<const ast::StructAccess*>(node)){
+        return is_lval(p->arg.get());
     }
     return false;
 }
@@ -535,6 +538,24 @@ void FuncCall::analyze(symbol::STable* st) {
         this->type = f_type.return_type();
     }catch(std::runtime_error& e){ //Won't catch the STError
         throw sem_error::STError("Function call with expression not referring to a function or function pointer",this->tok);
+    }
+}
+void StructAccess::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    if(!type::is_type<type::StructType>(this->arg->type)){
+        throw sem_error::TypeError("Can only perform struct access on struct type",tok);
+    }
+    auto s_type = type::get<type::StructType>(this->arg->type);
+    try{
+        s_type = type::get<type::StructType>(st->get_tags().at(s_type.tag));
+    }catch(std::exception& e){
+        throw sem_error::TypeError("Could not find struct with name "+s_type.tag,tok);
+    }
+    try{
+        this->type = s_type.members.at(s_type.indices.at(this->index));
+    }catch(std::exception& e){
+        throw sem_error::TypeError("Could not access member "+index+" in struct with name "+s_type.tag,tok);
     }
 }
 void ArrayAccess::analyze(symbol::STable* st) {

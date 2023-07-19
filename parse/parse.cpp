@@ -223,6 +223,13 @@ std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l, std::unique_
     return std::make_unique<ast::FuncCall>(tok, std::move(func), std::move(args));
 }
 
+std::unique_ptr<ast::StructAccess> parse_struct_access(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
+    auto op_token = l.get_token();
+    check_token_type(op_token, token::TokenType::Period);
+    auto index = l.get_token();
+    check_token_type(index, token::TokenType::Identifier);
+    return std::make_unique<ast::StructAccess>(op_token,std::move(arg), index.value);
+}
 std::unique_ptr<ast::ArrayAccess> parse_array_access(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
     auto op_token = l.get_token();
     check_token_type(op_token, token::TokenType::LBrack);
@@ -306,6 +313,14 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
                 break;
             }
             expr_ptr = parse_array_access(l, std::move(expr_ptr));
+            continue;
+        }
+        if(potential_op_token.type == token::TokenType::Period){
+            //postfix struct access
+            if(unary_op_binding_power+1 < min_bind_power){
+                break;
+            }
+            expr_ptr = parse_struct_access(l, std::move(expr_ptr));
             continue;
         }
         if(potential_op_token.type == token::TokenType::Plusplus ||

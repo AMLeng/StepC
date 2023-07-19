@@ -10,6 +10,7 @@ template <class... Ts> struct overloaded : Ts...{using Ts::operator()...;};
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 namespace{
 
+value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Context& c);
 const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::PlusAssign, token::TokenType::Plus},
     {token::TokenType::MinusAssign, token::TokenType::Minus},
@@ -23,7 +24,6 @@ const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::BXAssign, token::TokenType::BitwiseXor},
 }};
 value::Value* compute_array_ptr(const ast::ArrayAccess* node, std::ostream& output, context::Context& c){
-    assert(node->analyzed && "This AST node has not had analysis run on it");
     auto addr = c.new_temp(type::PointerType(node->type));
     auto index_stack = std::vector<value::Value*>{};
     index_stack.push_back(node->index->codegen(output, c));
@@ -43,6 +43,16 @@ value::Value* compute_array_ptr(const ast::ArrayAccess* node, std::ostream& outp
     output <<std::endl;
     return addr;
 }
+value::Value* compute_struct_lval_ptr(const ast::StructAccess* node, std::ostream& output, context::Context& c){
+    auto arg = get_lval(node->arg.get(), output, c);
+    auto s_type = type::get<type::StructType>(c.tags.at(type::get<type::StructType>(node->arg->type).tag));
+
+    auto addr = c.new_temp(type::PointerType(node->type));
+    codegen_utility::print_whitespace(c.depth(), output);
+    output << addr->get_value() <<" = getelementptr "<<type::ir_type(node->arg->type)<<", ptr ";
+    output << arg->get_value()<<", i64 0, i32 "<<s_type.indices.at(node->index)<<std::endl;
+    return addr;
+}
 value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Context& c){
     if(const auto ast_variable = dynamic_cast<const ast::Variable*>(node)){
         return c.get_value(ast_variable->variable_name);
@@ -54,6 +64,9 @@ value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Cont
     }
     if(const auto p = dynamic_cast<const ast::ArrayAccess*>(node)){
         return compute_array_ptr(p,output, c);
+    }
+    if(const auto p = dynamic_cast<const ast::StructAccess*>(node)){
+        return compute_struct_lval_ptr(p,output, c);
     }
     assert(false && "Unknown type of lvalue in code generation");
     return nullptr;
@@ -610,8 +623,20 @@ value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const 
 }
 
 value::Value* ArrayAccess::codegen(std::ostream& output, context::Context& c)const {
+    assert(this->analyzed && "This AST node has not had analysis run on it");
     auto addr = compute_array_ptr(this, output, c);
     return codegen_utility::make_load(addr,output,c);
+}
+value::Value* StructAccess::codegen(std::ostream& output, context::Context& c)const {
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    auto arg = this->arg->codegen(output, c);
+    auto s_type = type::get<type::StructType>(c.tags.at(type::get<type::StructType>(this->arg->type).tag));
+
+    auto addr = c.new_temp(this->type);
+    codegen_utility::print_whitespace(c.depth(), output);
+    output << addr->get_value() <<" = extractvalue "<<type::ir_type(this->arg->type)<<" ";
+    output << arg->get_value()<<", "<<s_type.indices.at(this->index)<<std::endl;
+    return addr;
 }
 value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");

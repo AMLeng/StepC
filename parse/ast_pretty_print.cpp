@@ -231,6 +231,11 @@ void FuncCall::pretty_print(int depth) const{
         arg->pretty_print(depth+1);
     }
 }
+void StructAccess::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"ARRAY ACCESS OF MEMBER "<<index<<" IN"<<std::endl;
+    arg->pretty_print(depth+1);
+}
 void ArrayAccess::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"ARRAY ACCESS OF "<<std::endl;

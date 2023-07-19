@@ -6,15 +6,6 @@ struct overloaded : Ts...{
 };
 
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
-namespace{
-void check_complete(type::CType type, const std::map<std::string, type::CType>& tags){
-    try{
-        type::size(type, tags);
-    }catch(std::exception& e){
-        throw std::runtime_error("Cannot use incomplete type in definition of type");
-    }
-}
-} //namespace
 std::set<std::optional<unsigned long long int>>* BlockTable::get_switch() const{
     if(switch_cases != nullptr) return switch_cases.get();
     BlockTable* p = dynamic_cast<BlockTable*>(parent);
@@ -121,14 +112,14 @@ bool BlockTable::tag_declared(std::string tag) const{
 bool GlobalTable::tag_declared(std::string tag) const{
     return this->tags.find(tag) != this->tags.end();
 }
-type::CType BlockTable::get_tag(std::string tag) const{
-    return global->get_tag(this->mangle_name(tag));
+type::CType BlockTable::get_tag(std::string unmangled_tag) const{
+    return global->get_tag(this->mangle_name(unmangled_tag));
 }
-type::CType GlobalTable::get_tag(std::string tag) const{
+type::CType GlobalTable::get_tag(std::string unmangled_tag) const{
     try{
-        return this->tags.at(tag);
+        return this->tags.at(unmangled_tag);
     }catch(std::runtime_error& e){
-        throw std::runtime_error("Tag "+tag+" not found in symbol table");
+        throw std::runtime_error("Unmangled tag "+unmangled_tag+" not found in symbol table");
     }
 }
 std::string BlockTable::mangle_name(std::string name) const{
@@ -139,7 +130,7 @@ std::string BlockTable::mangle_name(std::string name) const{
 }
 std::string GlobalTable::mangle_name(std::string name) const{
     if(!tag_declared(name)){
-        throw std::runtime_error("Tag "+name+" not found in symbol table");
+        throw std::runtime_error("Unmangled tag "+name+" not found in symbol table");
     }
     return name;
 }
@@ -195,8 +186,14 @@ void GlobalTable::add_tag(std::string tag, type::TagType type){
                     throw std::runtime_error("Tag "+tag+" already defined");
                 }
             }else{
+                for(const auto& member : t.members){
+                    try{
+                        type::size(member, this->tags);
+                    }catch(std::exception& e){
+                        throw std::runtime_error("Cannot use incomplete type in definition of type");
+                    }
+                }
                 this->tags.emplace(tag, t);
-                check_complete(t, this->tags);
             }
         }
     }, type);
@@ -207,7 +204,6 @@ void BlockTable::add_tag(std::string tag, type::TagType type){
             if(tags.find(tag) == tags.end()){
                 this->global->local_tag_count[tag] += 1; 
                 this->tags.emplace(tag, this->global->local_tag_count[tag]);
-                check_complete(t, this->get_tags());
             }
             auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
             auto mangled_struct = type::get<type::StructType>(this->mangle_type_or_throw(t));

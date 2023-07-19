@@ -43,13 +43,20 @@ long long int StructType::size(const std::map<std::string, type::CType>& tags) c
         }
     }else{
         int size = 0;
+        int align = 0;
         for(const auto& member : members){
             auto member_size = type::size(member, tags);
             auto member_align = type::align(member, tags);
             if(size % member_align != 0){
                 size = ((size/member_align) + 1) * member_align;
             }
+            if(align < member_align){
+                align = member_align;
+            }
             size += member_size;
+        }
+        if(size % align != 0){
+            size = ((size/align) + 1) * align;
         }
         return size;
     }
