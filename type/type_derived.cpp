@@ -19,7 +19,6 @@ DerivedType& DerivedType::operator=(const DerivedType& other){
 }
 
 bool DerivedType::operator ==(const DerivedType& other) const{
-    return false;
     return std::visit(overloaded{
         [&type2 = std::as_const(other.type)](const std::unique_ptr<StructType>& type1){
             if(!std::holds_alternative<std::unique_ptr<StructType>>(type2)){

@@ -124,6 +124,9 @@ value::Value* convert(type::CType target_type, value::Value* val,
     if(!type::can_cast(val->get_type(),target_type)){
         throw std::runtime_error("Tried to convert "+type::to_string(val->get_type())+" to "+type::to_string(target_type));
     }
+    if(val->get_type() == target_type){
+        return val;
+    }
     return std::visit(type::make_visitor<value::Value*>(
         [&](const type::BasicType& bt){return convert(bt, val, output, c);},
         [&](const type::VoidType& vt){throw std::runtime_error("Unable to convert value to void type");},

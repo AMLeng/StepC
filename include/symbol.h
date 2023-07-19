@@ -60,6 +60,7 @@ public:
     type::CType get_tag(std::string tag) const override;
     void add_tag(std::string tag, type::TagType type) override;
     std::string mangle_name(std::string name) const override;
+    std::map<std::string, type::CType> get_tags();
 };
 
 class BlockTable : public STable{

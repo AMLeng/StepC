@@ -815,6 +815,7 @@ void Program::analyze(symbol::STable* st) {
     for(auto& decl : decls){
         decl->analyze(st);
     }
+    this->tags = dynamic_cast<symbol::GlobalTable*>(st)->get_tags();
 }
 void ForStmt::analyze(symbol::STable* st){
     auto bt = dynamic_cast<symbol::BlockTable*>(st);

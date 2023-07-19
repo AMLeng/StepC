@@ -204,6 +204,9 @@ void BlockTable::add_tag(std::string tag, type::TagType type){
         }
     }, type);
 }
+std::map<std::string, type::CType> GlobalTable::get_tags(){
+    return tags;
+}
 bool STable::has_symbol(std::string name){
     STable* to_search = this;
     while(to_search != nullptr){

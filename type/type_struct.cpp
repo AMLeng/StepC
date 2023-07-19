@@ -35,9 +35,13 @@ long long int StructType::size() const{
     return size;
 }
 bool StructType::operator ==(const StructType& other) const{
-    return tag == other.tag 
-        && members == other.members
-        && indices == other.indices;
+    if(members.size() > 0 && other.members.size() > 0){
+        return tag == other.tag 
+            && members == other.members
+            && indices == other.indices;
+    }else{
+        return tag == other.tag ;
+    }
 }
 bool StructType::operator !=(const StructType& other) const{
     return !this->operator==(other);

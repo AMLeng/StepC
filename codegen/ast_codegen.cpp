@@ -225,6 +225,9 @@ std::string Expr::compute_constant(type::CType type) const{
 
 value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     output<<R"(target triple = "x86_64-unknown-linux-gnu")"<<std::endl;
+    for(const auto& name_type : tags){
+        output<<"%"<<name_type.first<<" = type "<<type::ir_type(name_type.second)<<std::endl;
+    }
     for(const auto& decl : decls){
         decl->codegen(output, c);
     }
