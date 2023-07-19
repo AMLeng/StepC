@@ -178,5 +178,20 @@ struct s{struct s * a;} x;
     auto program_pointer = parse::construct_ast(l);
     program_pointer->analyze();
 }
+TEST_CASE("initializer"){
+    auto ss = std::stringstream(
+R"(
+struct s{int a;
+double b;
+int c[3];
+};
+int main(){
+    struct s x = {1,2,{3,4,5}};
+}
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
 
 

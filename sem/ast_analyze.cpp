@@ -373,6 +373,9 @@ ConstantExprType compute_binary_constant(ConstantExprType left, ConstantExprType
     __builtin_unreachable();
 }
 
+type::StructType lookup_tag(symbol::STable* st, type::StructType s){
+        return type::get<type::StructType>(st->get_tags().at(s.tag));
+}
 } //namespace
 
 void TagDecl::analyze(symbol::STable* st) {
@@ -433,10 +436,10 @@ void Expr::initializer_analyze(type::CType& variable_type, symbol::STable* st){
     }
 }
 void InitializerList::initializer_analyze(type::CType& variable_type, symbol::STable* st){
+    auto length = initializers.size();
     if(type::is_type<type::ArrayType>(variable_type)){
         auto array_type = type::get<type::ArrayType>(variable_type);
         auto element_type = array_type.pointed_type();
-        int length = initializers.size();
         if(array_type.is_complete() && array_type.size() < length){
             length = array_type.size();
         }
@@ -447,8 +450,16 @@ void InitializerList::initializer_analyze(type::CType& variable_type, symbol::ST
         for(int i=0; i<length; i++){
             initializers.at(i)->initializer_analyze(element_type, st);
         }
+    }else if(type::is_type<type::StructType>(variable_type)){
+        auto s_type = lookup_tag(st, type::get<type::StructType>(variable_type));
+        if(s_type.members.size() < length){
+            length = s_type.members.size();
+        }
+        for(int i=0; i<length; i++){
+            initializers.at(i)->initializer_analyze(s_type.members.at(i), st);
+        }
     }else{
-        if(initializers.size() == 0){
+        if(length == 0){
             throw sem_error::TypeError("Cannot have empty initializer for scalar", this->tok);
         }
         initializers.front()->initializer_analyze(variable_type, st);
@@ -548,7 +559,7 @@ void StructAccess::analyze(symbol::STable* st) {
     }
     auto s_type = type::get<type::StructType>(this->arg->type);
     try{
-        s_type = type::get<type::StructType>(st->get_tags().at(s_type.tag));
+        s_type = lookup_tag(st, s_type);
     }catch(std::exception& e){
         throw sem_error::TypeError("Could not find struct with name "+s_type.tag,tok);
     }
