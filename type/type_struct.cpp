@@ -4,20 +4,28 @@ DerivedType::DerivedType(StructType p)
     : type(std::make_unique<StructType>(p)){
        }
 std::string StructType::to_string() const{
-    std::string s = "Struct {";
-    for(int i=0; i<members.size()-1; i++){
-        s += type::to_string(members.at(i)) +", ";
+    if(members.size() > 0){
+        std::string s = "Struct "+tag+ " {";
+        for(int i=0; i<members.size()-1; i++){
+            s += type::to_string(members.at(i)) +", ";
+        }
+        s += type::to_string(members.back()) + "}";
+        return s;
+    }else{
+        return "Opaque Struct "+tag;
     }
-    s += type::to_string(members.back()) + "}";
-    return s;
 }
 std::string StructType::ir_type() const{
-    std::string s = "<{";
-    for(int i=0; i<members.size()-1; i++){
-        s += type::ir_type(members.at(i)) +", ";
+    if(members.size() > 0){
+        std::string s = "<{";
+        for(int i=0; i<members.size()-1; i++){
+            s += type::ir_type(members.at(i)) +", ";
+        }
+        s += type::ir_type(members.back()) + "}>";
+        return s;
+    }else{
+        return "%"+tag;
     }
-    s += type::ir_type(members.back()) + "}>";
-    return s;
 }
 long long int StructType::size() const{
     int size = 0;

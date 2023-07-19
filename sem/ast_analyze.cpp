@@ -373,9 +373,24 @@ ConstantExprType compute_binary_constant(ConstantExprType left, ConstantExprType
 } //namespace
 
 void TagDecl::analyze(symbol::STable* st) {
+    std::string name = std::visit(type::overloaded{
+        [](const type::StructType& t){
+            return t.tag;
+        }
+    }, this->type);
+    try{
+        st->add_tag(name, this->type);
+    }catch(std::exception& e){
+        throw sem_error::STError("Error adding tag definition "+name+" to symbol table:\n"+e.what(), this->tok);
+    }
 }
 void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
+    try{
+        this->type = st->mangle_type_or_throw(this->type);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
     if(type::is_type<type::ArrayType>(this->type)){
         auto array_type = type::get<type::ArrayType>(this->type);
         if(!this->assignment.has_value() && !array_type.is_complete()){
@@ -900,12 +915,20 @@ void CompoundStmt::analyze(symbol::STable* st){
 }
 void DeclList::analyze(symbol::STable* st){
     this->analyzed = true;
+    for(const auto& t : tag_decls){
+        t->analyze(st);
+    }
     for(auto& decl : decls){
         decl->analyze(st);
     }
 }
 void FunctionDecl::analyze(symbol::STable* st){
     this->analyzed = true;
+    try{
+        this->type = st->mangle_type_or_throw(this->type);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
     if(st->in_function()){
         /*if(this->type is marked with storage specifier other than extern){
             throw sem_error::TypeError("Non extern function declaration inside function",this->tok);
@@ -921,6 +944,14 @@ void FunctionDecl::analyze(symbol::STable* st){
 }
 void FunctionDef::analyze(symbol::STable* st) {
     this->analyzed = true;
+    for(const auto& t : tag_decls){
+        t->analyze(st);
+    }
+    try{
+        this->type = st->mangle_type_or_throw(this->type);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
     auto f_type = type::get<type::FuncType>(this->type);
     if(st->in_function()){
         throw sem_error::FlowError("Function definition inside function",this->tok);

@@ -41,7 +41,7 @@ public:
     virtual bool tag_declared(std::string tag) const = 0;
     virtual type::CType get_tag(std::string tag) const = 0;
     virtual void add_tag(std::string tag, type::TagType type) = 0;
-    virtual type::CType mangle_type(type::CType type) const = 0;
+    type::CType mangle_type_or_throw(type::CType type) const;
     virtual std::string mangle_name(std::string name) const = 0;
     void add_symbol(std::string name, type::CType type, bool has_def = false);
     bool has_symbol(std::string name);
@@ -59,7 +59,6 @@ public:
     bool tag_declared(std::string tag) const override;
     type::CType get_tag(std::string tag) const override;
     void add_tag(std::string tag, type::TagType type) override;
-    type::CType mangle_type(type::CType type) const override;
     std::string mangle_name(std::string name) const override;
 };
 
@@ -77,7 +76,6 @@ public:
     bool tag_declared(std::string tag) const override;
     type::CType get_tag(std::string tag) const override;
     void add_tag(std::string tag, type::TagType type) override;
-    type::CType mangle_type(type::CType type) const override;
     std::string mangle_name(std::string name) const override;
     bool in_switch() const;
     BlockTable* new_switch_scope_child();

@@ -87,7 +87,9 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifie
         if(l.peek_token().type == token::TokenType::Identifier){
             ident = l.get_token().value;
         }else{
+            //Anonymous struct definition, replace the name with a unique anonymous name
             check_token_type(l.peek_token(), token::TokenType::LBrace);
+            ident = "anon."+std::to_string(next_tok.loc.start_line)+"."+std::to_string(next_tok.loc.start_col);
         }
         if(l.peek_token().type == token::TokenType::LBrace){
             auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
@@ -109,11 +111,11 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifie
                 }
             }
             check_token_type(l.get_token(), token::TokenType::RBrace);
-            auto type = type::StructType(ident, members, indices);
-            tags.push_back(std::make_unique<ast::TagDecl>(next_tok, type));
-            return std::make_pair(type, std::move(tags));
+            tags.push_back(std::make_unique<ast::TagDecl>(next_tok, type::StructType(ident, members, indices)));
+            return std::make_pair(type::StructType(ident), std::move(tags));
         }else{
-            return std::make_pair(type::StructType(ident),std::vector<std::unique_ptr<ast::TagDecl>>{});
+            auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
+            return std::make_pair(type::StructType(ident),std::move(tags));
         }
     }
     auto specifier_list = std::multiset<std::string>{};
