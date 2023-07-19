@@ -48,6 +48,7 @@ public:
     type::CType symbol_type(std::string name) const;
 };
 class GlobalTable : public STable{
+    friend BlockTable;
     std::map<std::string, type::CType> external_type_map;
     std::map<std::string, type::CType> tags;
 public:

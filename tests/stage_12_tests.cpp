@@ -160,4 +160,23 @@ int main(){
     auto program_pointer =parse::construct_ast(l);
     program_pointer->analyze();
 }
+TEST_CASE("nested struct def error"){
+    auto ss = std::stringstream(
+R"(
+struct s{struct s a;} x;
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
+TEST_CASE("nested struct def"){
+    auto ss = std::stringstream(
+R"(
+struct s{struct s * a;} x;
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+
 

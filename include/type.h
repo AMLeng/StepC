@@ -118,17 +118,18 @@ public:
 };
 
 struct StructType{
+    bool complete;
     std::string tag;
     std::vector<CType> members;
     std::map<std::string, int> indices;
-    explicit StructType(std::string tag) : tag(tag) {}
+    explicit StructType(std::string tag) : tag(tag), complete(false) {}
     StructType(std::string tag, std::vector<CType> members, std::map<std::string, int> indices) :
-        tag(tag), members(members), indices(indices) {}
+        tag(tag), members(members), indices(indices), complete(true) {}
     std::string to_string() const;
     std::string ir_type() const;
     bool is_complete() const;
     std::unique_ptr<StructType> copy() const;
-    long long int size() const;
+    long long int size(const std::map<std::string, type::CType>& tags) const;
     bool operator ==(const StructType& other) const;
     bool operator !=(const StructType& other) const;
     std::map<std::string, StructType> lookup;
@@ -160,7 +161,7 @@ BasicType from_str(const std::string& type);
 bool promote_one_rank(IType& type);
 IType to_unsigned(IType type); 
 bool can_represent(IType type, unsigned long long int value);
-long long int size(const CType& type);
+long long int size(const CType& type, std::map<std::string, type::CType> tags = std::map<std::string, type::CType>{});
 std::string ir_literal(const std::string& c_literal,BasicType type);
 std::string ir_literal(const std::string& c_literal);
 
