@@ -45,7 +45,7 @@ bool is_lval(const ast::AST* node){
     if(dynamic_cast<const ast::ArrayAccess*>(node)){
         return true;
     }
-    if(const auto p = dynamic_cast<const ast::StructAccess*>(node)){
+    if(const auto p = dynamic_cast<const ast::MemberAccess*>(node)){
         return is_lval(p->arg.get());
     }
     return false;
@@ -373,8 +373,9 @@ ConstantExprType compute_binary_constant(ConstantExprType left, ConstantExprType
     __builtin_unreachable();
 }
 
-type::StructType lookup_tag(symbol::STable* st, type::StructType s){
-        return type::get<type::StructType>(st->get_tags().at(s.tag));
+template <typename T>
+T lookup_tag(symbol::STable* st, T s){
+        return type::get<T>(st->get_tags().at(s.tag));
 }
 } //namespace
 
@@ -551,23 +552,38 @@ void FuncCall::analyze(symbol::STable* st) {
         throw sem_error::STError("Function call with expression not referring to a function or function pointer",this->tok);
     }
 }
-void StructAccess::analyze(symbol::STable* st) {
+void MemberAccess::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
-    if(!type::is_type<type::StructType>(this->arg->type)){
-        throw sem_error::TypeError("Can only perform struct access on struct type",tok);
+    if(type::is_type<type::StructType>(this->arg->type)){
+        auto s_type = type::get<type::StructType>(this->arg->type);
+        try{
+            s_type = lookup_tag(st, s_type);
+        }catch(std::exception& e){
+            throw sem_error::TypeError("Could not find struct with name "+s_type.tag,tok);
+        }
+        try{
+            this->type = s_type.members.at(s_type.indices.at(this->index));
+        }catch(std::exception& e){
+            throw sem_error::TypeError("Could not access member "+index+" in struct with name "+s_type.tag,tok);
+        }
+        return;
     }
-    auto s_type = type::get<type::StructType>(this->arg->type);
-    try{
-        s_type = lookup_tag(st, s_type);
-    }catch(std::exception& e){
-        throw sem_error::TypeError("Could not find struct with name "+s_type.tag,tok);
+    if(type::is_type<type::UnionType>(this->arg->type)){
+        auto u_type = type::get<type::UnionType>(this->arg->type);
+        try{
+            u_type = lookup_tag(st, u_type);
+        }catch(std::exception& e){
+            throw sem_error::TypeError("Could not find struct with name "+u_type.tag,tok);
+        }
+        try{
+            this->type = u_type.members.at(u_type.indices.at(this->index));
+        }catch(std::exception& e){
+            throw sem_error::TypeError("Could not access member "+index+" in struct with name "+u_type.tag,tok);
+        }
+        return;
     }
-    try{
-        this->type = s_type.members.at(s_type.indices.at(this->index));
-    }catch(std::exception& e){
-        throw sem_error::TypeError("Could not access member "+index+" in struct with name "+s_type.tag,tok);
-    }
+    throw sem_error::TypeError("Can only perform member access on struct or union type",tok);
 }
 void ArrayAccess::analyze(symbol::STable* st) {
     this->analyzed = true;

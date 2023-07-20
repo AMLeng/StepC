@@ -150,6 +150,7 @@ struct UnionType{
     std::string to_string() const;
     std::string ir_type() const;
     bool is_complete() const;
+    void compute_largest(const std::map<std::string, type::CType>& tags);
     std::unique_ptr<UnionType> copy() const;
     long long int size(const std::map<std::string, type::CType>& tags) const;
     long long int align(const std::map<std::string, type::CType>& tags) const;

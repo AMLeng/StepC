@@ -46,7 +46,7 @@ value::Value* compute_array_ptr(const ast::ArrayAccess* node, std::ostream& outp
     output <<std::endl;
     return addr;
 }
-value::Value* compute_struct_lval_ptr(const ast::StructAccess* node, std::ostream& output, context::Context& c){
+value::Value* compute_struct_lval_ptr(const ast::MemberAccess* node, std::ostream& output, context::Context& c){
     auto arg = get_lval(node->arg.get(), output, c);
     auto s_type = type::get<type::StructType>(c.tags.at(type::get<type::StructType>(node->arg->type).tag));
 
@@ -68,7 +68,7 @@ value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Cont
     if(const auto p = dynamic_cast<const ast::ArrayAccess*>(node)){
         return compute_array_ptr(p,output, c);
     }
-    if(const auto p = dynamic_cast<const ast::StructAccess*>(node)){
+    if(const auto p = dynamic_cast<const ast::MemberAccess*>(node)){
         return compute_struct_lval_ptr(p,output, c);
     }
     assert(false && "Unknown type of lvalue in code generation");
@@ -676,7 +676,7 @@ value::Value* ArrayAccess::codegen(std::ostream& output, context::Context& c)con
     auto addr = compute_array_ptr(this, output, c);
     return codegen_utility::make_load(addr,output,c);
 }
-value::Value* StructAccess::codegen(std::ostream& output, context::Context& c)const {
+value::Value* MemberAccess::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
     auto arg = this->arg->codegen(output, c);
     auto s_type = type::get<type::StructType>(c.tags.at(type::get<type::StructType>(this->arg->type).tag));

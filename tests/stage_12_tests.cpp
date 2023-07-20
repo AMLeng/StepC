@@ -193,5 +193,22 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     program_pointer->analyze();
 }
+TEST_CASE("union struct double def"){
+    auto ss = std::stringstream(
+R"(
+union u{
+    int a;
+    double b;
+} n;
+struct u{
+    int a;
+    double b;
+} m;
+int main(){
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
+}
 
 

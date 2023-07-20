@@ -32,13 +32,27 @@ std::string UnionType::ir_type() const{
         return "%"+tag;
     }
 }
+void UnionType::compute_largest(const std::map<std::string, type::CType>& tags){
+    if(!is_complete()){
+        throw std::runtime_error("Cannot compute largest element of incomplete union "+this->tag);
+    }else{
+        int size = 0;
+        for(const auto& member : members){
+            auto member_size = type::size(member, tags);
+            if(member_size > size){
+                size = member_size;
+                largest = member;
+            }
+        }
+    }
+}
 long long int UnionType::size(const std::map<std::string, type::CType>& tags) const{
     if(!is_complete()){
         try{
             auto type = tags.at(this->tag);
             return type::size(type, tags);
         }catch(std::exception& e){
-            throw std::runtime_error("Cannot take size of incomplete or undefined struct "+this->tag);
+            throw std::runtime_error("Cannot take size of incomplete or undefined union "+this->tag);
         }
     }else{
         int size = 0;
@@ -57,7 +71,7 @@ long long int UnionType::align(const std::map<std::string, type::CType>& tags) c
             auto type = tags.at(this->tag);
             return type::align(type, tags);
         }catch(std::exception& e){
-            throw std::runtime_error("Cannot take alignment of incomplete or undefined struct "+this->tag);
+            throw std::runtime_error("Cannot take alignment of incomplete or undefined union "+this->tag);
         }
     }else{
         int align = 0;

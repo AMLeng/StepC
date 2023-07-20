@@ -81,7 +81,7 @@ bool is_specifier(const token::Token& tok){
 
 std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifiers(lexer::Lexer& l){
     auto next_tok = l.peek_token();
-    if(next_tok.value == "struct"){
+    if(next_tok.value == "struct" || next_tok.value == "union"){
         l.get_token();
         std::string ident = "";
         if(l.peek_token().type == token::TokenType::Identifier){
@@ -111,11 +111,20 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifie
                 }
             }
             check_token_type(l.get_token(), token::TokenType::RBrace);
-            tags.push_back(std::make_unique<ast::TagDecl>(next_tok, type::StructType(ident, members, indices)));
-            return std::make_pair(type::StructType(ident), std::move(tags));
+            if(next_tok.value == "struct"){
+                tags.push_back(std::make_unique<ast::TagDecl>(next_tok, type::StructType(ident, members, indices)));
+                return std::make_pair(type::StructType(ident), std::move(tags));
+            }else{
+                tags.push_back(std::make_unique<ast::TagDecl>(next_tok, type::UnionType(ident, members, indices)));
+                return std::make_pair(type::UnionType(ident), std::move(tags));
+            }
         }else{
             auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
-            return std::make_pair(type::StructType(ident),std::move(tags));
+            if(next_tok.value == "struct"){
+                return std::make_pair(type::StructType(ident),std::move(tags));
+            }else{
+                return std::make_pair(type::UnionType(ident),std::move(tags));
+            }
         }
     }
     auto specifier_list = std::multiset<std::string>{};
@@ -223,12 +232,12 @@ std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l, std::unique_
     return std::make_unique<ast::FuncCall>(tok, std::move(func), std::move(args));
 }
 
-std::unique_ptr<ast::StructAccess> parse_struct_access(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
+std::unique_ptr<ast::MemberAccess> parse_member_access(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
     auto op_token = l.get_token();
     check_token_type(op_token, token::TokenType::Period);
     auto index = l.get_token();
     check_token_type(index, token::TokenType::Identifier);
-    return std::make_unique<ast::StructAccess>(op_token,std::move(arg), index.value);
+    return std::make_unique<ast::MemberAccess>(op_token,std::move(arg), index.value);
 }
 std::unique_ptr<ast::ArrayAccess> parse_array_access(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
     auto op_token = l.get_token();
@@ -320,7 +329,7 @@ std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
             if(unary_op_binding_power+1 < min_bind_power){
                 break;
             }
-            expr_ptr = parse_struct_access(l, std::move(expr_ptr));
+            expr_ptr = parse_member_access(l, std::move(expr_ptr));
             continue;
         }
         if(potential_op_token.type == token::TokenType::Plusplus ||

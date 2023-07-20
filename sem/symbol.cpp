@@ -228,6 +228,7 @@ void BlockTable::add_tag(std::string tag, type::TagType type){
             }
             auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
             auto mangled_union = type::get<type::UnionType>(this->mangle_type_or_throw(t));
+            mangled_union.compute_largest(this->get_tags());
             this->global->add_tag(mangled_tag, mangled_union);
         }
     }, type);
