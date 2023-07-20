@@ -380,9 +380,9 @@ type::StructType lookup_tag(symbol::STable* st, type::StructType s){
 
 void TagDecl::analyze(symbol::STable* st) {
     std::string name = std::visit(type::overloaded{
-        [](const type::StructType& t){
+        [](const auto& t){
             return t.tag;
-        }
+        },
     }, this->type);
     try{
         st->add_tag(name, this->type);

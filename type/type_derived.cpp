@@ -20,6 +20,15 @@ DerivedType& DerivedType::operator=(const DerivedType& other){
 
 bool DerivedType::operator ==(const DerivedType& other) const{
     return std::visit(overloaded{
+        //Cases for non-array types are all the same
+        [&type2 = std::as_const(other.type)](const std::unique_ptr<UnionType>& type1){
+            if(!std::holds_alternative<std::unique_ptr<UnionType>>(type2)){
+                return false;
+            }
+            const auto& t2 = std::get<std::unique_ptr<UnionType>>(type2);
+            assert(type1 && t2 && "Invalid derived type containing nullptr");
+            return *type1 == *t2;
+        },
         [&type2 = std::as_const(other.type)](const std::unique_ptr<StructType>& type1){
             if(!std::holds_alternative<std::unique_ptr<StructType>>(type2)){
                 return false;
@@ -56,6 +65,14 @@ bool DerivedType::operator !=(const DerivedType& other) const{
 
 bool is_compatible(const DerivedType& type1, const DerivedType& type2){
     return std::visit(overloaded{
+        [&type2 = std::as_const(type2.type)](const std::unique_ptr<UnionType>& type1){
+            if(!std::holds_alternative<std::unique_ptr<UnionType>>(type2)){
+                return false;
+            }
+            const auto& t2 = std::get<std::unique_ptr<UnionType>>(type2);
+            assert(type1 && t2 && "Invalid derived type containing nullptr");
+            return *type1 == *t2;
+        },
         [&type2 = std::as_const(type2.type)](const std::unique_ptr<StructType>& type1){
             if(!std::holds_alternative<std::unique_ptr<StructType>>(type2)){
                 return false;

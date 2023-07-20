@@ -28,10 +28,13 @@ class FuncType;
 class ArrayType;
 class PointerType;
 class StructType;
+class UnionType;
+class EnumType;
 class DerivedType;
 typedef std::variant<VoidType, BasicType, DerivedType> CType;
 
-typedef std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, std::unique_ptr<StructType>> DerivedPointers;
+typedef std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, 
+    std::unique_ptr<StructType>, std::unique_ptr<UnionType>> DerivedPointers;
 class DerivedType{
     DerivedPointers type;
 public:
@@ -39,6 +42,7 @@ public:
     DerivedType(PointerType f); //Defined in type_pointer.cpp
     DerivedType(ArrayType f); //Defined in type_array.cpp
     DerivedType(StructType f); //Defined in type_struct.cpp
+    DerivedType(UnionType f); //Defined in type_struct.cpp
 
     DerivedType(const DerivedType& other); 
     DerivedType& operator=(const DerivedType& other);
@@ -134,9 +138,26 @@ struct StructType{
     long long int align(const std::map<std::string, type::CType>& tags) const;
     bool operator ==(const StructType& other) const;
     bool operator !=(const StructType& other) const;
-    std::map<std::string, StructType> lookup;
 };
-typedef std::variant<type::StructType> TagType;
+struct UnionType{
+    bool complete;
+    std::string tag;
+    std::vector<CType> members;
+    std::map<std::string, int> indices;
+    CType largest;
+    explicit UnionType(std::string tag) : tag(tag), complete(false) {}
+    UnionType(std::string tag, std::vector<CType> members, std::map<std::string, int> indices);
+    std::string to_string() const;
+    std::string ir_type() const;
+    bool is_complete() const;
+    std::unique_ptr<UnionType> copy() const;
+    long long int size(const std::map<std::string, type::CType>& tags) const;
+    long long int align(const std::map<std::string, type::CType>& tags) const;
+    bool operator ==(const UnionType& other) const;
+    bool operator !=(const UnionType& other) const;
+};
+
+typedef std::variant<type::StructType, type::UnionType> TagType;
 
 std::string to_string(const CType& type);
 bool is_compatible(const CType& , const CType&); //Defined in type.cpp

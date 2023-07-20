@@ -44,6 +44,7 @@ bool can_assign(const CType& type1, const CType& type2){
         [&type2](PointerType type1){return type2 == CType(IType::Bool)
             || is_type<PointerType>(type2) && can_assign(type1, type::get<PointerType>(type2));},
         [&type2](StructType type1){return is_type<StructType>(type2) && type1 == type::get<StructType>(type2);},
+        [&type2](UnionType type1){return is_type<UnionType>(type2) && type1 == type::get<UnionType>(type2);},
         [&type2](FuncType type1){return is_type<FuncType>(type2);}
     ),type1);
 }
@@ -97,6 +98,7 @@ std::string ir_type(const CType& type){
         [](const FuncType& ft){return ft.ir_type();},
         [](const PointerType& pt){return pt.ir_type();},
         [](const ArrayType& at){return at.ir_type();},
+        [](const UnionType& st){return st.ir_type();},
         [](const StructType& st){return st.ir_type();}
     ), type);
 }
@@ -107,7 +109,8 @@ long long int size(const CType& type, const std::map<std::string, type::CType>& 
         [](const FuncType& ft){throw std::runtime_error("Cannot take size of function type");},
         [](const PointerType& pt){return 8;},
         [&](const ArrayType& at){return at.size()*type::size(at.pointed_type(),tags);},
-        [&](const StructType& st){return st.size(tags);}
+        [&](const StructType& st){return st.size(tags);},
+        [&](const UnionType& st){return st.size(tags);}
     ), type);
 }
 long long int align(const CType& type, const std::map<std::string, type::CType>& tags){
@@ -117,7 +120,8 @@ long long int align(const CType& type, const std::map<std::string, type::CType>&
         [](const FuncType& ft){throw std::runtime_error("Cannot take alignment of function type");},
         [](const PointerType& pt){return 8;},
         [&](const ArrayType& at){return type::align(at.pointed_type(),tags);},
-        [&](const StructType& st){return st.align(tags);}
+        [&](const StructType& st){return st.align(tags);},
+        [&](const UnionType& st){return st.align(tags);}
     ), type);
 }
 bool is_complete(const CType& type){
@@ -127,7 +131,8 @@ bool is_complete(const CType& type){
         [](const FuncType& ft){throw std::runtime_error("Complete or incomplete does not make sense for function type");},
         [](const PointerType& pt){return false;},
         [](const ArrayType& at){return at.is_complete();},
-        [](const StructType& st){return st.is_complete();}
+        [](const StructType& st){return st.is_complete();},
+        [](const UnionType& st){return st.is_complete();}
     ), type);
 }
 

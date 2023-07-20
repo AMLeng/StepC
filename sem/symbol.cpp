@@ -171,18 +171,30 @@ type::CType STable::mangle_type_or_throw(type::CType type) const{
             }else{
                 return type::StructType(mangled_tag);
             }
+        },
+        [&](const type::UnionType& t){
+            auto mangled_tag = this->mangle_name(t.tag);
+            if(t.is_complete()){
+                auto mangled_members = t.members;
+                for(auto& member : mangled_members){
+                    member = this->mangle_type_or_throw(member);
+                }
+                return type::UnionType(mangled_tag, mangled_members,t.indices);
+            }else{
+                return type::UnionType(mangled_tag);
+            }
         }
     ), type);
 }
 void GlobalTable::add_tag(std::string tag, type::TagType type){
     std::visit(type::overloaded{
-        [&](type::StructType t)->void{
+        [&](auto t)->void{
             if(this->tags.find(tag) != this->tags.end()){
                 auto existing = this->tags.at(tag);
-                if(!type::is_type<type::StructType>(existing)){
+                if(!type::is_type<decltype(t)>(existing)){
                     throw std::runtime_error("Tag "+tag+" already declared with different type");
                 }
-                if(t.is_complete() && type::get<type::StructType>(existing).is_complete()){
+                if(t.is_complete() && type::get<decltype(t)>(existing).is_complete()){
                     throw std::runtime_error("Tag "+tag+" already defined");
                 }
             }else{
@@ -208,6 +220,15 @@ void BlockTable::add_tag(std::string tag, type::TagType type){
             auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
             auto mangled_struct = type::get<type::StructType>(this->mangle_type_or_throw(t));
             this->global->add_tag(mangled_tag, mangled_struct);
+        },
+        [&](type::UnionType t){
+            if(tags.find(tag) == tags.end()){
+                this->global->local_tag_count[tag] += 1; 
+                this->tags.emplace(tag, this->global->local_tag_count[tag]);
+            }
+            auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
+            auto mangled_union = type::get<type::UnionType>(this->mangle_type_or_throw(t));
+            this->global->add_tag(mangled_tag, mangled_union);
         }
     }, type);
 }

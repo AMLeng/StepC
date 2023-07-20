@@ -32,6 +32,7 @@ bool is_keyword(const std::string& word){
         || word == "sizeof"
         || word == "_Alignof"
         || word == "struct"
+        || word == "union"
         || word == "_Bool";
 }
 
