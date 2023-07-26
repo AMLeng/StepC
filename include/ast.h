@@ -378,6 +378,7 @@ struct BinaryOp : public Expr{
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
+bool is_lval(const ast::AST* node);
 
 } //namespace ast
 #endif

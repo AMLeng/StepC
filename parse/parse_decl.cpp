@@ -200,8 +200,12 @@ namespace{
 
 void handle_abstract_decl(Declarator declarator, token::Token tok){
     if(type::is_type<type::StructType>(declarator.second)){
+        //Do nothing, since handled separately as a TagDecl in parse_specifiers
         return;
-        throw parse_error::ParseError("Struct decl not yet implemented", tok);
+    }
+    if(type::is_type<type::UnionType>(declarator.second)){
+        //Do nothing, since handled separately as a TagDecl in parse_specifiers
+        return;
     }
     throw parse_error::ParseError("Abstract declarator not permitted here", tok);
 }

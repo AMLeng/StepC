@@ -1,7 +1,7 @@
 #include "type.h"
 namespace type{
 UnionType::UnionType(std::string tag, std::vector<CType> members, std::map<std::string, int> indices) :
-    tag(tag), members(members), indices(indices), complete(true){
+    tag(tag), members(members), indices(indices), complete(true), largest_computed(false){
 }
 DerivedType::DerivedType(UnionType p) 
     : type(std::make_unique<UnionType>(p)){
@@ -22,8 +22,8 @@ std::string UnionType::to_string() const{
     }
 }
 std::string UnionType::ir_type() const{
-    assert(false && "Must have tag lookup table to compute appropriate ir type of union");
     if(members.size() > 0){
+        assert(largest_computed && "Cannot compute ir type without computing largest member");
         return "{" +type::ir_type(largest)+"}";
     }else{
         if(complete){
@@ -36,6 +36,7 @@ void UnionType::compute_largest(const std::map<std::string, type::CType>& tags){
     if(!is_complete()){
         throw std::runtime_error("Cannot compute largest element of incomplete union "+this->tag);
     }else{
+        largest_computed = true;
         int size = 0;
         for(const auto& member : members){
             auto member_size = type::size(member, tags);
@@ -56,11 +57,19 @@ long long int UnionType::size(const std::map<std::string, type::CType>& tags) co
         }
     }else{
         int size = 0;
+        int align = 0;
         for(const auto& member : members){
             auto member_size = type::size(member, tags);
             if(member_size > size){
                 size = member_size;
             }
+            auto member_align = type::align(member, tags);
+            if(member_align > align){
+                align = member_align;
+            }
+        }
+        if(size % align != 0){
+            size = ((size/align) + 1)*align;
         }
         return size;
     }

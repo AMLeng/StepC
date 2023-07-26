@@ -29,27 +29,6 @@ bool is_func_designator(const ast::AST* node){
     return var && type::is_type<type::PointerType>(var->type)
         && type::is_type<type::FuncType>(type::get<type::PointerType>(var->type).pointed_type());
 }
-bool is_lval(const ast::AST* node){
-    //We assume that arrays will all decay to pointers, so that nothing of array type is an lvalue
-    if(const auto p = dynamic_cast<const ast::Variable*>(node)){
-        return !type::is_type<type::ArrayType>(p->type);
-    }
-    if(dynamic_cast<const ast::StrLiteral*>(node)){
-        return true;
-    }
-    if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
-        if(p->tok.type == token::TokenType::Star){
-            return true;
-        }
-    }
-    if(dynamic_cast<const ast::ArrayAccess*>(node)){
-        return true;
-    }
-    if(const auto p = dynamic_cast<const ast::MemberAccess*>(node)){
-        return is_lval(p->arg.get());
-    }
-    return false;
-}
 bool is_nullptr_constant(const ast::Expr* node){
     if(type::is_type<type::PointerType>(node->type)){
         auto t = type::get<type::PointerType>(node->type);
@@ -378,6 +357,27 @@ T lookup_tag(symbol::STable* st, T s){
         return type::get<T>(st->get_tags().at(s.tag));
 }
 } //namespace
+bool is_lval(const ast::AST* node){
+    //We assume that arrays will all decay to pointers, so that nothing of array type is an lvalue
+    if(const auto p = dynamic_cast<const ast::Variable*>(node)){
+        return !type::is_type<type::ArrayType>(p->type);
+    }
+    if(dynamic_cast<const ast::StrLiteral*>(node)){
+        return true;
+    }
+    if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
+        if(p->tok.type == token::TokenType::Star){
+            return true;
+        }
+    }
+    if(dynamic_cast<const ast::ArrayAccess*>(node)){
+        return true;
+    }
+    if(const auto p = dynamic_cast<const ast::MemberAccess*>(node)){
+        return is_lval(p->arg.get());
+    }
+    return false;
+}
 
 void TagDecl::analyze(symbol::STable* st) {
     std::string name = std::visit(type::overloaded{
@@ -458,6 +458,11 @@ void InitializerList::initializer_analyze(type::CType& variable_type, symbol::ST
         }
         for(int i=0; i<length; i++){
             initializers.at(i)->initializer_analyze(s_type.members.at(i), st);
+        }
+    }else if(type::is_type<type::UnionType>(variable_type)){
+        auto u_type = lookup_tag(st, type::get<type::UnionType>(variable_type));
+        if(u_type.members.size() > 0){
+            initializers.front()->initializer_analyze(u_type.members.front(), st);
         }
     }else{
         if(length == 0){
@@ -791,7 +796,6 @@ void BinaryOp::analyze(symbol::STable* st){
                 " and "+type::to_string(this->left->type)+" for assignment",tok);
         }
     }
-    
 }
 void NullStmt::analyze(symbol::STable* st){
 }

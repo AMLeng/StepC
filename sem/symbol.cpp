@@ -1,4 +1,5 @@
 #include "symbol.h"
+#include <iostream>
 namespace symbol{
 template <class... Ts>
 struct overloaded : Ts...{
@@ -205,6 +206,9 @@ void GlobalTable::add_tag(std::string tag, type::TagType type){
                         throw std::runtime_error("Cannot use incomplete type in definition of type");
                     }
                 }
+                if constexpr(std::is_same_v<decltype(t), type::UnionType>){
+                    t.compute_largest(this->get_tags());
+                }
                 this->tags.emplace(tag, t);
             }
         }
@@ -228,7 +232,6 @@ void BlockTable::add_tag(std::string tag, type::TagType type){
             }
             auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
             auto mangled_union = type::get<type::UnionType>(this->mangle_type_or_throw(t));
-            mangled_union.compute_largest(this->get_tags());
             this->global->add_tag(mangled_tag, mangled_union);
         }
     }, type);

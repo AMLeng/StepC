@@ -76,6 +76,7 @@ bool is_specifier(const token::Token& tok){
         || tok.value == "signed"
         || tok.value == "unsigned"
         || tok.value == "_Bool"
+        || tok.value == "union"
         || tok.value == "struct";
 }
 

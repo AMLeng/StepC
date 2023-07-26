@@ -141,11 +141,12 @@ struct StructType{
 };
 struct UnionType{
     bool complete;
+    bool largest_computed;
     std::string tag;
     std::vector<CType> members;
     std::map<std::string, int> indices;
     CType largest;
-    explicit UnionType(std::string tag) : tag(tag), complete(false) {}
+    explicit UnionType(std::string tag) : tag(tag), complete(false), largest_computed(false) {}
     UnionType(std::string tag, std::vector<CType> members, std::map<std::string, int> indices);
     std::string to_string() const;
     std::string ir_type() const;

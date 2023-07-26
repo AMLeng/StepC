@@ -69,7 +69,15 @@ value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Cont
         return compute_array_ptr(p,output, c);
     }
     if(const auto p = dynamic_cast<const ast::MemberAccess*>(node)){
-        return compute_struct_lval_ptr(p,output, c);
+        if(type::is_type<type::StructType>(p->arg->type)){
+            return compute_struct_lval_ptr(p,output, c);
+        }else{
+            assert(type::is_type<type::UnionType>(p->arg->type));
+            auto u_type = type::get<type::UnionType>(c.tags.at(type::get<type::UnionType>(p->arg->type).tag));
+            auto union_ptr = get_lval(p->arg.get(), output, c);
+            auto element_ptr = codegen_utility::convert(type::PointerType(u_type.members.at(u_type.indices.at(p->index))), union_ptr, output, c);
+            return element_ptr;
+        }
     }
     assert(false && "Unknown type of lvalue in code generation");
     return nullptr;
@@ -234,6 +242,14 @@ std::string InitializerList::compute_constant(type::CType type) const{
         literal += "}";
         return literal;
     }else{
+        if(type::is_type<type::UnionType>(type)){
+            auto union_type = type::get<type::UnionType>(type);
+            if(union_type.members.size() > 0){
+                return "{" +this->initializers.front()->compute_constant(type) +"}";
+            }else{
+                return codegen_utility::default_value(type);
+            }
+        }
         if(this->initializers.size() == 0){
             return codegen_utility::default_value(type);
         }else{
@@ -584,6 +600,18 @@ void InitializerList::initializer_codegen(value::Value* variable, std::ostream& 
                 codegen_utility::make_store(&default_val,element_ptr, output, c);
             }
         }
+    }else if(type::is_type<type::UnionType>(var_type)){
+        auto union_type = type::get<type::UnionType>(var_type);
+        union_type = type::get<type::UnionType>(c.tags.at(union_type.tag));
+        auto member_type = union_type.members.front();
+        auto element_ptr = codegen_utility::convert(type::PointerType(member_type), variable, output, c);
+        //No need to get element pointer since we just type pun with everything at the same location
+        if(initializers.size() > 0){
+            initializers.front()->initializer_codegen(element_ptr, output, c);
+        }else{
+            auto default_val = value::Value(codegen_utility::default_value(member_type), member_type);
+            codegen_utility::make_store(&default_val,element_ptr, output, c);
+        }
     }else{
         //Scalars
         assert(initializers.size() > 0 && "Tried to assign empty initializer list to scalar");
@@ -591,7 +619,7 @@ void InitializerList::initializer_codegen(value::Value* variable, std::ostream& 
     }
 }
 value::Value* TagDecl::codegen(std::ostream& output, context::Context& c)const {
-    assert(false && "Not yet implemented");
+    assert(false && "Should never be called");
     return nullptr;
 }
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
@@ -619,6 +647,9 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
                 auto t = this->type;
                 if(type::is_type<type::StructType>(this->type)){
                     t = c.tags.at(type::get<type::StructType>(t).tag);
+                }
+                if(type::is_type<type::UnionType>(this->type)){
+                    t = c.tags.at(type::get<type::UnionType>(t).tag);
                 }
                 auto def = c.add_literal(this->assignment.value()->compute_constant(t),this->type);
                 global_decl_codegen(value, output, c, def);
@@ -678,14 +709,42 @@ value::Value* ArrayAccess::codegen(std::ostream& output, context::Context& c)con
 }
 value::Value* MemberAccess::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    auto arg = this->arg->codegen(output, c);
-    auto s_type = type::get<type::StructType>(c.tags.at(type::get<type::StructType>(this->arg->type).tag));
+    if(type::is_type<type::StructType>(this->arg->type)){
+        auto arg = this->arg->codegen(output, c);
 
-    auto addr = c.new_temp(this->type);
-    codegen_utility::print_whitespace(c.depth(), output);
-    output << addr->get_value() <<" = extractvalue "<<type::ir_type(this->arg->type)<<" ";
-    output << arg->get_value()<<", "<<s_type.indices.at(this->index)<<std::endl;
-    return addr;
+        auto addr = c.new_temp(this->type);
+        codegen_utility::print_whitespace(c.depth(), output);
+        output << addr->get_value() <<" = extractvalue "<<type::ir_type(this->arg->type)<<" ";
+        auto s_type = type::get<type::StructType>(c.tags.at(type::get<type::StructType>(this->arg->type).tag));
+        output << arg->get_value()<<", "<<s_type.indices.at(this->index)<<std::endl;
+        return addr;
+    }else{
+        assert(type::is_type<type::UnionType>(this->arg->type));
+        auto u_type = type::get<type::UnionType>(c.tags.at(type::get<type::UnionType>(this->arg->type).tag));
+        auto member_type = u_type.members.at(u_type.indices.at(this->index));
+        if(is_lval(this->arg.get())){
+            auto arg_ptr = get_lval(this->arg.get(), output, c);
+            auto element_ptr = codegen_utility::convert(type::PointerType(member_type), arg_ptr, output, c);
+            return codegen_utility::make_load(element_ptr,output,c);
+        }else{
+            auto arg = this->arg->codegen(output, c);
+            //If not an l-val, we don't have a pointer; if we're taking the 0th element, that's okay
+            if(u_type.indices.at(this->index) == 0){
+                auto addr = c.new_temp(this->type);
+                codegen_utility::print_whitespace(c.depth(), output);
+                output << addr->get_value() <<" = extractvalue "<<type::ir_type(this->arg->type)<<" ";
+                output << arg->get_value()<<", 0"<<std::endl;
+                return addr;
+            }else{
+            //Otherwise we need to create a copy of the union where we do have a pointer
+            //Note that bitcast doesn't work since it can only be used with first class types
+                auto var = codegen_utility::make_tmp_alloca(this->arg->type, output, c);
+                codegen_utility::make_store(arg, var, output, c);
+                var = codegen_utility::convert(type::PointerType(member_type), var, output, c);
+                return codegen_utility::make_load(var, output, c);
+            }
+        }
+    }
 }
 value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");

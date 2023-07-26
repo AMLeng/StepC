@@ -89,7 +89,9 @@ value::Value* convert(type::BasicType target_type, value::Value* val,
 value::Value* convert(type::PointerType target_type, value::Value* val, 
         std::ostream& output, context::Context& c){
     if(type::is_type<type::PointerType>(val->get_type())){
-        return val; //Do nothing
+        //We don't change the value, but we must alter the type of the pointer appropriately for our own type checking
+        //Even if all pointers are opaque in the IR itself
+        return c.ptr_cast(val, target_type);
     }else{
         if(!type::is_type<type::IType>(val->get_type())){
             assert(false && "Tried to convert non-ptr, non-int type to ptr");
@@ -134,10 +136,13 @@ value::Value* convert(type::CType target_type, value::Value* val,
     //So we would need separate IType and FType options to avoid IType and FType binding to auto
     //And we would need a separate option for array types no matter what (to avoid it binding to auto
         [&](type::BasicType bt){return convert(bt, val, output, c);},
+        [&](type::ArrayType pt){return convert(type::PointerType(type::CType(pt)), val, output, c);},
         [&](type::PointerType pt){return convert(pt, val, output, c);},
         [](type::VoidType t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));},
         [](type::StructType t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));},
-        [](type::UnionType t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));},
+        [&](type::UnionType t){
+            throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));
+        },
         [](type::FuncType t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));}
     ),target_type);
 }
