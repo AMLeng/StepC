@@ -35,6 +35,8 @@ class CType;
 
 typedef std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, 
     std::unique_ptr<StructType>, std::unique_ptr<UnionType>> DerivedPointers;
+typedef std::variant<type::StructType, type::UnionType> TagType;
+
 class DerivedType{
     DerivedPointers type;
 public:
@@ -64,6 +66,8 @@ public:
 };
 class CType{
     std::variant<VoidType, BasicType, DerivedType> type;
+    //Maps mangled tags to completed types
+    static std::map<std::string, type::CType> tags;
 public:
     CType() : type() {}
     bool operator ==(const CType& other) const;
@@ -83,6 +87,14 @@ public:
     friend T get(const CType& type);
     template<typename Visitor>
     friend auto visit(Visitor&& v, const CType& type);
+    friend long long int size(const CType& type);
+    friend long long int align(const CType& type);
+
+    static bool tag_declared(std::string tag);
+    static CType get_tag(std::string mangled_tag);
+    static void add_tag(std::string tag, type::TagType type);
+    static void tag_ir_types(std::ostream& output);
+    static void reset_tables() noexcept;
 };
 
 class PointerType{
@@ -180,7 +192,6 @@ struct UnionType{
     bool operator !=(const UnionType& other) const;
 };
 
-typedef std::variant<type::StructType, type::UnionType> TagType;
 
 /*template <typename T, typename = std::enable_if<std::is_convertible_v<std::decay_t<T>,CType>>>
 std::string to_string(T type){
@@ -212,8 +223,8 @@ BasicType from_str(const std::string& type);
 bool promote_one_rank(IType& type);
 IType to_unsigned(IType type); 
 bool can_represent(IType type, unsigned long long int value);
-long long int size(const CType& type, const std::map<std::string, type::CType>& tags);
-long long int align(const CType& type, const std::map<std::string, type::CType>& tags);
+long long int size(const CType& type);
+long long int align(const CType& type);
 std::string ir_literal(const std::string& c_literal,BasicType type);
 std::string ir_literal(const std::string& c_literal);
 

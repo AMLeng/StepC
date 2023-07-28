@@ -47,7 +47,6 @@ class Context{
     void exit_block(std::ostream& output, std::unique_ptr<basicblock::Terminator> t);
 public:
     Context();
-    std::map<std::string, type::CType> tags;
     value::Value* prev_temp(int i) const;
     value::Value* new_temp(type::CType t);
     int new_local_name();

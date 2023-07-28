@@ -38,12 +38,11 @@ public:
     STable* most_recent_child();
     virtual bool in_function() const = 0;
     virtual void add_extern_decl(const std::string& name, const type::CType& type) = 0;
-    virtual bool tag_declared(std::string tag) const = 0;
-    virtual type::CType get_tag(std::string unmangled_tag) const = 0;
+    //bool tag_declared(std::string tag) const;
+    type::CType get_tag(std::string unmangled_tag) const;
     virtual void add_tag(std::string tag, type::TagType type) = 0;
-    virtual std::map<std::string, type::CType> get_tags() = 0;
     type::CType mangle_type_or_throw(type::CType type) const;
-    virtual std::string mangle_name(std::string name) const = 0;
+    virtual std::string mangle_name(std::string name) const noexcept = 0;
     void add_symbol(std::string name, type::CType type, bool has_def = false);
     bool has_symbol(std::string name);
     type::CType symbol_type(std::string name) const;
@@ -57,11 +56,8 @@ public:
     FuncTable* new_function_scope_child(type::CType t);
     bool in_function() const override;
     void add_extern_decl(const std::string& name, const type::CType& type) override;
-    bool tag_declared(std::string tag) const override;
-    type::CType get_tag(std::string tag) const override;
     void add_tag(std::string tag, type::TagType type) override;
-    std::string mangle_name(std::string name) const override;
-    std::map<std::string, type::CType> get_tags() override;
+    std::string mangle_name(std::string name) const noexcept override;
 };
 
 class BlockTable : public STable{
@@ -75,11 +71,8 @@ public:
     type::CType return_type();
     bool in_function() const override;
     void add_extern_decl(const std::string& name, const type::CType& type) override;
-    bool tag_declared(std::string tag) const override;
-    type::CType get_tag(std::string tag) const override;
     void add_tag(std::string tag, type::TagType type) override;
-    std::string mangle_name(std::string name) const override;
-    std::map<std::string, type::CType> get_tags() override;
+    std::string mangle_name(std::string name) const noexcept override;
     bool in_switch() const;
     BlockTable* new_switch_scope_child();
     std::set<std::optional<unsigned long long int>>* get_switch() const;

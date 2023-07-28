@@ -9,6 +9,14 @@ namespace ast{
 template <class... Ts> struct overloaded : Ts...{using Ts::operator()...;};
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 namespace{
+template <typename T>
+T lookup_tag(type::CType t){
+    try{
+        return type::get<T>(type::CType::get_tag(type::get<T>(t).tag));
+    }catch(std::exception& e){
+        throw std::runtime_error("During code generation, could not find struct with name "+type::get<T>(t).tag);
+    }
+}
 
 value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Context& c);
 const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
@@ -48,7 +56,7 @@ value::Value* compute_array_ptr(const ast::ArrayAccess* node, std::ostream& outp
 }
 value::Value* compute_struct_lval_ptr(const ast::MemberAccess* node, std::ostream& output, context::Context& c){
     auto arg = get_lval(node->arg.get(), output, c);
-    auto s_type = type::get<type::StructType>(c.tags.at(type::get<type::StructType>(node->arg->type).tag));
+    auto s_type = lookup_tag<type::StructType>(node->arg->type);
 
     auto addr = c.new_temp(type::PointerType(node->type));
     codegen_utility::print_whitespace(c.depth(), output);
@@ -73,7 +81,7 @@ value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Cont
             return compute_struct_lval_ptr(p,output, c);
         }else{
             assert(type::is_type<type::UnionType>(p->arg->type));
-            auto u_type = type::get<type::UnionType>(c.tags.at(type::get<type::UnionType>(p->arg->type).tag));
+            auto u_type = lookup_tag<type::UnionType>(p->arg->type);
             auto union_ptr = get_lval(p->arg.get(), output, c);
             auto element_ptr = codegen_utility::convert(type::PointerType(u_type.members.at(u_type.indices.at(p->index))), union_ptr, output, c);
             return element_ptr;
@@ -282,10 +290,8 @@ std::string Expr::compute_constant(type::CType type) const{
 
 value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     output<<R"(target triple = "x86_64-unknown-linux-gnu")"<<std::endl;
-    for(const auto& name_type : tags){
-        output<<"%"<<name_type.first<<" = type "<<type::ir_type(name_type.second)<<std::endl;
-    }
-    c.tags = this->tags;
+
+    type::CType::tag_ir_types(output);
     for(const auto& decl : decls){
         decl->codegen(output, c);
     }
@@ -584,8 +590,7 @@ void InitializerList::initializer_codegen(value::Value* variable, std::ostream& 
             }
         }
     }else if(type::is_type<type::StructType>(var_type)){
-        auto struct_type = type::get<type::StructType>(var_type);
-        struct_type = type::get<type::StructType>(c.tags.at(struct_type.tag));
+        auto struct_type = lookup_tag<type::StructType>(var_type);
         int size = struct_type.members.size();
         for(int i=0; i<size; i++){
             auto member_type = struct_type.members.at(i);
@@ -601,8 +606,7 @@ void InitializerList::initializer_codegen(value::Value* variable, std::ostream& 
             }
         }
     }else if(type::is_type<type::UnionType>(var_type)){
-        auto union_type = type::get<type::UnionType>(var_type);
-        union_type = type::get<type::UnionType>(c.tags.at(union_type.tag));
+        auto union_type = lookup_tag<type::UnionType>(var_type);
         auto member_type = union_type.members.front();
         auto element_ptr = codegen_utility::convert(type::PointerType(member_type), variable, output, c);
         //No need to get element pointer since we just type pun with everything at the same location
@@ -646,10 +650,10 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
             }else{
                 auto t = this->type;
                 if(type::is_type<type::StructType>(this->type)){
-                    t = c.tags.at(type::get<type::StructType>(t).tag);
+                    t = lookup_tag<type::StructType>(this->type);
                 }
                 if(type::is_type<type::UnionType>(this->type)){
-                    t = c.tags.at(type::get<type::UnionType>(t).tag);
+                    t = lookup_tag<type::UnionType>(this->type);
                 }
                 auto def = c.add_literal(this->assignment.value()->compute_constant(t),this->type);
                 global_decl_codegen(value, output, c, def);
@@ -666,11 +670,11 @@ value::Value* StrLiteral::codegen(std::ostream& output, context::Context& c)cons
 }
 value::Value* Sizeof::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    return c.add_literal(std::to_string(type::size(arg->type, c.tags)), this->type);
+    return c.add_literal(std::to_string(type::size(arg->type)), this->type);
 }
 value::Value* Alignof::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    return c.add_literal(std::to_string(type::align(arg->type, c.tags)), this->type);
+    return c.add_literal(std::to_string(type::align(arg->type)), this->type);
 }
 value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
@@ -715,12 +719,12 @@ value::Value* MemberAccess::codegen(std::ostream& output, context::Context& c)co
         auto addr = c.new_temp(this->type);
         codegen_utility::print_whitespace(c.depth(), output);
         output << addr->get_value() <<" = extractvalue "<<type::ir_type(this->arg->type)<<" ";
-        auto s_type = type::get<type::StructType>(c.tags.at(type::get<type::StructType>(this->arg->type).tag));
+        auto s_type = lookup_tag<type::StructType>(this->arg->type);
         output << arg->get_value()<<", "<<s_type.indices.at(this->index)<<std::endl;
         return addr;
     }else{
         assert(type::is_type<type::UnionType>(this->arg->type));
-        auto u_type = type::get<type::UnionType>(c.tags.at(type::get<type::UnionType>(this->arg->type).tag));
+        auto u_type = lookup_tag<type::UnionType>(this->arg->type);
         auto member_type = u_type.members.at(u_type.indices.at(this->index));
         if(is_lval(this->arg.get())){
             auto arg_ptr = get_lval(this->arg.get(), output, c);

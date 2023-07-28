@@ -351,10 +351,13 @@ ConstantExprType compute_binary_constant(ConstantExprType left, ConstantExprType
     }
     __builtin_unreachable();
 }
-
 template <typename T>
-T lookup_tag(symbol::STable* st, T s){
-        return type::get<T>(st->get_tags().at(s.tag));
+T lookup_tag(type::CType t, token::Token tok){
+    try{
+        return type::get<T>(type::CType::get_tag(type::get<T>(t).tag));
+    }catch(std::exception& e){
+        throw sem_error::STError("Could not find struct with name "+type::get<T>(t).tag,tok);
+    }
 }
 } //namespace
 bool is_lval(const ast::AST* node){
@@ -452,7 +455,7 @@ void InitializerList::initializer_analyze(type::CType& variable_type, symbol::ST
             initializers.at(i)->initializer_analyze(element_type, st);
         }
     }else if(type::is_type<type::StructType>(variable_type)){
-        auto s_type = lookup_tag(st, type::get<type::StructType>(variable_type));
+        auto s_type = lookup_tag<type::StructType>(variable_type, tok);
         if(s_type.members.size() < length){
             length = s_type.members.size();
         }
@@ -460,7 +463,7 @@ void InitializerList::initializer_analyze(type::CType& variable_type, symbol::ST
             initializers.at(i)->initializer_analyze(s_type.members.at(i), st);
         }
     }else if(type::is_type<type::UnionType>(variable_type)){
-        auto u_type = lookup_tag(st, type::get<type::UnionType>(variable_type));
+        auto u_type = lookup_tag<type::UnionType>(variable_type, tok);
         if(u_type.members.size() > 0){
             initializers.front()->initializer_analyze(u_type.members.front(), st);
         }
@@ -519,13 +522,13 @@ void Sizeof::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
     this->type = type::IType::LLong;
-    this->constant_value = type::size(arg->type, st->get_tags());
+    this->constant_value = type::size(arg->type);
 }
 void Alignof::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
     this->type = type::IType::LLong;
-    this->constant_value = type::align(arg->type, st->get_tags());
+    this->constant_value = type::align(arg->type);
 }
 void FuncCall::analyze(symbol::STable* st) {
     this->analyzed = true;
@@ -561,12 +564,7 @@ void MemberAccess::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
     if(type::is_type<type::StructType>(this->arg->type)){
-        auto s_type = type::get<type::StructType>(this->arg->type);
-        try{
-            s_type = lookup_tag(st, s_type);
-        }catch(std::exception& e){
-            throw sem_error::TypeError("Could not find struct with name "+s_type.tag,tok);
-        }
+        auto s_type = lookup_tag<type::StructType>(this->arg->type, tok);
         try{
             this->type = s_type.members.at(s_type.indices.at(this->index));
         }catch(std::exception& e){
@@ -575,12 +573,7 @@ void MemberAccess::analyze(symbol::STable* st) {
         return;
     }
     if(type::is_type<type::UnionType>(this->arg->type)){
-        auto u_type = type::get<type::UnionType>(this->arg->type);
-        try{
-            u_type = lookup_tag(st, u_type);
-        }catch(std::exception& e){
-            throw sem_error::TypeError("Could not find struct with name "+u_type.tag,tok);
-        }
+        auto u_type = lookup_tag<type::UnionType>(this->arg->type, tok);
         try{
             this->type = u_type.members.at(u_type.indices.at(this->index));
         }catch(std::exception& e){
@@ -873,7 +866,6 @@ void Program::analyze(symbol::STable* st) {
     for(auto& decl : decls){
         decl->analyze(st);
     }
-    this->tags = dynamic_cast<symbol::GlobalTable*>(st)->get_tags();
 }
 void ForStmt::analyze(symbol::STable* st){
     auto bt = dynamic_cast<symbol::BlockTable*>(st);

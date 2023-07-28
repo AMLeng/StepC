@@ -104,35 +104,19 @@ void GlobalTable::add_extern_decl(const std::string& name, const type::CType& ty
 void BlockTable::add_extern_decl(const std::string& name, const type::CType& type) {
     global->add_extern_decl(name, type);
 }
-bool BlockTable::tag_declared(std::string tag) const{
-    if(this->tags.find(tag) != this->tags.end()){
-        return true;
-    }
-    return parent->tag_declared(tag);
+/*bool STable::tag_declared(std::string unmangled_tag) const{
+    return type::CType::tag_declared(this->mangle_name(unmangled_tag));
+}*/
+type::CType STable::get_tag(std::string unmangled_tag) const{
+    return type::CType::get_tag(this->mangle_name(unmangled_tag));
 }
-bool GlobalTable::tag_declared(std::string tag) const{
-    return this->tags.find(tag) != this->tags.end();
-}
-type::CType BlockTable::get_tag(std::string unmangled_tag) const{
-    return global->get_tag(this->mangle_name(unmangled_tag));
-}
-type::CType GlobalTable::get_tag(std::string unmangled_tag) const{
-    try{
-        return this->tags.at(unmangled_tag);
-    }catch(std::runtime_error& e){
-        throw std::runtime_error("Unmangled tag "+unmangled_tag+" not found in symbol table");
-    }
-}
-std::string BlockTable::mangle_name(std::string name) const{
+std::string BlockTable::mangle_name(std::string name) const noexcept{
     if(this->tags.find(name) != this->tags.end()){
         return  name + "."+std::to_string(this->tags.at(name));
     }
     return parent->mangle_name(name);
 }
-std::string GlobalTable::mangle_name(std::string name) const{
-    if(!tag_declared(name)){
-        throw std::runtime_error("Unmangled tag "+name+" not found in symbol table");
-    }
+std::string GlobalTable::mangle_name(std::string name) const noexcept{
     return name;
 }
 type::CType STable::mangle_type_or_throw(type::CType type) const{
@@ -163,6 +147,9 @@ type::CType STable::mangle_type_or_throw(type::CType type) const{
         },
         [&](const type::StructType& t){
             auto mangled_tag = this->mangle_name(t.tag);
+            if(!type::CType::tag_declared(mangled_tag)){
+                throw std::runtime_error("Mangled tag "+mangled_tag+" not found in symbol table");
+            }
             if(t.is_complete()){
                 auto mangled_members = t.members;
                 for(auto& member : mangled_members){
@@ -175,6 +162,9 @@ type::CType STable::mangle_type_or_throw(type::CType type) const{
         },
         [&](const type::UnionType& t){
             auto mangled_tag = this->mangle_name(t.tag);
+            if(!type::CType::tag_declared(mangled_tag)){
+                throw std::runtime_error("Mangled tag "+mangled_tag+" not found in symbol table");
+            }
             if(t.is_complete()){
                 auto mangled_members = t.members;
                 for(auto& member : mangled_members){
@@ -187,31 +177,13 @@ type::CType STable::mangle_type_or_throw(type::CType type) const{
         }
     ), type);
 }
-void GlobalTable::add_tag(std::string tag, type::TagType type){
+void GlobalTable::add_tag(std::string unmangled_tag, type::TagType type){
     std::visit(type::overloaded{
-        [&](auto t)->void{
-            if(this->tags.find(tag) != this->tags.end()){
-                auto existing = this->tags.at(tag);
-                if(!type::is_type<decltype(t)>(existing)){
-                    throw std::runtime_error("Tag "+tag+" already declared with different type");
-                }
-                if(t.is_complete() && type::get<decltype(t)>(existing).is_complete()){
-                    throw std::runtime_error("Tag "+tag+" already defined");
-                }
-            }else{
-                for(const auto& member : t.members){
-                    try{
-                        type::size(member, this->tags);
-                    }catch(std::exception& e){
-                        throw std::runtime_error("Cannot use incomplete type in definition of type");
-                    }
-                }
-                if constexpr(std::is_same_v<decltype(t), type::UnionType>){
-                    t.compute_largest(this->get_tags());
-                }
-                this->tags.emplace(tag, t);
-            }
-        }
+        [&](const auto& t){
+            auto mangled_tag = this->mangle_name(unmangled_tag);
+            type::CType::add_tag(mangled_tag, std::decay_t<decltype(t)>(mangled_tag));
+            type::CType::add_tag(mangled_tag, type::get<std::decay_t<decltype(t)>>(this->mangle_type_or_throw(t)));
+        },
     }, type);
 }
 void BlockTable::add_tag(std::string tag, type::TagType type){
@@ -221,17 +193,12 @@ void BlockTable::add_tag(std::string tag, type::TagType type){
                 this->global->local_tag_count[tag] += 1; 
                 this->tags.emplace(tag, this->global->local_tag_count[tag]);
             }
-            auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
+            auto mangled_tag = this->mangle_name(tag);
+            type::CType::add_tag(mangled_tag, std::decay_t<decltype(t)>(mangled_tag));
             auto mangled_struct = type::get<std::decay_t<decltype(t)>>(this->mangle_type_or_throw(t));
-            this->global->add_tag(mangled_tag, mangled_struct);
+            type::CType::add_tag(mangled_tag, mangled_struct);
         },
     }, type);
-}
-std::map<std::string, type::CType> BlockTable::get_tags(){
-    return this->global->get_tags();
-}
-std::map<std::string, type::CType> GlobalTable::get_tags(){
-    return tags;
 }
 bool STable::has_symbol(std::string name){
     STable* to_search = this;

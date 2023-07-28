@@ -143,38 +143,96 @@ std::string ir_type(const CType& type){
         [](const auto& t){return t.ir_type();}
     ), type);
 }
-long long int size(const CType& type, const std::map<std::string, type::CType>& tags){
+long long int size(const CType& type){
     return visit(make_visitor<int>(
         [](VoidType v){return 0;},
         [](BasicType bt){return byte_size(bt);},
         [](const FuncType& ft){throw std::runtime_error("Cannot take size of function type");},
         [](const PointerType& pt){return 8;},
-        [&](const ArrayType& at){return at.size()*type::size(at.pointed_type(),tags);},
-        [&](const StructType& st){return st.size(tags);},
-        [&](const UnionType& st){return st.size(tags);}
+        [&](const ArrayType& at){return at.size()*type::size(at.pointed_type());},
+        [&](const StructType& st){return st.size(CType::tags);},
+        [&](const UnionType& st){return st.size(CType::tags);}
     ), type);
 }
-long long int align(const CType& type, const std::map<std::string, type::CType>& tags){
+long long int align(const CType& type){
     return visit(make_visitor<int>(
         [](VoidType v){return 0;},
         [](BasicType bt){return byte_size(bt);},
         [](const FuncType& ft){throw std::runtime_error("Cannot take alignment of function type");},
         [](const PointerType& pt){return 8;},
-        [&](const ArrayType& at){return type::align(at.pointed_type(),tags);},
-        [&](const StructType& st){return st.align(tags);},
-        [&](const UnionType& st){return st.align(tags);}
+        [&](const ArrayType& at){return type::align(at.pointed_type());},
+        [&](const StructType& st){return st.align(CType::tags);},
+        [&](const UnionType& st){return st.align(CType::tags);}
     ), type);
 }
 bool is_complete(const CType& type){
-    return visit(make_visitor<int>(
-        [](VoidType v){return true;},
+    return visit(make_visitor<bool>(
+        [](VoidType v){return false;},
         [](BasicType bt){return true;},
         [](const FuncType& ft){throw std::runtime_error("Complete or incomplete does not make sense for function type");},
-        [](const PointerType& pt){return false;},
+        [](const PointerType& pt){return true;},
         [](const ArrayType& at){return at.is_complete();},
         [](const StructType& st){return st.is_complete();},
         [](const UnionType& st){return st.is_complete();}
     ), type);
+}
+std::map<std::string, type::CType> CType::tags = {};
+bool CType::tag_declared(std::string tag){
+    return CType::tags.find(tag) != CType::tags.end();
+}
+CType CType::get_tag(std::string mangled_tag){
+    try{
+        return CType::tags.at(mangled_tag);
+    }catch(std::runtime_error& e){
+        throw std::runtime_error("Unmangled tag "+mangled_tag+" not found in symbol table");
+    }
+}
+void CType::add_tag(std::string tag, type::TagType type){
+    std::visit(type::overloaded{
+        [&](auto t)->void{
+            if(CType::tags.find(tag) != CType::tags.end()){
+                auto existing = CType::tags.at(tag);
+                if(!type::is_type<decltype(t)>(existing)){
+                    throw std::runtime_error("Tag "+tag+" already declared with different type");
+                }
+                if(t.is_complete()){
+                    if(type::get<decltype(t)>(existing).is_complete()){
+                        throw std::runtime_error("Tag "+tag+" already defined");
+                    }else{
+                        for(const auto& member : t.members){
+                            if(!is_complete(member)){
+                                throw std::runtime_error("Cannot use incomplete type in definition of type");
+                            }
+                        }
+                        if constexpr(std::is_same_v<decltype(t), type::UnionType>){
+                            t.compute_largest(CType::tags);
+                        }
+                        CType::tags[tag] = t;
+                    }
+                }
+            }else{
+                if(t.is_complete()){
+                    for(const auto& member : t.members){
+                        if(!is_complete(member)){
+                            throw std::runtime_error("Cannot use incomplete type in definition of type");
+                        }
+                    }
+                    if constexpr(std::is_same_v<decltype(t), type::UnionType>){
+                        t.compute_largest(CType::tags);
+                    }
+                }
+                CType::tags.emplace(tag, t);
+            }
+        }
+    }, type);
+}
+void CType::tag_ir_types(std::ostream& output){
+    for(const auto& name_type : CType::tags){
+        output<<"%"<<name_type.first<<" = type "<<type::ir_type(name_type.second)<<std::endl;
+    }
+}
+void CType::reset_tables() noexcept{
+    CType::tags = std::map<std::string, type::CType>{};
 }
 
 } //namespace type

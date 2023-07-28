@@ -39,7 +39,7 @@ void UnionType::compute_largest(const std::map<std::string, type::CType>& tags){
         largest_computed = true;
         int size = 0;
         for(const auto& member : members){
-            auto member_size = type::size(member, tags);
+            auto member_size = type::size(member);
             if(member_size > size){
                 size = member_size;
                 largest = member;
@@ -51,7 +51,7 @@ long long int UnionType::size(const std::map<std::string, type::CType>& tags) co
     if(!is_complete()){
         try{
             auto type = tags.at(this->tag);
-            return type::size(type, tags);
+            return type::size(type);
         }catch(std::exception& e){
             throw std::runtime_error("Cannot take size of incomplete or undefined union "+this->tag);
         }
@@ -59,11 +59,11 @@ long long int UnionType::size(const std::map<std::string, type::CType>& tags) co
         int size = 0;
         int align = 0;
         for(const auto& member : members){
-            auto member_size = type::size(member, tags);
+            auto member_size = type::size(member);
             if(member_size > size){
                 size = member_size;
             }
-            auto member_align = type::align(member, tags);
+            auto member_align = type::align(member);
             if(member_align > align){
                 align = member_align;
             }
@@ -78,14 +78,14 @@ long long int UnionType::align(const std::map<std::string, type::CType>& tags) c
     if(!is_complete()){
         try{
             auto type = tags.at(this->tag);
-            return type::align(type, tags);
+            return type::align(type);
         }catch(std::exception& e){
             throw std::runtime_error("Cannot take alignment of incomplete or undefined union "+this->tag);
         }
     }else{
         int align = 0;
         for(const auto& member : members){
-            auto member_align = type::align(member, tags);
+            auto member_align = type::align(member);
             if(member_align > align){
                 align = member_align;
             }

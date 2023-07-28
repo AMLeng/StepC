@@ -73,7 +73,6 @@ struct Expr : virtual public Stmt, public Initializer{
 
 struct Program : public AST{
     std::vector<std::unique_ptr<ExtDecl>> decls;
-    std::map<std::string, type::CType> tags;
     Program(std::vector<std::unique_ptr<ExtDecl>> decls) : decls(std::move(decls)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;

@@ -37,7 +37,7 @@ long long int StructType::size(const std::map<std::string, type::CType>& tags) c
     if(!is_complete()){
         try{
             auto type = tags.at(this->tag);
-            return type::size(type, tags);
+            return type::size(type);
         }catch(std::exception& e){
             throw std::runtime_error("Cannot take size of incomplete or undefined struct "+this->tag);
         }
@@ -45,8 +45,8 @@ long long int StructType::size(const std::map<std::string, type::CType>& tags) c
         int size = 0;
         int align = 0;
         for(const auto& member : members){
-            auto member_size = type::size(member, tags);
-            auto member_align = type::align(member, tags);
+            auto member_size = type::size(member);
+            auto member_align = type::align(member);
             if(size % member_align != 0){
                 size = ((size/member_align) + 1) * member_align;
             }
@@ -65,14 +65,14 @@ long long int StructType::align(const std::map<std::string, type::CType>& tags) 
     if(!is_complete()){
         try{
             auto type = tags.at(this->tag);
-            return type::align(type, tags);
+            return type::align(type);
         }catch(std::exception& e){
             throw std::runtime_error("Cannot take alignment of incomplete or undefined struct "+this->tag);
         }
     }else{
         int align = 0;
         for(const auto& member : members){
-            auto member_align = type::align(member, tags);
+            auto member_align = type::align(member);
             if(member_align > align){
                 align = member_align;
             }

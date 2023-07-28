@@ -639,6 +639,7 @@ std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarato
 
 
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l){
+    type::CType::reset_tables();
     auto next = l.peek_token();
     auto global_decls = std::vector<std::unique_ptr<ast::ExtDecl>>{};
     while(next.type != token::TokenType::END){
