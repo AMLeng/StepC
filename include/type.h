@@ -31,7 +31,7 @@ class StructType;
 class UnionType;
 class EnumType;
 class DerivedType;
-typedef std::variant<VoidType, BasicType, DerivedType> CType;
+class CType;
 
 typedef std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, 
     std::unique_ptr<StructType>, std::unique_ptr<UnionType>> DerivedPointers;
@@ -52,8 +52,6 @@ public:
 
     bool operator==(const DerivedType& other) const;
     bool operator!=(const DerivedType& other) const;
-    friend bool is_compatible(const DerivedType&, const DerivedType&);
-    friend std::string to_string(const DerivedType& type);
 
     template <typename ReturnType, typename Visitor>
     ReturnType visit(Visitor&& v) const;
@@ -64,6 +62,29 @@ public:
     template<typename T>
     friend bool is_type(const CType& type);
 };
+class CType{
+    std::variant<VoidType, BasicType, DerivedType> type;
+public:
+    CType() : type() {}
+    bool operator ==(const CType& other) const;
+    bool operator !=(const CType& other) const;
+    CType(const CType& other) = default; 
+    CType(CType&& other) = default;
+    template <typename T,
+        std::enable_if_t<!std::is_same_v<std::decay_t<T>, CType>,bool> = 0>
+    CType(T&& x) : type(std::forward<T>(x)) {}
+    CType& operator=(const CType& other) = default;
+    CType& operator=(CType&& other) = default;
+    ~CType() = default;
+
+    template<typename T>
+    friend bool is_type(const CType& type);
+    template<typename T>
+    friend T get(const CType& type);
+    template<typename Visitor>
+    friend auto visit(Visitor&& v, const CType& type);
+};
+
 class PointerType{
 protected:
     CType underlying_type;
@@ -161,6 +182,11 @@ struct UnionType{
 
 typedef std::variant<type::StructType, type::UnionType> TagType;
 
+/*template <typename T, typename = std::enable_if<std::is_convertible_v<std::decay_t<T>,CType>>>
+std::string to_string(T type){
+    return "";
+}*/
+
 std::string to_string(const CType& type);
 bool is_compatible(const CType& , const CType&); //Defined in type.cpp
 bool can_assign(const CType& from, const CType& to); //Defined in type.cpp
@@ -191,7 +217,6 @@ long long int align(const CType& type, const std::map<std::string, type::CType>&
 std::string ir_literal(const std::string& c_literal,BasicType type);
 std::string ir_literal(const std::string& c_literal);
 
-//bool can_represent(BasicType target, BasicType source);
 bool is_complete(const CType& type);
 
 
@@ -210,6 +235,11 @@ ReturnType try_invoke(Visitor& v,Pointer p){
     }
 }
 
+template <typename Visitor>
+auto visit(Visitor&& v, const CType& t){
+    return std::visit(v, t.type);
+}
+
 template <typename ReturnType, typename Visitor>
 ReturnType DerivedType::visit(Visitor&& v) const{
     if(std::holds_alternative<std::unique_ptr<PointerType>>(type)){
@@ -223,13 +253,6 @@ ReturnType DerivedType::visit(Visitor&& v) const{
         return std::visit(overloaded{
             [&v](const auto& t)->ReturnType{return try_invoke<ReturnType>(v,t.get());}
         }, type);
-        /*if(std::holds_alternative<std::unique_ptr<FuncType>>(type)){
-            auto pointer = std::get<std::unique_ptr<FuncType>>(type).get();
-            return try_invoke<ReturnType>(v, pointer);
-        }
-        assert(std::holds_alternative<std::unique_ptr<FuncType>>(type) && "Other derived types not yet implemented");
-        auto pointer = std::get<std::unique_ptr<FuncType>>(type).get();
-        return try_invoke<ReturnType>(v, pointer);*/
     }
 }
 
@@ -273,14 +296,14 @@ bool is_type(const CType& type){
     if constexpr(std::is_same_v<T,ArrayType>){
         try{
             return type::is_type<PointerType>(type)
-                && dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type).type).get());
+                && dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type.type).type).get());
         }catch(std::exception& e){
             throw std::runtime_error("Failed to check if "+to_string(type)+ " is array type");
         }
     }else{
         return std::visit(make_visitor<bool>(
             [](const auto& type){return std::is_convertible_v<std::decay_t<decltype(type)>,T>;}
-        ), type);
+        ), type.type);
     }
 }
 
@@ -288,15 +311,17 @@ template<typename T>
 T get(const CType& type){
     try{
         if constexpr(std::is_same_v<T,ArrayType>){
-            auto pointer = std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type).type).get();
+            auto pointer = std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type.type).type).get();
             if(auto p = dynamic_cast<ArrayType*>(pointer)){
                 return *p;
             }
         }else{
             if constexpr(std::is_convertible_v<T,DerivedType>){
-                return *std::get<std::unique_ptr<T>>(std::get<DerivedType>(type).type).get();
+                return *std::get<std::unique_ptr<T>>(std::get<DerivedType>(type.type).type).get();
+            }else if constexpr (std::is_same_v<T,IType> || std::is_same_v<T,FType>){
+                return std::get<T>(std::get<BasicType>(type.type));
             }else{
-                return std::get<T>(type);
+                return std::get<T>(type.type);
             }
         }
     }catch(std::exception& e){

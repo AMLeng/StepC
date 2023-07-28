@@ -54,10 +54,10 @@ value::Value* convert(type::BasicType target_type, value::Value* val,
             return new_tmp;
         }
     }
-    if(!std::holds_alternative<type::BasicType>(val->get_type())){
+    if(!type::is_type<type::BasicType>(val->get_type())){
         assert(false && "Tried to convert non-basic, non-pointer type to basic type");
     }
-    auto val_type = std::get<type::BasicType>(val->get_type());
+    auto val_type = type::get<type::BasicType>(val->get_type());
     if(target_type == type::from_str("_Bool")){
         std::string command = std::visit(overloaded{
                 [](type::IType){return "icmp ne";},
@@ -111,7 +111,7 @@ void print_whitespace(int depth, std::ostream& output){
     }
 }
 std::string default_value(type::CType type){
-    return std::visit(type::make_visitor<std::string>(
+    return type::visit(type::make_visitor<std::string>(
                 [](const type::IType& i){return "0";},
                 [](const type::FType& f){return "0.0";},
                 [](const type::VoidType& v){return "void";},
@@ -130,7 +130,7 @@ value::Value* convert(type::CType target_type, value::Value* val,
     if(val->get_type() == target_type){
         return val;
     }
-    return std::visit(type::make_visitor<value::Value*>(
+    return type::visit(type::make_visitor<value::Value*>(
     //make_visitor will take the target type and go all the way down to either
     //A specific derived type (distinguishing between array and pointer types), IType, FType, or VoidType
     //So we would need separate IType and FType options to avoid IType and FType binding to auto

@@ -136,7 +136,7 @@ std::string GlobalTable::mangle_name(std::string name) const{
     return name;
 }
 type::CType STable::mangle_type_or_throw(type::CType type) const{
-    return std::visit(type::make_visitor<type::CType>(
+    return type::visit(type::make_visitor<type::CType>(
         [](type::BasicType t){return t;},
         [](type::VoidType t){return t;},
         [&](const type::FuncType& t){
@@ -216,24 +216,15 @@ void GlobalTable::add_tag(std::string tag, type::TagType type){
 }
 void BlockTable::add_tag(std::string tag, type::TagType type){
     std::visit(type::overloaded{
-        [&](type::StructType t){
+        [&](const auto& t){
             if(tags.find(tag) == tags.end()){
                 this->global->local_tag_count[tag] += 1; 
                 this->tags.emplace(tag, this->global->local_tag_count[tag]);
             }
             auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
-            auto mangled_struct = type::get<type::StructType>(this->mangle_type_or_throw(t));
+            auto mangled_struct = type::get<std::decay_t<decltype(t)>>(this->mangle_type_or_throw(t));
             this->global->add_tag(mangled_tag, mangled_struct);
         },
-        [&](type::UnionType t){
-            if(tags.find(tag) == tags.end()){
-                this->global->local_tag_count[tag] += 1; 
-                this->tags.emplace(tag, this->global->local_tag_count[tag]);
-            }
-            auto mangled_tag = tag +"."+std::to_string(this->tags.at(tag));
-            auto mangled_union = type::get<type::UnionType>(this->mangle_type_or_throw(t));
-            this->global->add_tag(mangled_tag, mangled_union);
-        }
     }, type);
 }
 std::map<std::string, type::CType> BlockTable::get_tags(){

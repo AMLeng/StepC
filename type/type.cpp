@@ -1,5 +1,4 @@
 #include "type/type_basic.h"
-#include "type/type_derived.h"
 #include "type/type_func.h"
 #include "type/type_pointer.h"
 #include "type.h"
@@ -9,14 +8,58 @@ namespace{
 
 
 } //namespace
-bool is_compatible(const CType& type1, const CType& type2){
+DerivedType::DerivedType(const DerivedType& other){
+    this->type = std::visit(overloaded{
+        [](const auto& p)-> DerivedPointers {return p->copy();}
+    }, other.type);
+}
+DerivedType& DerivedType::operator=(const DerivedType& other){
+    this->type = std::visit(overloaded{
+        [](const auto& p)-> DerivedPointers {return p->copy();}
+    }, other.type);
+    return *this;
+}
+
+bool DerivedType::operator ==(const DerivedType& other) const{
     return std::visit(overloaded{
-        [&type2](VoidType){return std::holds_alternative<VoidType>(type2);},
-        [&type2](BasicType type1){return std::holds_alternative<BasicType>(type2)
-                            && type1 == std::get<BasicType>(type2);},
-        [&type2](const DerivedType& type1){return std::holds_alternative<DerivedType>(type2) 
-                            && is_compatible(type1, std::get<DerivedType>(type2));},
-    }, type1);
+        //Cases for non-array types are all the same
+        [&type2 = std::as_const(other.type)](const auto& type1){
+            if(!std::holds_alternative<std::decay_t<decltype(type1)>>(type2)){
+                return false;
+            }
+            const auto& t2 = std::get<std::decay_t<decltype(type1)>>(type2);
+            assert(type1 && t2 && "Invalid derived type containing nullptr");
+            if constexpr(std::is_same_v<std::decay_t<decltype(type1)>,std::unique_ptr<PointerType>>){
+                if(auto p = dynamic_cast<ArrayType*>(type1.get())){
+                    return *p == *dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(type2).get());
+                }
+            }
+            return *type1 == *t2;
+        },
+    }, this->type);
+}
+bool DerivedType::operator !=(const DerivedType& other) const{
+    return !this->operator==(other);
+}
+
+bool CType::operator ==(const CType& other) const{
+    return this->type == other.type;
+}
+bool CType::operator !=(const CType& other) const{
+    return this->type != other.type;
+}
+bool is_compatible(const CType& type1, const CType& type2){
+    return visit(make_visitor<bool>(
+        [&type2](VoidType){return is_type<VoidType>(type2);},
+        [&type2](const FuncType& type1){return is_type<std::decay_t<decltype(type1)>>(type2)
+                            && is_compatible(type1, get<std::decay_t<decltype(type1)>>(type2));},
+        [&type2](const ArrayType& type1){return is_type<std::decay_t<decltype(type1)>>(type2)
+                            && is_compatible(type1, get<std::decay_t<decltype(type1)>>(type2));},
+        [&type2](const PointerType& type1){return is_type<std::decay_t<decltype(type1)>>(type2)
+                            && is_compatible(type1, get<std::decay_t<decltype(type1)>>(type2));},
+        [&type2](const auto& type1){return is_type<std::decay_t<decltype(type1)>>(type2)
+                            && type1 == get<std::decay_t<decltype(type1)>>(type2);}
+    ), type1);
 }
 bool can_cast(const CType& type1, const CType& type2){
     if(can_assign(type1,type2)){
@@ -36,8 +79,8 @@ bool can_cast(const CType& type1, const CType& type2){
 bool can_assign(const CType& type1, const CType& type2){
     //Leaves out the case of assigning a nullptr constant,
     //Since that requires the actual value and not just the type
-    return std::visit(make_visitor<bool>(
-        [&type2](VoidType){return std::holds_alternative<VoidType>(type2);},
+    return visit(make_visitor<bool>(
+        [&type2](VoidType){return is_type<VoidType>(type2);},
         [&type2](BasicType type1){
             return is_type<BasicType>(type2);
             },
@@ -49,18 +92,19 @@ bool can_assign(const CType& type1, const CType& type2){
     ),type1);
 }
 std::string to_string(const CType& type){
-    return std::visit(overloaded{
+    return visit(make_visitor<std::string>(
         [](VoidType v)->std::string{return "void";},
-        [](BasicType t)->std::string{return to_string(t);},
-        [](const DerivedType& t){return to_string(t);},
-    }, type);
+        [](IType t)->std::string{return to_string(t);},
+        [](FType t)->std::string{return to_string(t);},
+        [](const auto& t){return t.to_string();}
+    ), type);
 }
 
 bool is_signed_int(CType type){
-    return std::holds_alternative<BasicType>(type) && is_signed_int(std::get<BasicType>(type));
+    return is_type<BasicType>(type) && is_signed_int(get<BasicType>(type));
 }
 bool is_unsigned_int(CType type){
-    return std::holds_alternative<BasicType>(type) && is_unsigned_int(std::get<BasicType>(type));
+    return is_type<BasicType>(type) && is_unsigned_int(get<BasicType>(type));
 }
 bool is_float(CType type){
     return type::is_type<type::FType>(type);
@@ -76,8 +120,8 @@ bool is_scalar(CType type){
 }
 BasicType usual_arithmetic_conversions(CType type1, CType type2){
     try{
-        auto itype1 = std::get<BasicType>(type1);
-        auto itype2 = std::get<BasicType>(type2);
+        auto itype1 = get<BasicType>(type1);
+        auto itype2 = get<BasicType>(type2);
         return usual_arithmetic_conversions(itype1, itype2);
     }catch(std::exception& e){
         throw std::runtime_error("Failure to do integer promotions on types "+type::to_string(type1) + "and "+type::to_string(type2));
@@ -85,25 +129,22 @@ BasicType usual_arithmetic_conversions(CType type1, CType type2){
 }
 BasicType integer_promotions(const CType& type){
     try{
-        auto itype = std::get<BasicType>(type);
+        auto itype = get<BasicType>(type);
         return integer_promotions(itype);
     }catch(std::exception& e){
         throw std::runtime_error("Failure to do integer promotions on type "+type::to_string(type));
     }
 }
 std::string ir_type(const CType& type){
-    return std::visit(make_visitor<std::string>(
+    return visit(make_visitor<std::string>(
         [](VoidType v)->std::string{return "void";},
-        [](BasicType bt)->std::string{return ir_type(bt);},
-        [](const FuncType& ft){return ft.ir_type();},
-        [](const PointerType& pt){return pt.ir_type();},
-        [](const ArrayType& at){return at.ir_type();},
-        [](const UnionType& st){return st.ir_type();},
-        [](const StructType& st){return st.ir_type();}
+        [](IType bt)->std::string{return ir_type(bt);},
+        [](FType bt)->std::string{return ir_type(bt);},
+        [](const auto& t){return t.ir_type();}
     ), type);
 }
 long long int size(const CType& type, const std::map<std::string, type::CType>& tags){
-    return std::visit(make_visitor<int>(
+    return visit(make_visitor<int>(
         [](VoidType v){return 0;},
         [](BasicType bt){return byte_size(bt);},
         [](const FuncType& ft){throw std::runtime_error("Cannot take size of function type");},
@@ -114,7 +155,7 @@ long long int size(const CType& type, const std::map<std::string, type::CType>& 
     ), type);
 }
 long long int align(const CType& type, const std::map<std::string, type::CType>& tags){
-    return std::visit(make_visitor<int>(
+    return visit(make_visitor<int>(
         [](VoidType v){return 0;},
         [](BasicType bt){return byte_size(bt);},
         [](const FuncType& ft){throw std::runtime_error("Cannot take alignment of function type");},
@@ -125,7 +166,7 @@ long long int align(const CType& type, const std::map<std::string, type::CType>&
     ), type);
 }
 bool is_complete(const CType& type){
-    return std::visit(make_visitor<int>(
+    return visit(make_visitor<int>(
         [](VoidType v){return true;},
         [](BasicType bt){return true;},
         [](const FuncType& ft){throw std::runtime_error("Complete or incomplete does not make sense for function type");},

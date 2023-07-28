@@ -272,7 +272,7 @@ std::string Expr::compute_constant(type::CType type) const{
         },
         [&](long double d)->std::string{
             if(type::is_type<type::FType>(type)){
-                return type::ir_literal(std::to_string(d), std::get<type::BasicType>(type));
+                return type::ir_literal(std::to_string(d), type::get<type::BasicType>(type));
             }else{
                 return std::to_string(d);
             }

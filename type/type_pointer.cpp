@@ -11,7 +11,7 @@ std::string PointerType::to_string() const{
 }
 PointerType::~PointerType(){}
 bool can_assign(const PointerType& right, const PointerType& left){
-    return std::visit(overloaded{
+    return visit(overloaded{
             [](const FuncType& type)-> bool{
                 return false;
             },

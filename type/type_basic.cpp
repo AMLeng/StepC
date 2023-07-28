@@ -103,19 +103,6 @@ unsigned long long max_value(BasicType type){
 
 
 
-std::string ir_type(FType type){
-    switch(type){
-        case FType::Float:
-            return "float";
-        case FType::LDouble:
-//We cheat here since other long doubles are target dependent
-//And the standard doesn't require long double to be distinct
-        case FType::Double:
-            return "double"; 
-    }
-    __builtin_unreachable();
-    assert(false);
-}
 int basic_bit_size(const FType& type){
     switch(type){
         case FType::Float:
@@ -151,11 +138,24 @@ int basic_bit_size(const IType& type){
     __builtin_unreachable();
     assert(false && "Missing case in basic type");
 }
+
+}//namespace
+std::string ir_type(FType type){
+    switch(type){
+        case FType::Float:
+            return "float";
+        case FType::LDouble:
+//We cheat here since other long doubles are target dependent
+//And the standard doesn't require long double to be distinct
+        case FType::Double:
+            return "double"; 
+    }
+    __builtin_unreachable();
+    assert(false);
+}
 std::string ir_type(IType type){
     return "i" + std::to_string(basic_bit_size(type));
 }
-
-}//namespace
 int byte_size(const BasicType& type){
     return std::visit([](const auto& t){return basic_bit_size(t)/8;},type);
 }
@@ -469,9 +469,6 @@ bool is_int(BasicType type){
 bool is_arith(BasicType type){
     return is_int(type) || is_float(type);
 }
-bool is_scalar(BasicType type){
-    return /*is_pointer(type) ||*/ is_arith(type);
-}
 
 std::string to_string(IType type){
     switch(type){
@@ -514,16 +511,5 @@ std::string to_string(FType type){
     }
     __builtin_unreachable();
     assert(false);
-}
-
-std::string to_string(BasicType type){
-    try{
-    return std::visit([](auto t){return to_string(t);},type);
-    }catch(std::exception& e){
-        throw std::runtime_error("Failed to convert BasicType to string");
-    }
-}
-std::string ir_type(BasicType type){
-    return std::visit([](auto t){return ir_type(t);},type);
 }
 }//namespace type

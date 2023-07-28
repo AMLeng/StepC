@@ -6,7 +6,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
     value::Value* result = nullptr;
     switch(op_type){
         case token::TokenType::Minus:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType){return make_command(left->get_type(), "sub", left, right, output, c);},
                 [&](type::FType){return make_command(left->get_type(), "fsub", left, right, output, c);},
                 [&](type::PointerType ptr){
@@ -22,7 +22,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 ), left->get_type());
             break;
         case token::TokenType::Plus:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType){
                     if(type::is_type<type::IType>(right->get_type())){
                         return make_command(left->get_type(), "add", left, right, output, c);
@@ -77,7 +77,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 }, type::get<type::BasicType>(left->get_type())), left,right,output,c);
             break;
         case token::TokenType::Equal:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType){return make_command(type::from_str("_Bool"), "icmp eq", left, right, output, c);},
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp oeq", left, right, output, c);},
                 [&](type::PointerType){
@@ -95,7 +95,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 ), left->get_type());
             break;
         case token::TokenType::NEqual:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType){return make_command(type::from_str("_Bool"), "icmp ne", left, right, output, c);},
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp one", left, right, output, c);},
                 [&](type::PointerType){
@@ -113,7 +113,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 ), left->get_type());
             break;
         case token::TokenType::Less:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType t){
                     if(type::is_signed_int(t)){
                         return make_command(type::from_str("_Bool"), "icmp slt", left, right, output, c);
@@ -132,7 +132,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 ), left->get_type());
             break;
         case token::TokenType::Greater:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType t){
                     if(type::is_signed_int(t)){
                         return make_command(type::from_str("_Bool"), "icmp sgt", left, right, output, c);
@@ -151,7 +151,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 ), left->get_type());
             break;
         case token::TokenType::LEq:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType t){
                     if(type::is_signed_int(t)){
                         return make_command(type::from_str("_Bool"), "icmp sle", left, right, output, c);
@@ -170,7 +170,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 ), left->get_type());
             break;
         case token::TokenType::GEq:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType t){
                     if(type::is_signed_int(t)){
                         return make_command(type::from_str("_Bool"), "icmp sge", left, right, output, c);
