@@ -3,6 +3,7 @@
 #include "parse_error.h"
 #include "sem_error.h"
 #include <iostream>
+#include <algorithm>
 #include <cassert>
 #include <string_view>
 #include <map>
@@ -50,7 +51,7 @@ namespace{
             throw parse_error::ParseError("Expected " + token::string_name(type), tok);
         }
     }
-    type::CType convert_specifiers(std::multiset<std::string> specifiers){
+    type::CType convert_type_specifiers(std::multiset<std::string> specifiers){
         if(specifiers.size() == 0){
             throw std::runtime_error("Failed to parse declaration specifiers");
         }
@@ -64,33 +65,14 @@ namespace{
             throw;
         }
     }
-}//namespace
-bool is_specifier(const token::Token& tok){
-    return tok.value == "void"
-        || tok.value == "char"
-        || tok.value == "short"
-        || tok.value == "int"
-        || tok.value == "long"
-        || tok.value == "float"
-        || tok.value == "double"
-        || tok.value == "signed"
-        || tok.value == "unsigned"
-        || tok.value == "_Bool"
-        || tok.value == "union"
-        || tok.value == "struct";
-}
-
-std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifiers(lexer::Lexer& l){
-    auto next_tok = l.peek_token();
-    if(next_tok.value == "struct" || next_tok.value == "union"){
-        l.get_token();
+    std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_tag_specifiers(lexer::Lexer& l, token::Token tag_type){
         std::string ident = "";
         if(l.peek_token().type == token::TokenType::Identifier){
             ident = l.get_token().value;
         }else{
             //Anonymous struct definition, replace the name with a unique anonymous name
             check_token_type(l.peek_token(), token::TokenType::LBrace);
-            ident = "anon."+std::to_string(next_tok.loc.start_line)+"."+std::to_string(next_tok.loc.start_col);
+            ident = "anon."+std::to_string(tag_type.loc.start_line)+"."+std::to_string(tag_type.loc.start_col);
         }
         if(l.peek_token().type == token::TokenType::LBrace){
             auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
@@ -112,35 +94,54 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifie
                 }
             }
             check_token_type(l.get_token(), token::TokenType::RBrace);
-            if(next_tok.value == "struct"){
-                tags.push_back(std::make_unique<ast::TagDecl>(next_tok, type::StructType(ident, members, indices)));
+            if(tag_type.value == "struct"){
+                tags.push_back(std::make_unique<ast::TagDecl>(tag_type, type::StructType(ident, members, indices)));
                 return std::make_pair(type::StructType(ident), std::move(tags));
             }else{
-                tags.push_back(std::make_unique<ast::TagDecl>(next_tok, type::UnionType(ident, members, indices)));
+                tags.push_back(std::make_unique<ast::TagDecl>(tag_type, type::UnionType(ident, members, indices)));
                 return std::make_pair(type::UnionType(ident), std::move(tags));
             }
         }else{
             auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
-            if(next_tok.value == "struct"){
+            if(tag_type.value == "struct"){
                 return std::make_pair(type::StructType(ident),std::move(tags));
             }else{
                 return std::make_pair(type::UnionType(ident),std::move(tags));
             }
         }
     }
-    auto specifier_list = std::multiset<std::string>{};
-    while(next_tok.type == token::TokenType::Keyword){
-        if(!is_specifier(next_tok)){
+}//namespace
+
+std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifiers(lexer::Lexer& l){
+    auto type_specifier_list = std::multiset<std::string>{};
+    std::optional<type::CType> base_type = std::nullopt;
+    auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
+
+    while(type::is_specifier(l.peek_token().value)){
+        auto next_tok = l.get_token();
+        /*if(!type::is_specifier(next_tok.value)){
             throw parse_error::ParseError("Expected specifier keyword",next_tok);
+        }*/
+        if(type::is_type_specifier(next_tok.value)){
+            if(next_tok.value == "struct" || next_tok.value == "union" || next_tok.value == "enum"){
+                if(type_specifier_list.size() > 1){
+                    throw parse_error::ParseError("Cannot have struct, union, or enum with other type specifiers",next_tok);
+                }
+                auto pair = parse_tag_specifiers(l, next_tok);
+                base_type = std::move(pair.first);
+                tags = std::move(pair.second);
+            }
+            type_specifier_list.insert(next_tok.value);
         }
-        specifier_list.insert(l.get_token().value);
-        next_tok = l.peek_token();
     }
-    try{
-        return std::make_pair(convert_specifiers(specifier_list),std::vector<std::unique_ptr<ast::TagDecl>>{});
-    }catch(std::runtime_error& e){
-        throw sem_error::TypeError(e.what(), l.peek_token());
+    if(!base_type.has_value()){
+        try{
+            base_type = convert_type_specifiers(type_specifier_list);
+        }catch(std::runtime_error& e){
+            throw sem_error::TypeError(e.what(), l.peek_token());
+        }
     }
+    return std::make_pair(base_type.value(),std::move(tags));
 }
 //Definitions for parsing methods
 std::unique_ptr<ast::StrLiteral> parse_str_literal(lexer::Lexer& l){
@@ -408,7 +409,7 @@ std::unique_ptr<ast::ReturnStmt> parse_return_stmt(lexer::Lexer& l){
 
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
     auto next_token = l.peek_token();
-    if(next_token.type == token::TokenType::Keyword && is_specifier(next_token)){
+    if(next_token.type == token::TokenType::Keyword && type::is_specifier(next_token.value)){
         return parse_decl_list(l);
     }
     return parse_stmt(l);

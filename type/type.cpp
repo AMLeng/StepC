@@ -176,7 +176,6 @@ bool is_complete(const CType& type){
         [](const UnionType& st){return st.is_complete();}
     ), type);
 }
-std::map<std::string, type::CType> CType::tags = {};
 bool CType::tag_declared(std::string tag){
     return CType::tags.find(tag) != CType::tags.end();
 }
@@ -231,8 +230,65 @@ void CType::tag_ir_types(std::ostream& output){
         output<<"%"<<name_type.first<<" = type "<<type::ir_type(name_type.second)<<std::endl;
     }
 }
+bool CType::typedef_declared(std::string ident) noexcept{
+    return CType::typedefs.find(ident) != CType::typedefs.end();
+}
+CType CType::get_typedef(std::string ident){
+    return CType::typedefs.at(ident);
+}
+void CType::add_typedef(std::string ident, CType type){
+    if(typedef_declared(ident)){
+        if(type != CType::typedefs[ident]){
+            throw std::runtime_error("Conflicting definitions for typedef "+ident);
+        }
+    }else{
+        CType::typedefs.emplace(ident, type);
+    }
+}
+
+std::map<std::string, type::CType> CType::tags = {};
+std::map<std::string, type::CType> CType::typedefs = {};
 void CType::reset_tables() noexcept{
     CType::tags = std::map<std::string, type::CType>{};
+    CType::typedefs = std::map<std::string, type::CType>{};
+}
+bool is_specifier(const std::string& s){
+    return is_type_specifier(s)
+        || is_type_qualifier(s)
+        || is_storage_specifier(s)
+        || is_function_specifier(s);
+}
+bool is_type_qualifier(const std::string& s){
+    return s == "const"
+        || s == "restrict"
+        || s == "volatile"
+        || s == "_Atomic";
+}
+bool is_storage_specifier(const std::string& s){
+    return s == "typedef"
+        || s == "extern"
+        || s == "static"
+        || s == "_Thread_local"
+        || s == "auto"
+        || s == "register";
+}
+bool is_function_specifier(const std::string& s){
+    return s == "inline"
+        || s == "_Noreturn";
+}
+bool is_type_specifier(const std::string& s){
+    return s == "void"
+        || s == "char"
+        || s == "short"
+        || s == "int"
+        || s == "long"
+        || s == "float"
+        || s == "double"
+        || s == "signed"
+        || s == "unsigned"
+        || s == "_Bool"
+        || s == "union"
+        || s == "struct";
 }
 
 } //namespace type

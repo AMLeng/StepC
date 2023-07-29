@@ -12,6 +12,12 @@
 #include <string>
 #include <type_traits>
 namespace type{
+bool is_specifier(const std::string& s);
+bool is_type_specifier(const std::string& s);
+bool is_type_qualifier(const std::string& s);
+bool is_storage_specifier(const std::string& s);
+bool is_function_specifier(const std::string& s);
+bool is_align_specifier(const std::string& s);
 enum class IType {
     Char, SChar, UChar, 
     Short, UShort, 
@@ -68,6 +74,7 @@ class CType{
     std::variant<VoidType, BasicType, DerivedType> type;
     //Maps mangled tags to completed types
     static std::map<std::string, type::CType> tags;
+    static std::map<std::string, type::CType> typedefs;
 public:
     CType() : type() {}
     bool operator ==(const CType& other) const;
@@ -94,6 +101,10 @@ public:
     static CType get_tag(std::string mangled_tag);
     static void add_tag(std::string tag, type::TagType type);
     static void tag_ir_types(std::ostream& output);
+
+    static bool typedef_declared(std::string ident) noexcept;
+    static CType get_typedef(std::string ident);
+    static void add_typedef(std::string ident, CType type);
     static void reset_tables() noexcept;
 };
 
@@ -341,6 +352,7 @@ T get(const CType& type){
     }
     throw std::runtime_error("Incorrect type for type::get, cannot get "+std::string(typeid(T).name())+" from "+to_string(type));
 }
+
 
 
 }

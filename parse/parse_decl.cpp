@@ -307,6 +307,9 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
     while(l.peek_token().type == token::TokenType::Semicolon){
         l.get_token();
     }
+    if(!type::is_specifier(l.peek_token().value)){
+        throw parse_error::ParseError("Invalid start to external declaration", l.peek_token());
+    }
     auto specifiers = parse_specifiers(l);
     auto specified_type = specifiers.first;
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};

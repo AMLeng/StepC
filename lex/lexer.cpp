@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "type.h"
 #include "lexer_error.h"
 #include <cctype>
 #include <map>
@@ -20,20 +21,9 @@ bool is_keyword(const std::string& word){
         || word == "switch"
         || word == "case"
         || word == "default"
-        || word == "void"
-        || word == "char"
-        || word == "short"
-        || word == "int"
-        || word == "long"
-        || word == "float"
-        || word == "double"
-        || word == "signed"
-        || word == "unsigned"
         || word == "sizeof"
         || word == "_Alignof"
-        || word == "struct"
-        || word == "union"
-        || word == "_Bool";
+        || type::is_specifier(word);
 }
 
 token::Token create_token(token::TokenType type, std::string value, std::pair<int, int> tok_start, std::pair<int, int> tok_end, const std::string& source){
