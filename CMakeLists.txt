@@ -19,6 +19,7 @@ add_library (codegen_utils
 )
 add_library(core lex/lexer.cpp 
     parse/parse.cpp parse/parse_decl.cpp parse/ast_construct.cpp parse/ast_pretty_print.cpp 
+    parse/parse_exprs.cpp parse/parse_stmts.cpp parse/parse_specifiers.cpp
     sem/ast_analyze.cpp sem/symbol.cpp
     codegen/ast_codegen.cpp codegen/context.cpp codegen/basic_block.cpp )
 target_link_libraries(core type codegen_utils)

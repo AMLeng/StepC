@@ -132,12 +132,6 @@ namespace{
         }
     };
 
-    //Check and throw default unexpected token exception
-    void check_token_type(const token::Token& tok, token::TokenType type){
-        if(tok.type != type){
-            throw parse_error::ParseError("Expected " + token::string_name(type), tok);
-        }
-    }
     void parse_declarator_helper(lexer::Lexer& l, TypeBuilder& builder){
         auto next_tok = l.peek_token();
         switch(next_tok.type){
