@@ -1,6 +1,7 @@
 #ifndef _TYPE_
 #define _TYPE_
 #include <variant>
+#include <unordered_set>
 #include <cassert>
 #include <set>
 #include <map>
@@ -13,11 +14,25 @@
 #include <type_traits>
 namespace type{
 bool is_specifier(const std::string& s);
+
 bool is_type_specifier(const std::string& s);
+
+enum class TQualifier{
+    Const, Restrict, Volatile, Atomic
+};
 bool is_type_qualifier(const std::string& s);
+TQualifier get_type_qualifier(const std::string& s);
+
+enum class SSpecifier{
+    Auto, Typedef, Extern, Static, Register, 
+    Thread_local, Thread_local_static, Thread_local_extern
+};
 bool is_storage_specifier(const std::string& s);
+SSpecifier get_storage_specifier(const std::string& s);
+
 bool is_function_specifier(const std::string& s);
 bool is_align_specifier(const std::string& s);
+
 enum class IType {
     Char, SChar, UChar, 
     Short, UShort, 
@@ -75,6 +90,11 @@ class CType{
     //Maps mangled tags to completed types
     static std::map<std::string, type::CType> tags;
 public:
+    std::optional<SSpecifier> storage = std::nullopt;
+    void add_storage_specifier(SSpecifier s);
+    std::unordered_set<TQualifier> qualifiers = {};
+    void add_type_qualifier(TQualifier s);
+
     CType() : type() {}
     bool operator ==(const CType& other) const;
     bool operator !=(const CType& other) const;

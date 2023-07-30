@@ -5,6 +5,15 @@
 namespace type{
 
 namespace{
+std::map<std::string, SSpecifier> storage_specifiers = {{
+    {"typedef", SSpecifier::Typedef}, {"static", SSpecifier::Static}, {"extern", SSpecifier::Extern},
+    {"auto", SSpecifier::Auto}, {"register", SSpecifier::Register}, {"_Thread_local", SSpecifier::Thread_local}
+}};
+
+std::map<std::string, TQualifier> type_qualifiers = {{
+    {"const", TQualifier::Const}, {"restrict", TQualifier::Restrict},
+    {"volatile", TQualifier::Volatile}, {"_Atomic", TQualifier::Atomic}
+}};
 
 
 } //namespace
@@ -242,18 +251,16 @@ bool is_specifier(const std::string& s){
         || is_function_specifier(s);
 }
 bool is_type_qualifier(const std::string& s){
-    return s == "const"
-        || s == "restrict"
-        || s == "volatile"
-        || s == "_Atomic";
+    return type_qualifiers.find(s) != type_qualifiers.end();
+}
+TQualifier get_type_qualifier(const std::string& s){
+    return type_qualifiers.at(s);
 }
 bool is_storage_specifier(const std::string& s){
-    return s == "typedef"
-        || s == "extern"
-        || s == "static"
-        || s == "_Thread_local"
-        || s == "auto"
-        || s == "register";
+    return storage_specifiers.find(s) != storage_specifiers.end();
+}
+SSpecifier get_storage_specifier(const std::string& s){
+    return storage_specifiers.at(s);
 }
 bool is_function_specifier(const std::string& s){
     return s == "inline"
@@ -272,6 +279,15 @@ bool is_type_specifier(const std::string& s){
         || s == "_Bool"
         || s == "union"
         || s == "struct";
+}
+void CType::add_storage_specifier(SSpecifier s){
+    if(this->storage.has_value()){
+        throw std::runtime_error("Cannot add storage specifier to type with existing storage specifier");
+    }
+    this->storage = s;
+}
+void CType::add_type_qualifier(TQualifier s){
+    this->qualifiers.insert(s);
 }
 
 } //namespace type

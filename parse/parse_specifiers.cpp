@@ -69,6 +69,34 @@ namespace{
             }
         }
     }
+
+    void parse_storage_specifier(std::optional<type::SSpecifier>& specifier, const token::Token& tok){
+        if(specifier.has_value()){
+            if(tok.value == "_Thread_local"){
+                if(specifier.value() == type::SSpecifier::Extern){
+                    specifier = type::SSpecifier::Thread_local_extern;
+                    return;
+                }
+                if(specifier.value() == type::SSpecifier::Static){
+                    specifier = type::SSpecifier::Thread_local_static;
+                    return;
+                }
+            }
+            if(specifier.value() == type::SSpecifier::Thread_local){
+                if(tok.value == "extern"){
+                    specifier = type::SSpecifier::Thread_local_extern;
+                    return;
+                }
+                if(tok.value == "static"){
+                    specifier = type::SSpecifier::Thread_local_static;
+                    return;
+                }
+            }
+            throw parse_error::ParseError("Can only have at most one storage specifier, except for _Thread_local with static or extern",tok);
+        }else{
+            specifier = type::get_storage_specifier(tok.value);
+        }
+    }
 }//namespace
 
 
@@ -77,25 +105,28 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_specifi
     std::optional<type::CType> base_type = std::nullopt;
     auto tags = std::vector<std::unique_ptr<ast::TypeDecl>>{};
 
-    bool type_specifiers_done = false;
-    while(type::is_specifier(l.peek_token().value)){
-        auto next_tok = l.get_token();
+    auto next_tok = l.peek_token();
+    auto storage_specifier = std::optional<type::SSpecifier>{std::nullopt};
+    auto type_qualifiers = std::unordered_set<type::TQualifier>{};
+    while(type::is_specifier(next_tok.value) || next_tok.type == token::TokenType::Identifier){
+        if(next_tok.type == token::TokenType::Identifier){
+            //Handle typedef specifier
+            if(true){//TODO: Conditions for being a normal ident and not a typedef name
+                break;
+            }
+            //base_type = TypedefType(next_tok.value);
+            if(type_specifier_list.size() > 0){
+                throw parse_error::ParseError("Cannot have typedef name with other type specifiers",next_tok);
+            }
+        }
+        //If it's not an identifier, we know we can get the token since it must be a specifier
+        l.get_token();
         if(type::is_type_specifier(next_tok.value)){
-            if(type_specifiers_done){
+            if(base_type.has_value()){
                 throw parse_error::ParseError("Invalid collection of type specifiers",next_tok);
             }
-            if(next_tok.type == token::TokenType::Identifier){
-                assert(false && "Have not yet implemented typedef specifier parsing");
-                type_specifiers_done = true;
-                if(type_specifier_list.size() > 1){
-                    throw parse_error::ParseError("Cannot have typedef name with other type specifiers",next_tok);
-                }
-                //assert(type::CType::typedef_declared(next_tok.value) && "Identifier specifier that is not a typedef name");
-                //base_type = type::CType::get_typedef(next_tok.value);
-            }
             if(next_tok.value == "struct" || next_tok.value == "union" || next_tok.value == "enum"){
-                type_specifiers_done = true;
-                if(type_specifier_list.size() > 1){
+                if(type_specifier_list.size() > 0){
                     throw parse_error::ParseError("Cannot have struct, union, or enum with other type specifiers",next_tok);
                 }
                 auto pair = parse_tag_specifiers(l, next_tok);
@@ -103,9 +134,17 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_specifi
                 for(auto& t : pair.second){
                     tags.push_back(std::move(t));
                 }
+            }else{
+                type_specifier_list.insert(next_tok.value);
             }
-            type_specifier_list.insert(next_tok.value);
         }
+        if(type::is_storage_specifier(next_tok.value)){
+            parse_storage_specifier(storage_specifier, next_tok);
+        }
+        if(type::is_type_qualifier(next_tok.value)){
+            type_qualifiers.insert(type::get_type_qualifier(next_tok.value));
+        }
+        next_tok = l.peek_token();
     }
     if(!base_type.has_value()){
         try{
@@ -113,6 +152,12 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_specifi
         }catch(std::runtime_error& e){
             throw sem_error::TypeError(e.what(), l.peek_token());
         }
+    }
+    if(storage_specifier.has_value()){
+        base_type.value().add_storage_specifier(storage_specifier.value());
+    }
+    for(auto& tq : type_qualifiers){
+        base_type.value().add_type_qualifier(tq);
     }
     return std::make_pair(base_type.value(),std::move(tags));
 }
