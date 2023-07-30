@@ -98,8 +98,8 @@ struct TypeDecl : virtual public AST {
 struct TypedefDecl : public TypeDecl {
     std::string name;
     type::CType type;
-    TypedefDecl(token::Token tok, std::string name, type::CType type) : 
-        TypeDecl(tok), name(name), type(std::move(type)) {}
+    TypedefDecl(token::Token tok, type::CType type) : 
+        TypeDecl(tok), name(tok.value), type(std::move(type)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
 };

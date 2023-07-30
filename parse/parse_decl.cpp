@@ -231,7 +231,7 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
         }
         auto param_specifiers = parse_specifiers(l);
         if(param_specifiers.second.size() > 0){
-            throw sem_error::TypeError("Struct definition in function parameter list is useless", l.peek_token());
+            throw sem_error::TypeError("Struct/Union definition or typedef in function parameter list is useless", l.peek_token());
         }
         declarators.push_back(parse_declarator(param_specifiers.first,l));
         if(type::is_type<type::VoidType>(declarators.back().second)){
@@ -265,19 +265,24 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
 std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
     auto specifiers = parse_specifiers(l);
+    auto type_decls = std::move(specifiers.second);
     while(true){
         auto declarator = parse_declarator(specifiers.first, l);
         if(!declarator.first.has_value()){
             handle_abstract_decl(declarator, l.peek_token());
         }else{
-            decls.push_back(parse_init_decl(l, declarator));
+            if(declarator.second.storage == std::optional<type::SSpecifier>(type::SSpecifier::Typedef)){
+                type_decls.push_back(std::make_unique<ast::TypedefDecl>(declarator.first.value(), declarator.second));
+            }else{
+                decls.push_back(parse_init_decl(l, declarator));
+            }
         }
         if(token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
             break;
         }
         check_token_type(l.get_token(), token::TokenType::Comma);
     }
-    return std::make_unique<ast::DeclList>(std::move(decls), std::move(specifiers.second));
+    return std::make_unique<ast::DeclList>(std::move(decls), std::move(type_decls));
 }
 
 std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, 
@@ -306,6 +311,7 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
     }
     auto specifiers = parse_specifiers(l);
     auto specified_type = specifiers.first;
+    auto type_decls = std::move(specifiers.second);
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
     {
         auto builder = TypeBuilder();
@@ -316,12 +322,16 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
             if(!params.has_value()){
                 throw parse_error::ParseError("Unexpected beginning of function definition", l.peek_token());
             }
-            return parse_function_def(l, params.value(), declarator, std::move(specifiers.second));
+            return parse_function_def(l, params.value(), declarator, std::move(type_decls));
         }
         if(!declarator.first.has_value()){
             handle_abstract_decl(declarator, l.peek_token());
         }else{
-            decls.push_back(parse_init_decl(l,declarator));
+            if(declarator.second.storage == std::optional<type::SSpecifier>(type::SSpecifier::Typedef)){
+                type_decls.push_back(std::make_unique<ast::TypedefDecl>(declarator.first.value(), declarator.second));
+            }else{
+                decls.push_back(parse_init_decl(l, declarator));
+            }
         }
     }
 
@@ -335,9 +345,13 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
         if(!declarator.first.has_value()){
             handle_abstract_decl(declarator, l.peek_token());
         }else{
-            decls.push_back(parse_init_decl(l, declarator));
+            if(declarator.second.storage == std::optional<type::SSpecifier>(type::SSpecifier::Typedef)){
+                type_decls.push_back(std::make_unique<ast::TypedefDecl>(declarator.first.value(), declarator.second));
+            }else{
+                decls.push_back(parse_init_decl(l, declarator));
+            }
         }
     }
-    return std::make_unique<ast::DeclList>(std::move(decls), std::move(specifiers.second));
+    return std::make_unique<ast::DeclList>(std::move(decls), std::move(type_decls));
 }
 } //namespace parse
