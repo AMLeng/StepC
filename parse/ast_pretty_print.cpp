@@ -181,6 +181,10 @@ void FunctionDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"FUNCTION DECL \""<<name<<"\" OF TYPE "<< type::to_string(type) <<std::endl;
 }
+void TypedefDecl::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"TYPEDEF "<<name<<" TO "<<type::to_string(type)<<std::endl;
+}
 void TagDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"TAG "<<std::visit(type::overloaded{

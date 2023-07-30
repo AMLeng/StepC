@@ -72,18 +72,41 @@ void BlockTable::add_label(const std::string& name){
     }
     current_func->function_labels.insert_or_assign(name,std::nullopt);
 }
+bool STable::is_typedef(std::string name){
+    return typedefs.count(name) > 0;
+}
+void STable::add_typedef(std::string name, type::CType type){
+    auto insertion_success = typedefs.insert(name).second;
+    if(insertion_success == false){
+        if(type != sym_map.at(name).first){
+            throw std::runtime_error("Typedef "+name+" of incompatible type already present in symbol table");
+        }
+    }else{
+        if(sym_map.find(name) != sym_map.end()){
+            throw std::runtime_error("Symbol "+name+" already defined as variable, cannot be redefined as typedef");
+        }
+    }
+    sym_map.emplace(name,std::make_pair(type,true));
+}
 void STable::add_symbol(std::string name, type::CType type, bool has_def){
     //Symbol checking
     if(sym_map.find(name) != sym_map.end()){
         auto existing_decl = sym_map.at(name);
         if(this->parent != nullptr){
-            throw std::runtime_error("Symbol "+name+" of incompatible type already present in symbol table at non-global scope");
+            //There cannot be an existing declaration of a local variable;
+            //Since we know that there exists a declaration, the current symbol table must be the global symbol table
+            //Or we have an error
+            throw std::runtime_error("Symbol "+name+" of incompatible type already present in non-global symbol table");
         }
         if(has_def && existing_decl.second){
-            throw std::runtime_error("Symbol "+name+" already defined at global scope");
+            if(is_typedef(name)){
+                throw std::runtime_error("Symbol "+name+" already defined as typedef");
+            }else{
+                throw std::runtime_error("Symbol "+name+" already defined");
+            }
         }
         if(!type::is_compatible(existing_decl.first, type)){
-            throw std::runtime_error("Global symbol "+name+" of incompatible type already present in symbol table");
+            throw std::runtime_error("Symbol "+name+" of incompatible type already present in symbol table");
         }else{
             //type = type::make_composite(type, existing_type);
         }
@@ -104,9 +127,6 @@ void GlobalTable::add_extern_decl(const std::string& name, const type::CType& ty
 void BlockTable::add_extern_decl(const std::string& name, const type::CType& type) {
     global->add_extern_decl(name, type);
 }
-/*bool STable::tag_declared(std::string unmangled_tag) const{
-    return type::CType::tag_declared(this->mangle_name(unmangled_tag));
-}*/
 type::CType STable::get_tag(std::string unmangled_tag) const{
     return type::CType::get_tag(this->mangle_name(unmangled_tag));
 }

@@ -281,7 +281,7 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
 }
 
 std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, 
-    Declarator func, std::vector<std::unique_ptr<ast::TagDecl>> tags){
+    Declarator func, std::vector<std::unique_ptr<ast::TypeDecl>> tags){
     auto param_decls = std::vector<std::unique_ptr<ast::VarDecl>>{};
     for(const auto& param_declarator: params){
         if(!param_declarator.first.has_value()){

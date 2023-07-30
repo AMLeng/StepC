@@ -622,7 +622,7 @@ void InitializerList::initializer_codegen(value::Value* variable, std::ostream& 
         initializers.front()->initializer_codegen(variable, output, c);
     }
 }
-value::Value* TagDecl::codegen(std::ostream& output, context::Context& c)const {
+value::Value* TypeDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(false && "Should never be called");
     return nullptr;
 }

@@ -230,27 +230,10 @@ void CType::tag_ir_types(std::ostream& output){
         output<<"%"<<name_type.first<<" = type "<<type::ir_type(name_type.second)<<std::endl;
     }
 }
-bool CType::typedef_declared(std::string ident) noexcept{
-    return CType::typedefs.find(ident) != CType::typedefs.end();
-}
-CType CType::get_typedef(std::string ident){
-    return CType::typedefs.at(ident);
-}
-void CType::add_typedef(std::string ident, CType type){
-    if(typedef_declared(ident)){
-        if(type != CType::typedefs[ident]){
-            throw std::runtime_error("Conflicting definitions for typedef "+ident);
-        }
-    }else{
-        CType::typedefs.emplace(ident, type);
-    }
-}
 
 std::map<std::string, type::CType> CType::tags = {};
-std::map<std::string, type::CType> CType::typedefs = {};
 void CType::reset_tables() noexcept{
     CType::tags = std::map<std::string, type::CType>{};
-    CType::typedefs = std::map<std::string, type::CType>{};
 }
 bool is_specifier(const std::string& s){
     return is_type_specifier(s)

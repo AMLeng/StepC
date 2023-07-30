@@ -74,7 +74,6 @@ class CType{
     std::variant<VoidType, BasicType, DerivedType> type;
     //Maps mangled tags to completed types
     static std::map<std::string, type::CType> tags;
-    static std::map<std::string, type::CType> typedefs;
 public:
     CType() : type() {}
     bool operator ==(const CType& other) const;
@@ -102,9 +101,6 @@ public:
     static void add_tag(std::string tag, type::TagType type);
     static void tag_ir_types(std::ostream& output);
 
-    static bool typedef_declared(std::string ident) noexcept;
-    static CType get_typedef(std::string ident);
-    static void add_typedef(std::string ident, CType type);
     static void reset_tables() noexcept;
 };
 

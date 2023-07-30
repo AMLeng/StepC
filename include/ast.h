@@ -90,17 +90,28 @@ struct NullStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
-struct TagDecl : public AST {
+struct TypeDecl : virtual public AST {
     token::Token tok;
-    type::TagType type;
-    TagDecl(token::Token tok, type::TagType type) : tok(tok), type(std::move(type)) {}
-    void analyze(symbol::STable*) override;
-    void pretty_print(int depth) const override;
+    TypeDecl(token::Token tok) : tok(tok) {}
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
+struct TypedefDecl : public TypeDecl {
+    std::string name;
+    type::CType type;
+    TypedefDecl(token::Token tok, std::string name, type::CType type) : 
+        TypeDecl(tok), name(name), type(std::move(type)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+};
+struct TagDecl : public TypeDecl {
+    type::TagType type;
+    TagDecl(token::Token tok, type::TagType type) : TypeDecl(tok), type(std::move(type)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+};
 struct ExtDecl : virtual public AST{
-    std::vector<std::unique_ptr<TagDecl>> tag_decls;
-    ExtDecl(std::vector<std::unique_ptr<TagDecl>> decls) : tag_decls(std::move(decls)) {}
+    std::vector<std::unique_ptr<TypeDecl>> tag_decls;
+    ExtDecl(std::vector<std::unique_ptr<TypeDecl>> decls) : tag_decls(std::move(decls)) {}
     virtual ~ExtDecl() = 0;
 };
 struct Decl : virtual public AST{
@@ -114,7 +125,7 @@ struct Decl : virtual public AST{
 struct DeclList : public BlockItem, public ExtDecl{
     bool analyzed = false;
     std::vector<std::unique_ptr<Decl>> decls;
-    DeclList(std::vector<std::unique_ptr<Decl>> decls, std::vector<std::unique_ptr<TagDecl>> tags) 
+    DeclList(std::vector<std::unique_ptr<Decl>> decls, std::vector<std::unique_ptr<TypeDecl>> tags) 
         : ExtDecl(std::move(tags)), decls(std::move(decls)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
@@ -222,7 +233,7 @@ struct FunctionDef : public ExtDecl, public FunctionDecl{
     std::vector<std::unique_ptr<VarDecl>> params;
     std::unique_ptr<CompoundStmt> function_body;
     FunctionDef(token::Token tok, type::FuncType type, std::vector<std::unique_ptr<VarDecl>> param_decls, 
-        std::unique_ptr<CompoundStmt> body, std::vector<std::unique_ptr<TagDecl>> tags) : 
+        std::unique_ptr<CompoundStmt> body, std::vector<std::unique_ptr<TypeDecl>> tags) : 
         ExtDecl(std::move(tags)), FunctionDecl(tok, type), params(std::move(param_decls)), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;

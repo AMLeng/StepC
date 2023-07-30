@@ -24,7 +24,7 @@ namespace{
             throw;
         }
     }
-    std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_tag_specifiers(lexer::Lexer& l, token::Token tag_type){
+    std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_tag_specifiers(lexer::Lexer& l, token::Token tag_type){
         std::string ident = "";
         if(l.peek_token().type == token::TokenType::Identifier){
             ident = l.get_token().value;
@@ -34,7 +34,7 @@ namespace{
             ident = "anon."+std::to_string(tag_type.loc.start_line)+"."+std::to_string(tag_type.loc.start_col);
         }
         if(l.peek_token().type == token::TokenType::LBrace){
-            auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
+            auto tags = std::vector<std::unique_ptr<ast::TypeDecl>>{};
             l.get_token();
             auto members = std::vector<type::CType>{};
             auto indices = std::map<std::string, int>{};
@@ -61,7 +61,7 @@ namespace{
                 return std::make_pair(type::UnionType(ident), std::move(tags));
             }
         }else{
-            auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
+            auto tags = std::vector<std::unique_ptr<ast::TypeDecl>>{};
             if(tag_type.value == "struct"){
                 return std::make_pair(type::StructType(ident),std::move(tags));
             }else{
@@ -72,10 +72,10 @@ namespace{
 }//namespace
 
 
-std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifiers(lexer::Lexer& l){
+std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_specifiers(lexer::Lexer& l){
     auto type_specifier_list = std::multiset<std::string>{};
     std::optional<type::CType> base_type = std::nullopt;
-    auto tags = std::vector<std::unique_ptr<ast::TagDecl>>{};
+    auto tags = std::vector<std::unique_ptr<ast::TypeDecl>>{};
 
     bool type_specifiers_done = false;
     while(type::is_specifier(l.peek_token().value)){
@@ -85,12 +85,13 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifie
                 throw parse_error::ParseError("Invalid collection of type specifiers",next_tok);
             }
             if(next_tok.type == token::TokenType::Identifier){
+                assert(false && "Have not yet implemented typedef specifier parsing");
                 type_specifiers_done = true;
                 if(type_specifier_list.size() > 1){
                     throw parse_error::ParseError("Cannot have typedef name with other type specifiers",next_tok);
                 }
-                assert(type::CType::typedef_declared(next_tok.value) && "Identifier specifier that is not a typedef name");
-                base_type = type::CType::get_typedef(next_tok.value);
+                //assert(type::CType::typedef_declared(next_tok.value) && "Identifier specifier that is not a typedef name");
+                //base_type = type::CType::get_typedef(next_tok.value);
             }
             if(next_tok.value == "struct" || next_tok.value == "union" || next_tok.value == "enum"){
                 type_specifiers_done = true;
@@ -99,7 +100,9 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifie
                 }
                 auto pair = parse_tag_specifiers(l, next_tok);
                 base_type = std::move(pair.first);
-                tags = std::move(pair.second);
+                for(auto& t : pair.second){
+                    tags.push_back(std::move(t));
+                }
             }
             type_specifier_list.insert(next_tok.value);
         }

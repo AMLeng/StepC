@@ -2,6 +2,7 @@
 #define _SYMBOL_
 #include<vector>
 #include<memory>
+#include<unordered_set>
 #include<exception>
 #include<map>
 #include<set>
@@ -20,6 +21,7 @@ protected:
     STable* parent;
     std::vector<std::unique_ptr<STable>> children;
     std::map<std::string, std::pair<type::CType,bool>> sym_map;
+    std::unordered_set<std::string> typedefs;
     STable(STable* p) : parent(p), sym_map() {
         if(p && p->in_loop){
             in_loop = true;
@@ -38,12 +40,13 @@ public:
     STable* most_recent_child();
     virtual bool in_function() const = 0;
     virtual void add_extern_decl(const std::string& name, const type::CType& type) = 0;
-    //bool tag_declared(std::string tag) const;
     type::CType get_tag(std::string unmangled_tag) const;
     virtual void add_tag(std::string tag, type::TagType type) = 0;
     type::CType mangle_type_or_throw(type::CType type) const;
     virtual std::string mangle_name(std::string name) const noexcept = 0;
     void add_symbol(std::string name, type::CType type, bool has_def = false);
+    void add_typedef(std::string name, type::CType type);
+    bool is_typedef(std::string name);
     bool has_symbol(std::string name);
     type::CType symbol_type(std::string name) const;
 };

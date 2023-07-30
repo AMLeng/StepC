@@ -382,6 +382,13 @@ bool is_lval(const ast::AST* node){
     return false;
 }
 
+void TypedefDecl::analyze(symbol::STable* st) {
+    try{
+        st->add_typedef(this->name, this->type);
+    }catch(std::exception& e){
+        throw sem_error::STError("Error adding typedef definition for "+name+" to symbol table:\n"+e.what(), this->tok);
+    }
+}
 void TagDecl::analyze(symbol::STable* st) {
     std::string name = std::visit(type::overloaded{
         [](const auto& t){

@@ -23,7 +23,7 @@ std::unique_ptr<ast::Stmt> parse_stmt(lexer::Lexer& l);
 std::unique_ptr<ast::CompoundStmt> parse_compound_stmt(lexer::Lexer& l);
 
 //in parse_specifiers.cpp
-std::pair<type::CType,std::vector<std::unique_ptr<ast::TagDecl>>> parse_specifiers(lexer::Lexer& l);
+std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_specifiers(lexer::Lexer& l);
 
 //In parse_decl.cpp
 Declarator parse_declarator(type::CType type, lexer::Lexer& l);
