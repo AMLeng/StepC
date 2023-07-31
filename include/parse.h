@@ -10,6 +10,7 @@ typedef std::pair<std::optional<token::Token>, type::CType> Declarator;
 void check_token_type(const token::Token& tok, token::TokenType type);
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l);
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l);
+std::unique_ptr<ast::AmbiguousBlock> parse_ambiguous_block(lexer::Lexer& l);
 
 //in parse_exprs.cpp
 std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power = 0);

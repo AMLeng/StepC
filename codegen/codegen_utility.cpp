@@ -119,7 +119,8 @@ std::string default_value(type::CType type){
                 [](const type::FuncType& ){throw std::runtime_error("No default function value");},
                 [](const type::ArrayType& ){return "zeroinitializer";},
                 [](const type::StructType& ){return "zeroinitializer";},
-                [](const type::UnionType& ){return "zeroinitializer";}
+                [](const type::UnionType& ){return "zeroinitializer";},
+                [](const type::UnevaluatedTypedef& ){return "zeroinitializer";}
                 ), type);
 }
 value::Value* convert(type::CType target_type, value::Value* val, 
@@ -143,6 +144,7 @@ value::Value* convert(type::CType target_type, value::Value* val,
         [&](type::UnionType t){
             throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));
         },
+        [](type::UnevaluatedTypedef t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));},
         [](type::FuncType t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));}
     ),target_type);
 }

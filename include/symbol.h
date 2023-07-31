@@ -46,8 +46,10 @@ public:
     virtual std::string mangle_name(std::string name) const noexcept = 0;
     void add_symbol(std::string name, type::CType type, bool has_def = false);
     void add_typedef(std::string name, type::CType type);
-    bool is_typedef(std::string name);
     bool has_symbol(std::string name);
+    //Returns true if the given symbol is, in the current scope
+    //A valid typedef-name, and false otherwise
+    bool resolves_to_typedef(std::string name) const;
     type::CType symbol_type(std::string name) const;
 };
 class GlobalTable : public STable{

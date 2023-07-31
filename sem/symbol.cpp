@@ -72,9 +72,6 @@ void BlockTable::add_label(const std::string& name){
     }
     current_func->function_labels.insert_or_assign(name,std::nullopt);
 }
-bool STable::is_typedef(std::string name){
-    return typedefs.count(name) > 0;
-}
 void STable::add_typedef(std::string name, type::CType type){
     auto insertion_success = typedefs.insert(name).second;
     if(insertion_success == false){
@@ -99,7 +96,7 @@ void STable::add_symbol(std::string name, type::CType type, bool has_def){
             throw std::runtime_error("Symbol "+name+" of incompatible type already present in non-global symbol table");
         }
         if(has_def && existing_decl.second){
-            if(is_typedef(name)){
+            if(typedefs.count(name) > 0){
                 throw std::runtime_error("Symbol "+name+" already defined as typedef");
             }else{
                 throw std::runtime_error("Symbol "+name+" already defined");
@@ -194,6 +191,10 @@ type::CType STable::mangle_type_or_throw(type::CType type) const{
             }else{
                 return type::UnionType(mangled_tag);
             }
+        },
+        [&](const type::UnevaluatedTypedef& t){
+            auto actual_type = this->symbol_type(t.get_name());
+            return mangle_type_or_throw(actual_type);
         }
     ), type);
 }
@@ -219,6 +220,17 @@ void BlockTable::add_tag(std::string tag, type::TagType type){
             type::CType::add_tag(mangled_tag, mangled_struct);
         },
     }, type);
+}
+bool STable::resolves_to_typedef(std::string name) const{
+    //Find the inner most symbol table which contains name, and returns true if it is a typedef name in that scope
+    const STable* to_search = this;
+    while(to_search != nullptr){
+        if(to_search->sym_map.find(name) != to_search->sym_map.end()){
+            return to_search->typedefs.count(name) > 0;
+        }
+        to_search = to_search->parent;
+    }
+    return false;
 }
 bool STable::has_symbol(std::string name){
     STable* to_search = this;

@@ -73,6 +73,12 @@ const std::map<char, token::TokenType> single_char_tokens = {{
 
 } //namespace
 
+Lexer::Lexer(std::istream& input, std::vector<token::Token> tokens) 
+    : input_stream(input), current_pos(std::make_pair(1,1)){
+        for(const auto& t : tokens){
+            this->next_tokens.push_back(t);
+        }
+}
 void Lexer::ignore_space(){
     char next_char = input_stream.peek();
     while(std::isspace(next_char)){

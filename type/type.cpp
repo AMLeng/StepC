@@ -15,6 +15,16 @@ std::map<std::string, TQualifier> type_qualifiers = {{
     {"volatile", TQualifier::Volatile}, {"_Atomic", TQualifier::Atomic}
 }};
 
+std::map<SSpecifier, std::string> storage_specifiers_to_string = {{
+    {SSpecifier::Typedef, "typedef"}, {SSpecifier::Static, "static"}, {SSpecifier::Extern, "extern"},
+    {SSpecifier::Auto, "auto"}, {SSpecifier::Register, "register"}, {SSpecifier::Thread_local, "_Thread_local"},
+    {SSpecifier::Thread_local_extern, "_Thread_local exten"}, {SSpecifier::Thread_local_static, "_Thread_local static"}
+}};
+
+std::map<TQualifier, std::string> type_qualifiers_to_string = {{
+    {TQualifier::Const, "const"}, {TQualifier::Restrict, "restrict"},
+    {TQualifier::Volatile, "volatile"}, {TQualifier::Atomic, "_Atomic"}
+}};
 
 } //namespace
 DerivedType::DerivedType(const DerivedType& other){
@@ -97,14 +107,25 @@ bool can_assign(const CType& type1, const CType& type2){
             || is_type<PointerType>(type2) && can_assign(type1, type::get<PointerType>(type2));},
         [&type2](StructType type1){return is_type<StructType>(type2) && type1 == type::get<StructType>(type2);},
         [&type2](UnionType type1){return is_type<UnionType>(type2) && type1 == type::get<UnionType>(type2);},
-        [&type2](FuncType type1){return is_type<FuncType>(type2);}
+        [&type2](FuncType type1){return is_type<FuncType>(type2);},
+        [](UnevaluatedTypedef type1){
+            throw std::runtime_error("Cannot assign from unevaluated typedef");
+            }
     ),type1);
 }
 std::string to_string(const CType& type){
-    return visit(make_visitor<std::string>(
+    auto s = std::string{};
+    if(type.storage.has_value()){
+        s += storage_specifiers_to_string.at(type.storage.value()) +" ";
+    }
+    for(const auto&tq : type.qualifiers){
+        s += type_qualifiers_to_string.at(tq) + " ";
+    }
+    return s + visit(make_visitor<std::string>(
         [](VoidType v)->std::string{return "void";},
         [](IType t)->std::string{return to_string(t);},
         [](FType t)->std::string{return to_string(t);},
+        [](UnevaluatedTypedef t)->std::string{return "unevaluated typedef "+t.get_name();},
         [](const auto& t){return t.to_string();}
     ), type);
 }
@@ -147,6 +168,8 @@ BasicType integer_promotions(const CType& type){
 std::string ir_type(const CType& type){
     return visit(make_visitor<std::string>(
         [](VoidType v)->std::string{return "void";},
+        [](UnevaluatedTypedef v)->std::string{
+            throw std::runtime_error("Cannot take ir type of unevaluated typedef");},
         [](IType bt)->std::string{return ir_type(bt);},
         [](FType bt)->std::string{return ir_type(bt);},
         [](const auto& t){return t.ir_type();}
@@ -157,6 +180,7 @@ long long int size(const CType& type){
         [](VoidType v){return 0;},
         [](BasicType bt){return byte_size(bt);},
         [](const FuncType& ft){throw std::runtime_error("Cannot take size of function type");},
+        [](const UnevaluatedTypedef& ft){throw std::runtime_error("Cannot take size of unevaluated typedef");},
         [](const PointerType& pt){return 8;},
         [&](const ArrayType& at){return at.size()*type::size(at.pointed_type());},
         [&](const StructType& st){return st.size(CType::tags);},
@@ -168,6 +192,7 @@ long long int align(const CType& type){
         [](VoidType v){return 0;},
         [](BasicType bt){return byte_size(bt);},
         [](const FuncType& ft){throw std::runtime_error("Cannot take alignment of function type");},
+        [](const UnevaluatedTypedef& ft){throw std::runtime_error("Cannot take alignment of unevaluated typedef");},
         [](const PointerType& pt){return 8;},
         [&](const ArrayType& at){return type::align(at.pointed_type());},
         [&](const StructType& st){return st.align(CType::tags);},
@@ -177,6 +202,7 @@ long long int align(const CType& type){
 bool is_complete(const CType& type){
     return visit(make_visitor<bool>(
         [](VoidType v){return false;},
+        [](UnevaluatedTypedef v){return false;},
         [](BasicType bt){return true;},
         [](const FuncType& ft){throw std::runtime_error("Complete or incomplete does not make sense for function type");},
         [](const PointerType& pt){return true;},
@@ -280,14 +306,16 @@ bool is_type_specifier(const std::string& s){
         || s == "union"
         || s == "struct";
 }
-void CType::add_storage_specifier(SSpecifier s){
-    if(this->storage.has_value()){
-        throw std::runtime_error("Cannot add storage specifier to type with existing storage specifier");
-    }
-    this->storage = s;
+
+
+std::string UnevaluatedTypedef::get_name() const{
+    return name;
 }
-void CType::add_type_qualifier(TQualifier s){
-    this->qualifiers.insert(s);
+bool UnevaluatedTypedef::operator ==(const UnevaluatedTypedef& other) const{
+    return this->name == other.name;
+}
+bool UnevaluatedTypedef::operator !=(const UnevaluatedTypedef& other) const{
+    return !(*this == other);
 }
 
 } //namespace type

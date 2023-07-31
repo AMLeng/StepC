@@ -201,6 +201,12 @@ void string_codegen(value::Value* value, std::string literal, std::ostream& outp
 
 } //namespace
 
+value::Value* AmbiguousBlock::codegen(std::ostream& output, context::Context& c) const{
+    assert(parsed_item && "Cannot generate code for ambiguous block item before resolving ambiguity");
+    return parsed_item->codegen(output, c);
+}
+
+
 std::string InitializerList::compute_constant(type::CType type) const{
     if(type::is_type<type::ArrayType>(type)){
         auto array_type = type::get<type::ArrayType>(type);

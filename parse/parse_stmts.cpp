@@ -73,10 +73,12 @@ std::unique_ptr<ast::ForStmt> parse_for_stmt(lexer::Lexer& l){
     }
     check_token_type(l.get_token(), token::TokenType::LParen);
     //Parse initial clause
-    auto init = std::variant<std::monostate,std::unique_ptr<ast::DeclList>,std::unique_ptr<ast::Expr>>{};
+    auto init = std::variant<std::monostate,std::unique_ptr<ast::DeclList>,std::unique_ptr<ast::Expr>, std::unique_ptr<ast::AmbiguousBlock>>{};
     if(!token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
-        if(token::matches_type(l.peek_token(),token::TokenType::Keyword)){
+        if(type::is_specifier(l.peek_token().value)){
             init = parse_decl_list(l);
+        }else if(l.peek_token().type == token::TokenType::Identifier){
+            init = parse_ambiguous_block(l);
         }else{
             init = parse_expr(l);
         }

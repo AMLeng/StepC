@@ -8,6 +8,8 @@
 #include <string_view>
 #include <map>
 namespace parse{
+namespace{
+} //anon namespace
 
 //Check and throw default unexpected token exception
 void check_token_type(const token::Token& tok, token::TokenType type){
@@ -17,12 +19,26 @@ void check_token_type(const token::Token& tok, token::TokenType type){
 }
 //Definitions for parsing methods
 
+std::unique_ptr<ast::AmbiguousBlock> parse_ambiguous_block(lexer::Lexer& l){
+    auto next= l.peek_token();
+    auto toks = std::vector<token::Token>{next};
+    do{
+        l.get_token();
+        next = l.peek_token();
+        toks.push_back(next);
+    }while(next.type != token::TokenType::END && next.type != token::TokenType::Semicolon);
+    return std::make_unique<ast::AmbiguousBlock>(std::move(toks));
+}
+
 std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
-    auto next_token = l.peek_token();
-    if(next_token.type == token::TokenType::Keyword && type::is_specifier(next_token.value)){
+    if(type::is_specifier(l.peek_token().value)){
         return parse_decl_list(l);
+    }else if(l.peek_token().type == token::TokenType::Identifier && l.peek_token(2).type != token::TokenType::Colon){
+        //Identifier followed by a colon is the one non-expr non-decl block item
+        return parse_ambiguous_block(l);
+    }else{
+        return parse_stmt(l);
     }
-    return parse_stmt(l);
 }
 
 std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l){

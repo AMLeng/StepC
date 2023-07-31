@@ -185,6 +185,10 @@ void TypedefDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"TYPEDEF "<<name<<" TO "<<type::to_string(type)<<std::endl;
 }
+void AmbiguousBlock::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"AMBIGUOUS BLOCK STARTING WITH TOKEN: "<<this->unparsed_tokens.front().to_string()<<std::endl;
+}
 void TagDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"TAG "<<std::visit(type::overloaded{

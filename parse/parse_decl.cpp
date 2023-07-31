@@ -117,13 +117,18 @@ namespace{
             );
         }
         Declarator build_declarator(type::CType current){
+            auto storage_specifiers = current.storage;
             while(unapplied.size() > 0){
                 while(unapplied.front().size() > 0){
+                    if(storage_specifiers.has_value() && storage_specifiers.value() == type::SSpecifier::Typedef){
+                        current.storage = std::nullopt;
+                    }
                     try{
                         current = unapplied.front().front().first(current);
                     }catch(std::exception& e){
                         throw parse_error::ParseError(e.what(), unapplied.front().front().second);
                     }
+                    current.storage = storage_specifiers;
                     unapplied.front().pop_front();
                 }
                 unapplied.pop_front();
@@ -306,7 +311,7 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
     while(l.peek_token().type == token::TokenType::Semicolon){
         l.get_token();
     }
-    if(!type::is_specifier(l.peek_token().value)){
+    if(!type::is_specifier(l.peek_token().value) && !(l.peek_token().type == token::TokenType::Identifier)){
         throw parse_error::ParseError("Invalid start to external declaration", l.peek_token());
     }
     auto specifiers = parse_specifiers(l);
@@ -314,6 +319,8 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
     auto type_decls = std::move(specifiers.second);
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
     {
+        //We can't just call parse_declarator since here we need
+        //Access to the names in the parameter list parsed by the TypeBuilder
         auto builder = TypeBuilder();
         parse_declarator_helper(l,builder);
         auto declarator = builder.build_declarator(specified_type);

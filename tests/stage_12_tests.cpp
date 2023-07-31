@@ -210,5 +210,53 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
 }
+TEST_CASE("context dependent typedef or variable"){
+    auto ss = std::stringstream(
+R"(
+int x = 3;
+int A(int x){
+    return -x;
+}
+int main(){
+    A(x);
+    typedef int A;
+    A(x);
+    {
+        int A(int x);
+        x = 5;
+        return A(x);
+    }
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
 
+TEST_CASE("multiple typedefs"){
+    auto ss = std::stringstream(
+R"(
+typedef const double X, *Y;
+int main(){
+    X c = 4.0;
+    Y d = 0;
+    d = &c;
+    return c;
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
 
+TEST_CASE("typedef incomplete array"){
+    auto ss = std::stringstream(
+R"(
+int typedef A[];
+int main(){
+    A a = {1,2};
+    A b = {3,4,5};
+    return sizeof(b)-sizeof(a);
+})");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}

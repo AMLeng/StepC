@@ -41,6 +41,18 @@ struct Stmt : virtual public BlockItem{
     //Statements are things that can appear in the body of a function
     virtual ~Stmt() = 0;
 };
+struct AmbiguousBlock : public BlockItem{
+    //An ambiguous block item arises when a block item begins with an identifier,
+    //since we can't determine without further context if the identifier is a typedef-name
+    //or a variable name
+    std::unique_ptr<BlockItem> parsed_item = nullptr;
+    std::vector<token::Token> unparsed_tokens;
+    token::Token ambiguous_ident;
+    AmbiguousBlock(std::vector<token::Token> toks) : unparsed_tokens(toks), ambiguous_ident(toks.front()) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct Initializer{
     virtual ~Initializer() = 0;
     virtual void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const = 0;
@@ -168,11 +180,12 @@ struct WhileStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 struct ForStmt : public Stmt{
-    std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>> init_clause;
+    typedef std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>, std::unique_ptr<AmbiguousBlock>> InitClauseTypes;
+    InitClauseTypes init_clause;
     std::unique_ptr<Expr> control_expr;
     std::optional<std::unique_ptr<Expr>> post_expr;
     std::unique_ptr<Stmt> body;
-    ForStmt(std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>> init, std::unique_ptr<Expr> control, 
+    ForStmt(InitClauseTypes init, std::unique_ptr<Expr> control, 
         std::optional<std::unique_ptr<Expr>> post, std::unique_ptr<Stmt> body)
         : init_clause(std::move(init)), control_expr(std::move(control)), 
         post_expr(std::move(post)) , body(std::move(body)){}

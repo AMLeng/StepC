@@ -1,5 +1,7 @@
 #include "type/type_pointer.h"
 namespace type{
+PointerType::PointerType(CType t) : underlying_type(t) {
+    }
 DerivedType::DerivedType(PointerType p) 
     : type(std::make_unique<PointerType>(p)){
        }

@@ -1,7 +1,9 @@
 #include "ast.h"
+#include "parse.h"
 #include "type.h"
 #include "sem_error.h"
 #include <array>
+#include <sstream>
 namespace ast{
 namespace{
 template <class... Ts>
@@ -380,6 +382,21 @@ bool is_lval(const ast::AST* node){
         return is_lval(p->arg.get());
     }
     return false;
+}
+
+void AmbiguousBlock::analyze(symbol::STable* st){
+    auto input = std::stringstream{};
+    lexer::Lexer l(input, this->unparsed_tokens);
+    if(!st->has_symbol(this->ambiguous_ident.value)){
+        throw sem_error::STError("Could not find identifier "+ambiguous_ident.value+" in symbol table", this->ambiguous_ident);
+    }
+    if(st->resolves_to_typedef(this->ambiguous_ident.value)){
+        parsed_item = parse::parse_decl_list(l);
+    }else{
+        parsed_item = parse::parse_stmt(l);
+    }
+    assert(parsed_item && "Failed to resolve ambiguity in block item");
+    parsed_item->analyze(st);
 }
 
 void TypedefDecl::analyze(symbol::STable* st) {

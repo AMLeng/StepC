@@ -110,14 +110,14 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_specifi
     auto type_qualifiers = std::unordered_set<type::TQualifier>{};
     while(type::is_specifier(next_tok.value) || next_tok.type == token::TokenType::Identifier){
         if(next_tok.type == token::TokenType::Identifier){
-            //Handle typedef specifier
-            if(true){//TODO: Conditions for being a normal ident and not a typedef name
+            if(type_specifier_list.size() > 0 || base_type.has_value()){
+                //An identifier can only be a typedef name if it's the only type specifier present
                 break;
             }
-            //base_type = TypedefType(next_tok.value);
-            if(type_specifier_list.size() > 0){
-                throw parse_error::ParseError("Cannot have typedef name with other type specifiers",next_tok);
-            }
+            //We disallow implicit ints, so some type specifier *must* be present
+            //Hence an ident when we haven't seen any type specifiers must itself by a type specifier
+            //(by being a typedef-name)
+            base_type = type::UnevaluatedTypedef(next_tok.value);
         }
         //If it's not an identifier, we know we can get the token since it must be a specifier
         l.get_token();
@@ -154,10 +154,10 @@ std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_specifi
         }
     }
     if(storage_specifier.has_value()){
-        base_type.value().add_storage_specifier(storage_specifier.value());
+        base_type.value().storage = storage_specifier.value();
     }
     for(auto& tq : type_qualifiers){
-        base_type.value().add_type_qualifier(tq);
+        base_type.value().qualifiers.insert(tq);
     }
     return std::make_pair(base_type.value(),std::move(tags));
 }

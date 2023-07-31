@@ -85,15 +85,21 @@ public:
     template<typename T>
     friend bool is_type(const CType& type);
 };
+class UnevaluatedTypedef{
+    std::string name;
+public: 
+    explicit UnevaluatedTypedef(std::string s) : name(s) {}
+    std::string get_name() const;
+    bool operator ==(const UnevaluatedTypedef& other) const;
+    bool operator !=(const UnevaluatedTypedef& other) const;
+};
 class CType{
-    std::variant<VoidType, BasicType, DerivedType> type;
+    std::variant<VoidType, BasicType, UnevaluatedTypedef, DerivedType> type;
     //Maps mangled tags to completed types
     static std::map<std::string, type::CType> tags;
 public:
     std::optional<SSpecifier> storage = std::nullopt;
-    void add_storage_specifier(SSpecifier s);
     std::unordered_set<TQualifier> qualifiers = {};
-    void add_type_qualifier(TQualifier s);
 
     CType() : type() {}
     bool operator ==(const CType& other) const;
@@ -130,7 +136,7 @@ protected:
 public:
     virtual std::string to_string() const;
     virtual std::string ir_type() const;
-    explicit PointerType(CType t) : underlying_type(t) {}
+    explicit PointerType(CType t);
     bool operator ==(const PointerType& other) const;
     bool operator !=(const PointerType& other) const;
     virtual std::unique_ptr<PointerType> copy() const;
@@ -145,7 +151,7 @@ class ArrayType : public PointerType{
 public:
     std::string to_string() const override;
     std::string ir_type() const override;
-    ArrayType(CType t, std::optional<int> s) : PointerType(t), allocated_size(s){}
+    ArrayType(CType t, std::optional<int> s);
     bool operator ==(const ArrayType& other) const;
     bool operator !=(const ArrayType& other) const;
     std::unique_ptr<PointerType> copy() const override;
@@ -219,11 +225,6 @@ struct UnionType{
     bool operator !=(const UnionType& other) const;
 };
 
-
-/*template <typename T, typename = std::enable_if<std::is_convertible_v<std::decay_t<T>,CType>>>
-std::string to_string(T type){
-    return "";
-}*/
 
 std::string to_string(const CType& type);
 bool is_compatible(const CType& , const CType&); //Defined in type.cpp
