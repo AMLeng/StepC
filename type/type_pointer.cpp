@@ -1,5 +1,7 @@
 #include "type/type_pointer.h"
 namespace type{
+PointerType::PointerType(CType t) : underlying_type(t) {
+    }
 DerivedType::DerivedType(PointerType p) 
     : type(std::make_unique<PointerType>(p)){
        }
@@ -11,7 +13,7 @@ std::string PointerType::to_string() const{
 }
 PointerType::~PointerType(){}
 bool can_assign(const PointerType& right, const PointerType& left){
-    return std::visit(overloaded{
+    return visit(overloaded{
             [](const FuncType& type)-> bool{
                 return false;
             },

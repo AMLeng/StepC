@@ -29,6 +29,13 @@ void CompoundStmt::pretty_print(int depth) const{
 }
 void DeclList::pretty_print(int depth) const{
     AST::print_whitespace(depth);
+    if(tag_decls.size() > 0){
+        std::cout<<"DECLARING TAGS: "<<std::endl;
+        for(const auto& t : tag_decls){
+            t->pretty_print(depth+1);
+        }
+    }
+    AST::print_whitespace(depth);
     std::cout<< "DECLARATIONS:" << std::endl;
     for(const auto& decl : decls){
         decl -> pretty_print(depth + 1);
@@ -89,6 +96,13 @@ void ForStmt::pretty_print(int depth) const{
 
 
 void FunctionDef::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    if(tag_decls.size() > 0){
+        std::cout<<"DECLARING TAGS: "<<std::endl;
+        for(const auto& t : tag_decls){
+            t->pretty_print(depth+1);
+        }
+    }
     FunctionDecl::pretty_print(depth);
     AST::print_whitespace(depth);
     std::cout<< "FUNCTION DEF BODY: " << std::endl;
@@ -167,6 +181,26 @@ void FunctionDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"FUNCTION DECL \""<<name<<"\" OF TYPE "<< type::to_string(type) <<std::endl;
 }
+void TypedefDecl::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"TYPEDEF "<<name<<" TO "<<type::to_string(type)<<std::endl;
+}
+void AmbiguousBlock::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"AMBIGUOUS BLOCK STARTING WITH TOKEN: "<<this->unparsed_tokens.front().to_string()<<std::endl;
+}
+void TagDecl::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"TAG "<<std::visit(type::overloaded{
+        [](type::EnumType t)->std::string{return "enum "+t.tag;},
+        [](auto& t)->std::string{return type::to_string(t);}
+    },type)<<std::endl;
+}
+void EnumVarDecl::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"ENUM MEMBER DECL \""<<tok.value<<"\""<<std::endl;
+    this->initializer->initializer_print(depth);
+}
 void VarDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"VARIABLE DECL \""<<name<<"\" OF TYPE "<< type::to_string(type) <<std::endl;
@@ -195,6 +229,11 @@ void Sizeof::pretty_print(int depth) const{
     std::cout<<"SIZEOF EXPR:";
     arg->pretty_print(depth+1);
 }
+void Alignof::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"ALIGNOF EXPR:";
+    arg->pretty_print(depth+1);
+}
 void Constant::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"CONSTANT "<<literal<<" OF TYPE "<< type::to_string(type) <<std::endl;
@@ -205,6 +244,11 @@ void FuncCall::pretty_print(int depth) const{
     for(const auto& arg : args){
         arg->pretty_print(depth+1);
     }
+}
+void MemberAccess::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"ARRAY ACCESS OF MEMBER "<<index<<" IN"<<std::endl;
+    arg->pretty_print(depth+1);
 }
 void ArrayAccess::pretty_print(int depth) const{
     AST::print_whitespace(depth);

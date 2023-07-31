@@ -54,10 +54,10 @@ value::Value* convert(type::BasicType target_type, value::Value* val,
             return new_tmp;
         }
     }
-    if(!std::holds_alternative<type::BasicType>(val->get_type())){
+    if(!type::is_type<type::BasicType>(val->get_type())){
         assert(false && "Tried to convert non-basic, non-pointer type to basic type");
     }
-    auto val_type = std::get<type::BasicType>(val->get_type());
+    auto val_type = type::get<type::BasicType>(val->get_type());
     if(target_type == type::from_str("_Bool")){
         std::string command = std::visit(overloaded{
                 [](type::IType){return "icmp ne";},
@@ -89,7 +89,9 @@ value::Value* convert(type::BasicType target_type, value::Value* val,
 value::Value* convert(type::PointerType target_type, value::Value* val, 
         std::ostream& output, context::Context& c){
     if(type::is_type<type::PointerType>(val->get_type())){
-        return val; //Do nothing
+        //We don't change the value, but we must alter the type of the pointer appropriately for our own type checking
+        //Even if all pointers are opaque in the IR itself
+        return c.ptr_cast(val, target_type);
     }else{
         if(!type::is_type<type::IType>(val->get_type())){
             assert(false && "Tried to convert non-ptr, non-int type to ptr");
@@ -109,13 +111,16 @@ void print_whitespace(int depth, std::ostream& output){
     }
 }
 std::string default_value(type::CType type){
-    return std::visit(type::make_visitor<std::string>(
+    return type::visit(type::make_visitor<std::string>(
                 [](const type::IType& i){return "0";},
                 [](const type::FType& f){return "0.0";},
                 [](const type::VoidType& v){return "void";},
-                [](const type::ArrayType& ){return "zeroinitializer";},
                 [](const type::PointerType& p){return "null";},
-                [](const type::FuncType& ){throw std::runtime_error("No default function value");}
+                [](const type::FuncType& ){throw std::runtime_error("No default function value");},
+                [](const type::ArrayType& ){return "zeroinitializer";},
+                [](const type::StructType& ){return "zeroinitializer";},
+                [](const type::UnionType& ){return "zeroinitializer";},
+                [](const type::UnevaluatedTypedef& ){return "zeroinitializer";}
                 ), type);
 }
 value::Value* convert(type::CType target_type, value::Value* val, 
@@ -123,11 +128,24 @@ value::Value* convert(type::CType target_type, value::Value* val,
     if(!type::can_cast(val->get_type(),target_type)){
         throw std::runtime_error("Tried to convert "+type::to_string(val->get_type())+" to "+type::to_string(target_type));
     }
-    return std::visit(type::make_visitor<value::Value*>(
-        [&](const type::BasicType& bt){return convert(bt, val, output, c);},
-        [&](const type::VoidType& vt){throw std::runtime_error("Unable to convert value to void type");},
-        [&](const type::FuncType& ft){throw std::runtime_error("Unable to convert value to function type");},
-        [&](const type::PointerType& pt){return convert(pt, val, output, c);}
+    if(val->get_type() == target_type){
+        return val;
+    }
+    return type::visit(type::make_visitor<value::Value*>(
+    //make_visitor will take the target type and go all the way down to either
+    //A specific derived type (distinguishing between array and pointer types), IType, FType, or VoidType
+    //So we would need separate IType and FType options to avoid IType and FType binding to auto
+    //And we would need a separate option for array types no matter what (to avoid it binding to auto
+        [&](type::BasicType bt){return convert(bt, val, output, c);},
+        [&](type::ArrayType pt){return convert(type::PointerType(type::CType(pt)), val, output, c);},
+        [&](type::PointerType pt){return convert(pt, val, output, c);},
+        [](type::VoidType t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));},
+        [](type::StructType t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));},
+        [&](type::UnionType t){
+            throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));
+        },
+        [](type::UnevaluatedTypedef t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));},
+        [](type::FuncType t){throw std::runtime_error("Unable to convert value to given type "+type::to_string(t));}
     ),target_type);
 }
 value::Value* make_command(type::CType t, std::string command, value::Value* left, value::Value* right, 

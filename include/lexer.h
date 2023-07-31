@@ -39,6 +39,8 @@ class Lexer{
             std::getline(input_stream, current_line);
             input_stream.seekg(pos);
         }
+        //This input stream should generally be empty
+        Lexer(std::istream& input, std::vector<token::Token> tokens);
         token::Token peek_token(int n = 1) {
             while(n >next_tokens.size()){
                 next_tokens.push_back(read_token_from_stream());

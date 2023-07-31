@@ -2,6 +2,7 @@
 #include <sstream>
 #include <map>
 namespace type{
+ArrayType::ArrayType(CType t, std::optional<int> s) : PointerType(t), allocated_size(s){}
 
 DerivedType::DerivedType(ArrayType p) 
     : type(std::make_unique<ArrayType>(p)){

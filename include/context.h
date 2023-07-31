@@ -39,6 +39,7 @@ class Context{
     std::map<std::string, std::unique_ptr<value::Value>> literal_map;
     std::map<std::string, std::unique_ptr<value::Value>> string_map;
     std::map<std::string, std::pair<std::unique_ptr<value::Value>,bool>> global_sym_map;
+    std::vector<value::Value> duplicates;
     std::unique_ptr<FunctionScope> current_function;
     Scope* current_scope;
     std::unique_ptr<basicblock::Block> current_block;
@@ -53,6 +54,7 @@ public:
     value::Value* add_global(std::string name, type::CType type, bool defined = false);
     value::Value* add_local(std::string name, type::CType type);
     value::Value* add_string(std::string s, type::CType type);
+    value::Value* ptr_cast(value::Value* v, type::PointerType type);
     std::vector<std::pair<value::Value*,std::string>> undefined_strings() const;
     std::vector<value::Value*> undefined_globals() const;
     bool has_symbol(std::string name) const;

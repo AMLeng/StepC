@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "type.h"
 #include "lexer_error.h"
 #include <cctype>
 #include <map>
@@ -20,17 +21,9 @@ bool is_keyword(const std::string& word){
         || word == "switch"
         || word == "case"
         || word == "default"
-        || word == "void"
-        || word == "char"
-        || word == "short"
-        || word == "int"
-        || word == "long"
-        || word == "float"
-        || word == "double"
-        || word == "signed"
-        || word == "unsigned"
         || word == "sizeof"
-        || word == "_Bool";
+        || word == "_Alignof"
+        || type::is_specifier(word);
 }
 
 token::Token create_token(token::TokenType type, std::string value, std::pair<int, int> tok_start, std::pair<int, int> tok_end, const std::string& source){
@@ -80,6 +73,12 @@ const std::map<char, token::TokenType> single_char_tokens = {{
 
 } //namespace
 
+Lexer::Lexer(std::istream& input, std::vector<token::Token> tokens) 
+    : input_stream(input), current_pos(std::make_pair(1,1)){
+        for(const auto& t : tokens){
+            this->next_tokens.push_back(t);
+        }
+}
 void Lexer::ignore_space(){
     char next_char = input_stream.peek();
     while(std::isspace(next_char)){

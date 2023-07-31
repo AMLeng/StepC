@@ -10,13 +10,16 @@ project(IncrementalC
 )
 set(CMAKE_CXX_FLAGS "-Wno-psabi")
 add_library(type
-    type/type_basic.cpp type/type_func.cpp type/type_derived.cpp type/type_pointer.cpp type/type_array.cpp type/type.cpp 
+    type/type_basic.cpp type/type_func.cpp
+    type/type_pointer.cpp type/type_array.cpp type/type_struct.cpp type/type_union.cpp
+    type/type.cpp 
 )
 add_library (codegen_utils
     codegen/codegen_utility.cpp codegen/binary_operator_codegen.cpp
 )
 add_library(core lex/lexer.cpp 
     parse/parse.cpp parse/parse_decl.cpp parse/ast_construct.cpp parse/ast_pretty_print.cpp 
+    parse/parse_exprs.cpp parse/parse_stmts.cpp parse/parse_specifiers.cpp
     sem/ast_analyze.cpp sem/symbol.cpp
     codegen/ast_codegen.cpp codegen/context.cpp codegen/basic_block.cpp )
 target_link_libraries(core type codegen_utils)
@@ -64,6 +67,10 @@ target_link_libraries(stage_10_tests PRIVATE Catch2::Catch2WithMain core)
 add_executable(stage_11_tests tests/stage_11_tests.cpp)
 set_target_properties(stage_11_tests PROPERTIES SUFFIX ".out")
 target_link_libraries(stage_11_tests PRIVATE Catch2::Catch2WithMain core)
+
+add_executable(stage_12_tests tests/stage_12_tests.cpp)
+set_target_properties(stage_12_tests PROPERTIES SUFFIX ".out")
+target_link_libraries(stage_12_tests PRIVATE Catch2::Catch2WithMain core)
 
 add_executable(step_c step_c.cpp)
 target_link_libraries(step_c PRIVATE core)

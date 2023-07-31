@@ -1,8 +1,10 @@
 #ifndef _TYPE_
 #define _TYPE_
 #include <variant>
+#include <unordered_set>
 #include <cassert>
 #include <set>
+#include <map>
 #include <vector>
 #include <memory>
 #include <optional>
@@ -11,6 +13,26 @@
 #include <string>
 #include <type_traits>
 namespace type{
+bool is_specifier(const std::string& s);
+
+bool is_type_specifier(const std::string& s);
+
+enum class TQualifier{
+    Const, Restrict, Volatile, Atomic
+};
+bool is_type_qualifier(const std::string& s);
+TQualifier get_type_qualifier(const std::string& s);
+
+enum class SSpecifier{
+    Auto, Typedef, Extern, Static, Register, 
+    Thread_local, Thread_local_static, Thread_local_extern
+};
+bool is_storage_specifier(const std::string& s);
+SSpecifier get_storage_specifier(const std::string& s);
+
+bool is_function_specifier(const std::string& s);
+bool is_align_specifier(const std::string& s);
+
 enum class IType {
     Char, SChar, UChar, 
     Short, UShort, 
@@ -26,15 +48,27 @@ typedef std::monostate VoidType;
 class FuncType;
 class ArrayType;
 class PointerType;
+class StructType;
+class UnionType;
+class EnumType;
 class DerivedType;
-typedef std::variant<VoidType, BasicType, DerivedType> CType;
+class CType;
+
+typedef std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, 
+    std::unique_ptr<StructType>, std::unique_ptr<UnionType>> DerivedPointers;
+struct EnumType{
+    std::string tag;
+};
+typedef std::variant<type::StructType, type::UnionType, type::EnumType> TagType;
 
 class DerivedType{
-    std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>> type;
+    DerivedPointers type;
 public:
     DerivedType(FuncType f); //Defined in type_func.cpp
     DerivedType(PointerType f); //Defined in type_pointer.cpp
     DerivedType(ArrayType f); //Defined in type_array.cpp
+    DerivedType(StructType f); //Defined in type_struct.cpp
+    DerivedType(UnionType f); //Defined in type_struct.cpp
 
     DerivedType(const DerivedType& other); 
     DerivedType& operator=(const DerivedType& other);
@@ -44,8 +78,6 @@ public:
 
     bool operator==(const DerivedType& other) const;
     bool operator!=(const DerivedType& other) const;
-    friend bool is_compatible(const DerivedType&, const DerivedType&);
-    friend std::string to_string(const DerivedType& type);
 
     template <typename ReturnType, typename Visitor>
     ReturnType visit(Visitor&& v) const;
@@ -56,13 +88,58 @@ public:
     template<typename T>
     friend bool is_type(const CType& type);
 };
+class UnevaluatedTypedef{
+    std::string name;
+public: 
+    explicit UnevaluatedTypedef(std::string s) : name(s) {}
+    std::string get_name() const;
+    bool operator ==(const UnevaluatedTypedef& other) const;
+    bool operator !=(const UnevaluatedTypedef& other) const;
+};
+class CType{
+    std::variant<VoidType, BasicType, UnevaluatedTypedef, DerivedType> type;
+    //Maps mangled tags to completed types
+    static std::map<std::string, type::CType> tags;
+public:
+    std::optional<SSpecifier> storage = std::nullopt;
+    std::unordered_set<TQualifier> qualifiers = {};
+
+    CType() : type() {}
+    bool operator ==(const CType& other) const;
+    bool operator !=(const CType& other) const;
+    CType(const CType& other) = default; 
+    CType(CType&& other) = default;
+    template <typename T,
+        std::enable_if_t<!std::is_same_v<std::decay_t<T>, CType>,bool> = 0>
+    CType(T&& x) : type(std::forward<T>(x)) {}
+    CType& operator=(const CType& other) = default;
+    CType& operator=(CType&& other) = default;
+    ~CType() = default;
+
+    template<typename T>
+    friend bool is_type(const CType& type);
+    template<typename T>
+    friend T get(const CType& type);
+    template<typename Visitor>
+    friend auto visit(Visitor&& v, const CType& type);
+    friend long long int size(const CType& type);
+    friend long long int align(const CType& type);
+
+    static bool tag_declared(std::string tag);
+    static CType get_tag(std::string mangled_tag);
+    static void add_tag(std::string tag, type::TagType type);
+    static void tag_ir_types(std::ostream& output);
+
+    static void reset_tables() noexcept;
+};
+
 class PointerType{
 protected:
     CType underlying_type;
 public:
     virtual std::string to_string() const;
     virtual std::string ir_type() const;
-    explicit PointerType(CType t) : underlying_type(t) {}
+    explicit PointerType(CType t);
     bool operator ==(const PointerType& other) const;
     bool operator !=(const PointerType& other) const;
     virtual std::unique_ptr<PointerType> copy() const;
@@ -77,12 +154,13 @@ class ArrayType : public PointerType{
 public:
     std::string to_string() const override;
     std::string ir_type() const override;
-    ArrayType(CType t, std::optional<int> s) : PointerType(t), allocated_size(s){}
+    ArrayType(CType t, std::optional<int> s);
     bool operator ==(const ArrayType& other) const;
     bool operator !=(const ArrayType& other) const;
     std::unique_ptr<PointerType> copy() const override;
     void set_size(long long int size);
     long long int size() const;
+    long long int align() const;
     bool is_complete() const;
     friend bool is_compatible(const ArrayType& type1, const ArrayType& type2);
 };
@@ -113,6 +191,44 @@ public:
     bool params_match(std::vector<CType> arg_types) const;
 };
 
+struct StructType{
+    bool complete;
+    std::string tag;
+    std::vector<CType> members;
+    std::map<std::string, int> indices;
+    explicit StructType(std::string tag) : tag(tag), complete(false) {}
+    StructType(std::string tag, std::vector<CType> members, std::map<std::string, int> indices) :
+        tag(tag), members(members), indices(indices), complete(true) {}
+    std::string to_string() const;
+    std::string ir_type() const;
+    bool is_complete() const;
+    std::unique_ptr<StructType> copy() const;
+    long long int size(const std::map<std::string, type::CType>& tags) const;
+    long long int align(const std::map<std::string, type::CType>& tags) const;
+    bool operator ==(const StructType& other) const;
+    bool operator !=(const StructType& other) const;
+};
+struct UnionType{
+    bool complete;
+    bool largest_computed;
+    std::string tag;
+    std::vector<CType> members;
+    std::map<std::string, int> indices;
+    CType largest;
+    explicit UnionType(std::string tag) : tag(tag), complete(false), largest_computed(false) {}
+    UnionType(std::string tag, std::vector<CType> members, std::map<std::string, int> indices);
+    std::string to_string() const;
+    std::string ir_type() const;
+    bool is_complete() const;
+    void compute_largest(const std::map<std::string, type::CType>& tags);
+    std::unique_ptr<UnionType> copy() const;
+    long long int size(const std::map<std::string, type::CType>& tags) const;
+    long long int align(const std::map<std::string, type::CType>& tags) const;
+    bool operator ==(const UnionType& other) const;
+    bool operator !=(const UnionType& other) const;
+};
+
+
 std::string to_string(const CType& type);
 bool is_compatible(const CType& , const CType&); //Defined in type.cpp
 bool can_assign(const CType& from, const CType& to); //Defined in type.cpp
@@ -139,11 +255,11 @@ bool promote_one_rank(IType& type);
 IType to_unsigned(IType type); 
 bool can_represent(IType type, unsigned long long int value);
 long long int size(const CType& type);
+long long int align(const CType& type);
 std::string ir_literal(const std::string& c_literal,BasicType type);
 std::string ir_literal(const std::string& c_literal);
 
-//bool can_represent(BasicType target, BasicType source);
-//bool is_complete(CType type);
+bool is_complete(const CType& type);
 
 
 //Everything below is template stuff for type::make_visitor to work properly
@@ -161,6 +277,11 @@ ReturnType try_invoke(Visitor& v,Pointer p){
     }
 }
 
+template <typename Visitor>
+auto visit(Visitor&& v, const CType& t){
+    return std::visit(v, t.type);
+}
+
 template <typename ReturnType, typename Visitor>
 ReturnType DerivedType::visit(Visitor&& v) const{
     if(std::holds_alternative<std::unique_ptr<PointerType>>(type)){
@@ -171,9 +292,9 @@ ReturnType DerivedType::visit(Visitor&& v) const{
             return try_invoke<ReturnType>(v,pointer);
         }
     }else{
-        assert(std::holds_alternative<std::unique_ptr<FuncType>>(type) && "Other derived types not yet implemented");
-        auto pointer = std::get<std::unique_ptr<FuncType>>(type).get();
-        return try_invoke<ReturnType>(v, pointer);
+        return std::visit(overloaded{
+            [&v](const auto& t)->ReturnType{return try_invoke<ReturnType>(v,t.get());}
+        }, type);
     }
 }
 
@@ -217,14 +338,14 @@ bool is_type(const CType& type){
     if constexpr(std::is_same_v<T,ArrayType>){
         try{
             return type::is_type<PointerType>(type)
-                && dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type).type).get());
+                && dynamic_cast<ArrayType*>(std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type.type).type).get());
         }catch(std::exception& e){
             throw std::runtime_error("Failed to check if "+to_string(type)+ " is array type");
         }
     }else{
         return std::visit(make_visitor<bool>(
             [](const auto& type){return std::is_convertible_v<std::decay_t<decltype(type)>,T>;}
-        ), type);
+        ), type.type);
     }
 }
 
@@ -232,15 +353,17 @@ template<typename T>
 T get(const CType& type){
     try{
         if constexpr(std::is_same_v<T,ArrayType>){
-            auto pointer = std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type).type).get();
+            auto pointer = std::get<std::unique_ptr<PointerType>>(std::get<DerivedType>(type.type).type).get();
             if(auto p = dynamic_cast<ArrayType*>(pointer)){
                 return *p;
             }
         }else{
             if constexpr(std::is_convertible_v<T,DerivedType>){
-                return *std::get<std::unique_ptr<T>>(std::get<DerivedType>(type).type).get();
+                return *std::get<std::unique_ptr<T>>(std::get<DerivedType>(type.type).type).get();
+            }else if constexpr (std::is_same_v<T,IType> || std::is_same_v<T,FType>){
+                return std::get<T>(std::get<BasicType>(type.type));
             }else{
-                return std::get<T>(type);
+                return std::get<T>(type.type);
             }
         }
     }catch(std::exception& e){
@@ -249,6 +372,7 @@ T get(const CType& type){
     }
     throw std::runtime_error("Incorrect type for type::get, cannot get "+std::string(typeid(T).name())+" from "+to_string(type));
 }
+
 
 
 }

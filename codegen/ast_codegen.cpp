@@ -9,7 +9,16 @@ namespace ast{
 template <class... Ts> struct overloaded : Ts...{using Ts::operator()...;};
 template<class...Ts> overloaded(Ts ...) -> overloaded<Ts...>;
 namespace{
+template <typename T>
+T lookup_tag(type::CType t){
+    try{
+        return type::get<T>(type::CType::get_tag(type::get<T>(t).tag));
+    }catch(std::exception& e){
+        throw std::runtime_error("During code generation, could not find struct with name "+type::get<T>(t).tag);
+    }
+}
 
+value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Context& c);
 const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::PlusAssign, token::TokenType::Plus},
     {token::TokenType::MinusAssign, token::TokenType::Minus},
@@ -23,17 +32,19 @@ const auto assignment_op = std::map<token::TokenType,token::TokenType>{{
     {token::TokenType::BXAssign, token::TokenType::BitwiseXor},
 }};
 value::Value* compute_array_ptr(const ast::ArrayAccess* node, std::ostream& output, context::Context& c){
-    assert(node->analyzed && "This AST node has not had analysis run on it");
-    auto addr = c.new_temp(type::PointerType(node->type));
     auto index_stack = std::vector<value::Value*>{};
     index_stack.push_back(node->index->codegen(output, c));
     while(auto p = dynamic_cast<ast::ArrayAccess*>(node->arg.get())){
         index_stack.push_back(p->index->codegen(output, c));
         node = p;
     }
-    auto innermost_operand = node->arg->codegen(output, c);
+    //Old code from before adding struct initializer codegen
+    //auto innermost_operand = node->arg->codegen(output, c);
+    auto innermost_operand = get_lval(node->arg.get(), output, c);
     assert(type::is_type<type::PointerType>(innermost_operand->get_type()) && "Tried to perform array access on non-pointer");
     auto array_type = type::ir_type(type::get<type::PointerType>(innermost_operand->get_type()).pointed_type());
+
+    auto addr = c.new_temp(type::PointerType(node->type));
     codegen_utility::print_whitespace(c.depth(), output);
     output << addr->get_value() <<" = getelementptr inbounds "+array_type+", ptr "<<innermost_operand->get_value()<<", i64 0";
     while(index_stack.size() > 0){
@@ -41,6 +52,16 @@ value::Value* compute_array_ptr(const ast::ArrayAccess* node, std::ostream& outp
         index_stack.pop_back();
     }
     output <<std::endl;
+    return addr;
+}
+value::Value* compute_struct_lval_ptr(const ast::MemberAccess* node, std::ostream& output, context::Context& c){
+    auto arg = get_lval(node->arg.get(), output, c);
+    auto s_type = lookup_tag<type::StructType>(node->arg->type);
+
+    auto addr = c.new_temp(type::PointerType(node->type));
+    codegen_utility::print_whitespace(c.depth(), output);
+    output << addr->get_value() <<" = getelementptr "<<type::ir_type(node->arg->type)<<", ptr ";
+    output << arg->get_value()<<", i64 0, i32 "<<s_type.indices.at(node->index)<<std::endl;
     return addr;
 }
 value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Context& c){
@@ -54,6 +75,17 @@ value::Value* get_lval(const ast::AST* node, std::ostream& output, context::Cont
     }
     if(const auto p = dynamic_cast<const ast::ArrayAccess*>(node)){
         return compute_array_ptr(p,output, c);
+    }
+    if(const auto p = dynamic_cast<const ast::MemberAccess*>(node)){
+        if(type::is_type<type::StructType>(p->arg->type)){
+            return compute_struct_lval_ptr(p,output, c);
+        }else{
+            assert(type::is_type<type::UnionType>(p->arg->type));
+            auto u_type = lookup_tag<type::UnionType>(p->arg->type);
+            auto union_ptr = get_lval(p->arg.get(), output, c);
+            auto element_ptr = codegen_utility::convert(type::PointerType(u_type.members.at(u_type.indices.at(p->index))), union_ptr, output, c);
+            return element_ptr;
+        }
     }
     assert(false && "Unknown type of lvalue in code generation");
     return nullptr;
@@ -169,6 +201,12 @@ void string_codegen(value::Value* value, std::string literal, std::ostream& outp
 
 } //namespace
 
+value::Value* AmbiguousBlock::codegen(std::ostream& output, context::Context& c) const{
+    assert(parsed_item && "Cannot generate code for ambiguous block item before resolving ambiguity");
+    return parsed_item->codegen(output, c);
+}
+
+
 std::string InitializerList::compute_constant(type::CType type) const{
     if(type::is_type<type::ArrayType>(type)){
         auto array_type = type::get<type::ArrayType>(type);
@@ -192,7 +230,40 @@ std::string InitializerList::compute_constant(type::CType type) const{
         }
         literal += "]";
         return literal;
+    }else if(type::is_type<type::StructType>(type)){
+        auto struct_type = type::get<type::StructType>(type);
+        assert(struct_type.is_complete() && "Must have complete struct type to generate initializer");
+        std::string literal = "{ ";
+        auto size = struct_type.members.size();
+        if(size > 0){
+            for(int i=0; i< size-1; i++){
+                auto member_type = struct_type.members.at(i);
+                literal += type::ir_type(member_type) + " ";
+                if(i<this->initializers.size()){
+                    literal += this->initializers.at(i)->compute_constant(member_type);
+                }else{
+                    literal += codegen_utility::default_value(member_type);
+                }
+                literal += ", ";
+            }
+            literal += type::ir_type(struct_type.members.back()) + " ";
+            if(size <= this->initializers.size()){
+                literal += this->initializers.at(size- 1)->compute_constant(struct_type.members.back());
+            }else{
+                literal += codegen_utility::default_value(struct_type.members.back());
+            }
+        }
+        literal += "}";
+        return literal;
     }else{
+        if(type::is_type<type::UnionType>(type)){
+            auto union_type = type::get<type::UnionType>(type);
+            if(union_type.members.size() > 0){
+                return "{" +this->initializers.front()->compute_constant(type) +"}";
+            }else{
+                return codegen_utility::default_value(type);
+            }
+        }
         if(this->initializers.size() == 0){
             return codegen_utility::default_value(type);
         }else{
@@ -215,7 +286,7 @@ std::string Expr::compute_constant(type::CType type) const{
         },
         [&](long double d)->std::string{
             if(type::is_type<type::FType>(type)){
-                return type::ir_literal(std::to_string(d), std::get<type::BasicType>(type));
+                return type::ir_literal(std::to_string(d), type::get<type::BasicType>(type));
             }else{
                 return std::to_string(d);
             }
@@ -225,6 +296,8 @@ std::string Expr::compute_constant(type::CType type) const{
 
 value::Value* Program::codegen(std::ostream& output, context::Context& c)const {
     output<<R"(target triple = "x86_64-unknown-linux-gnu")"<<std::endl;
+
+    type::CType::tag_ir_types(output);
     for(const auto& decl : decls){
         decl->codegen(output, c);
     }
@@ -257,6 +330,9 @@ value::Value* NullStmt::codegen(std::ostream& output, context::Context& c)const 
 }
 value::Value* Conditional::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
+    if(!std::holds_alternative<std::monostate>(this->constant_value)){
+        return c.add_literal(this->compute_constant(this->type), this->type);
+    }
     auto condition = cond->codegen(output, c);
     condition = codegen_utility::convert(type::IType::Bool,condition, output, c);
     auto new_tmp = codegen_utility::make_tmp_alloca(this->type, output, c);
@@ -353,6 +429,9 @@ value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c)cons
 
 value::Value* Variable::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
+    if(!std::holds_alternative<std::monostate>(this->constant_value)){
+        return c.add_literal(this->compute_constant(this->type), this->type);
+    }
     auto var_value = c.get_value(variable_name);
     assert(type::is_type<type::PointerType>(var_value->get_type()) && "Variable not stored as pointer to the actual variable value");
     if(type::is_type<type::ArrayType>(type::get<type::PointerType>(var_value->get_type()).pointed_type())){
@@ -507,11 +586,7 @@ void Expr::initializer_codegen(value::Value* variable, std::ostream& output, con
 }
 void InitializerList::initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const{
     auto var_type = type::get<type::PointerType>(variable->get_type()).pointed_type();
-    if(!type::is_type<type::ArrayType>(var_type)){
-        //Scalars
-        assert(initializers.size() > 0 && "Tried to assign empty initializer list to scalar");
-        initializers.front()->initializer_codegen(variable, output, c);
-    }else{
+    if(type::is_type<type::ArrayType>(var_type)){
         auto array_type = type::get<type::ArrayType>(var_type);
         assert(array_type.is_complete() && "Cannot have incomplete array types during codegen");
         for(int i=0; i<array_type.size(); i++){
@@ -526,7 +601,46 @@ void InitializerList::initializer_codegen(value::Value* variable, std::ostream& 
                 codegen_utility::make_store(&default_val,element_ptr, output, c);
             }
         }
+    }else if(type::is_type<type::StructType>(var_type)){
+        auto struct_type = lookup_tag<type::StructType>(var_type);
+        int size = struct_type.members.size();
+        for(int i=0; i<size; i++){
+            auto member_type = struct_type.members.at(i);
+            auto element_ptr = c.new_temp(type::PointerType(member_type));
+            codegen_utility::print_whitespace(c.depth(), output);
+            output << element_ptr->get_value() <<" = getelementptr "+type::ir_type(var_type)+", ptr ";
+            output <<variable->get_value()<<", i64 0, i32 "<<i<<std::endl;
+            if(i<initializers.size()){
+                initializers.at(i)->initializer_codegen(element_ptr, output, c);
+            }else{
+                auto default_val = value::Value(codegen_utility::default_value(member_type), member_type);
+                codegen_utility::make_store(&default_val,element_ptr, output, c);
+            }
+        }
+    }else if(type::is_type<type::UnionType>(var_type)){
+        auto union_type = lookup_tag<type::UnionType>(var_type);
+        auto member_type = union_type.members.front();
+        auto element_ptr = codegen_utility::convert(type::PointerType(member_type), variable, output, c);
+        //No need to get element pointer since we just type pun with everything at the same location
+        if(initializers.size() > 0){
+            initializers.front()->initializer_codegen(element_ptr, output, c);
+        }else{
+            auto default_val = value::Value(codegen_utility::default_value(member_type), member_type);
+            codegen_utility::make_store(&default_val,element_ptr, output, c);
+        }
+    }else{
+        //Scalars
+        assert(initializers.size() > 0 && "Tried to assign empty initializer list to scalar");
+        initializers.front()->initializer_codegen(variable, output, c);
     }
+}
+value::Value* EnumVarDecl::codegen(std::ostream& output, context::Context& c)const {
+    assert(false && "Should never be called");
+    return nullptr;
+}
+value::Value* TypeDecl::codegen(std::ostream& output, context::Context& c)const {
+    assert(false && "Should never be called");
+    return nullptr;
 }
 value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
@@ -550,7 +664,14 @@ value::Value* VarDecl::codegen(std::ostream& output, context::Context& c)const {
                 auto def_value = value::Value(type::ir_literal(str->literal),this->type);
                 global_decl_codegen(value, output, c, &def_value);
             }else{
-                auto def = c.add_literal(this->assignment.value()->compute_constant(this->type),this->type);
+                auto t = this->type;
+                if(type::is_type<type::StructType>(this->type)){
+                    t = lookup_tag<type::StructType>(this->type);
+                }
+                if(type::is_type<type::UnionType>(this->type)){
+                    t = lookup_tag<type::UnionType>(this->type);
+                }
+                auto def = c.add_literal(this->assignment.value()->compute_constant(t),this->type);
                 global_decl_codegen(value, output, c, def);
             }
         }
@@ -565,7 +686,11 @@ value::Value* StrLiteral::codegen(std::ostream& output, context::Context& c)cons
 }
 value::Value* Sizeof::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
-    return c.add_literal(std::to_string(size(arg->type)), this->type);
+    return c.add_literal(std::to_string(type::size(arg->type)), this->type);
+}
+value::Value* Alignof::codegen(std::ostream& output, context::Context& c)const {
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    return c.add_literal(std::to_string(type::align(arg->type)), this->type);
 }
 value::Value* Constant::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
@@ -598,8 +723,48 @@ value::Value* FuncCall::codegen(std::ostream& output, context::Context& c)const 
 }
 
 value::Value* ArrayAccess::codegen(std::ostream& output, context::Context& c)const {
+    assert(this->analyzed && "This AST node has not had analysis run on it");
     auto addr = compute_array_ptr(this, output, c);
     return codegen_utility::make_load(addr,output,c);
+}
+value::Value* MemberAccess::codegen(std::ostream& output, context::Context& c)const {
+    assert(this->analyzed && "This AST node has not had analysis run on it");
+    if(type::is_type<type::StructType>(this->arg->type)){
+        auto arg = this->arg->codegen(output, c);
+
+        auto addr = c.new_temp(this->type);
+        codegen_utility::print_whitespace(c.depth(), output);
+        output << addr->get_value() <<" = extractvalue "<<type::ir_type(this->arg->type)<<" ";
+        auto s_type = lookup_tag<type::StructType>(this->arg->type);
+        output << arg->get_value()<<", "<<s_type.indices.at(this->index)<<std::endl;
+        return addr;
+    }else{
+        assert(type::is_type<type::UnionType>(this->arg->type));
+        auto u_type = lookup_tag<type::UnionType>(this->arg->type);
+        auto member_type = u_type.members.at(u_type.indices.at(this->index));
+        if(is_lval(this->arg.get())){
+            auto arg_ptr = get_lval(this->arg.get(), output, c);
+            auto element_ptr = codegen_utility::convert(type::PointerType(member_type), arg_ptr, output, c);
+            return codegen_utility::make_load(element_ptr,output,c);
+        }else{
+            auto arg = this->arg->codegen(output, c);
+            //If not an l-val, we don't have a pointer; if we're taking the 0th element, that's okay
+            if(u_type.indices.at(this->index) == 0){
+                auto addr = c.new_temp(this->type);
+                codegen_utility::print_whitespace(c.depth(), output);
+                output << addr->get_value() <<" = extractvalue "<<type::ir_type(this->arg->type)<<" ";
+                output << arg->get_value()<<", 0"<<std::endl;
+                return addr;
+            }else{
+            //Otherwise we need to create a copy of the union where we do have a pointer
+            //Note that bitcast doesn't work since it can only be used with first class types
+                auto var = codegen_utility::make_tmp_alloca(this->arg->type, output, c);
+                codegen_utility::make_store(arg, var, output, c);
+                var = codegen_utility::convert(type::PointerType(member_type), var, output, c);
+                return codegen_utility::make_load(var, output, c);
+            }
+        }
+    }
 }
 value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
@@ -666,6 +831,9 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
 }
 value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
+    if(!std::holds_alternative<std::monostate>(this->constant_value)){
+        return c.add_literal(this->compute_constant(this->type), this->type);
+    }
     std::string t = type::ir_type(this->type);
     switch(tok.type){
         case token::TokenType::Plusplus:
@@ -796,6 +964,9 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
 
 value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
+    if(!std::holds_alternative<std::monostate>(this->constant_value)){
+        return c.add_literal(this->compute_constant(this->type), this->type);
+    }
     switch(tok.type){
         case token::TokenType::PlusAssign:
         case token::TokenType::MinusAssign:

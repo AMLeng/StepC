@@ -23,8 +23,10 @@ bool is_unsigned_int(BasicType type);
 
 int byte_size(const BasicType& type);
 //Printing
-std::string to_string(BasicType type);
-std::string ir_type(BasicType type);
+std::string to_string(IType type);
+std::string to_string(FType type);
+std::string ir_type(IType type);
+std::string ir_type(FType type);
 } //namespace type
 
 #endif

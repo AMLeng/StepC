@@ -47,3 +47,5 @@ In stage 3 and beyond, StepC will generate an executable, and can be tested with
 * Stage 10: Implemented pointers, and refactored function handling to correctly convert function designators to pointers in most circumstances.
 
 * Stage 11: Implemented arrays and strings substantially fixed codegeneration for pointers, implemented constant expressions, sizeof. 
+
+* Stage 12: Implemented structs and unions, typedefs, enums.

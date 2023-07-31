@@ -117,13 +117,18 @@ namespace{
             );
         }
         Declarator build_declarator(type::CType current){
+            auto storage_specifiers = current.storage;
             while(unapplied.size() > 0){
                 while(unapplied.front().size() > 0){
+                    if(storage_specifiers.has_value() && storage_specifiers.value() == type::SSpecifier::Typedef){
+                        current.storage = std::nullopt;
+                    }
                     try{
                         current = unapplied.front().front().first(current);
                     }catch(std::exception& e){
                         throw parse_error::ParseError(e.what(), unapplied.front().front().second);
                     }
+                    current.storage = storage_specifiers;
                     unapplied.front().pop_front();
                 }
                 unapplied.pop_front();
@@ -132,12 +137,6 @@ namespace{
         }
     };
 
-    //Check and throw default unexpected token exception
-    void check_token_type(const token::Token& tok, token::TokenType type){
-        if(tok.type != type){
-            throw parse_error::ParseError("Expected " + token::string_name(type), tok);
-        }
-    }
     void parse_declarator_helper(lexer::Lexer& l, TypeBuilder& builder){
         auto next_tok = l.peek_token();
         switch(next_tok.type){
@@ -198,14 +197,25 @@ namespace{
         }
     }
 
-    Declarator parse_declarator(type::CType type, lexer::Lexer& l){
-        //This does not parse declarators for function definitions
-        auto builder = TypeBuilder();
-        parse_declarator_helper(l,builder);
-        auto ret =  builder.build_declarator(type);
-        return ret;
+void handle_abstract_decl(Declarator declarator, token::Token tok){
+    /*if(type::is_type<type::StructType>(declarator.second)){
+        //Do nothing, since handled separately as a TagDecl in parse_specifiers
+        return;
     }
+    if(type::is_type<type::UnionType>(declarator.second)){
+        //Do nothing, since handled separately as a TagDecl in parse_specifiers
+        return;
+    }
+    throw parse_error::ParseError("Abstract declarator not permitted here", tok);*/
+}
 } //namespace
+Declarator parse_declarator(type::CType type, lexer::Lexer& l){
+    //This does not parse declarators for function definitions
+    auto builder = TypeBuilder();
+    parse_declarator_helper(l,builder);
+    auto ret =  builder.build_declarator(type);
+    return ret;
+}
 
 std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::LParen);
@@ -224,8 +234,11 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
             l.get_token();
             break;
         }
-        type::CType param_specifiers = parse_specifiers(l);
-        declarators.push_back(parse_declarator(param_specifiers,l));
+        auto param_specifiers = parse_specifiers(l);
+        if(param_specifiers.second.size() > 0){
+            throw sem_error::TypeError("Struct/Union definition or typedef in function parameter list is useless", l.peek_token());
+        }
+        declarators.push_back(parse_declarator(param_specifiers.first,l));
         if(type::is_type<type::VoidType>(declarators.back().second)){
             if(declarators.back().first.has_value()){
                 throw sem_error::TypeError("Cannot have named variable of void type",declarators.back().first.value());
@@ -255,23 +268,30 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
 }
 
 std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
-    auto specifiers = parse_specifiers(l);
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
+    auto specifiers = parse_specifiers(l);
+    auto type_decls = std::move(specifiers.second);
     while(true){
-        auto declarator = parse_declarator(specifiers, l);
-        if(!declarator.first.has_value()){
-            throw parse_error::ParseError("Abstract declarator not permitted here", l.peek_token());
+        auto declarator = parse_declarator(specifiers.first, l);
+        if((!declarator.first.has_value())){
+            handle_abstract_decl(declarator, l.peek_token());
+        }else{
+            if(declarator.second.storage == std::optional<type::SSpecifier>(type::SSpecifier::Typedef)){
+                type_decls.push_back(std::make_unique<ast::TypedefDecl>(declarator.first.value(), declarator.second));
+            }else{
+                decls.push_back(parse_init_decl(l, declarator));
+            }
         }
-        decls.push_back(parse_init_decl(l, declarator));
         if(token::matches_type(l.peek_token(),token::TokenType::Semicolon)){
             break;
         }
         check_token_type(l.get_token(), token::TokenType::Comma);
     }
-    return std::make_unique<ast::DeclList>(std::move(decls));
+    return std::make_unique<ast::DeclList>(std::move(decls), std::move(type_decls));
 }
 
-std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, Declarator func){
+std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, 
+    Declarator func, std::vector<std::unique_ptr<ast::TypeDecl>> tags){
     auto param_decls = std::vector<std::unique_ptr<ast::VarDecl>>{};
     for(const auto& param_declarator: params){
         if(!param_declarator.first.has_value()){
@@ -283,16 +303,24 @@ std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vecto
         param_decls.push_back(std::make_unique<ast::VarDecl>(param_declarator.first.value(),param_declarator.second));
     }
     auto function_body = parse_compound_stmt(l);
-    return std::make_unique<ast::FunctionDef>(func.first.value(), type::get<type::FuncType>(func.second), std::move(param_decls), std::move(function_body));
+    return std::make_unique<ast::FunctionDef>(func.first.value(), type::get<type::FuncType>(func.second), 
+        std::move(param_decls), std::move(function_body), std::move(tags));
 }
 
 std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
     while(l.peek_token().type == token::TokenType::Semicolon){
         l.get_token();
     }
-    auto specified_type = parse_specifiers(l);
+    if(!type::is_specifier(l.peek_token().value) && !(l.peek_token().type == token::TokenType::Identifier)){
+        throw parse_error::ParseError("Invalid start to external declaration", l.peek_token());
+    }
+    auto specifiers = parse_specifiers(l);
+    auto specified_type = specifiers.first;
+    auto type_decls = std::move(specifiers.second);
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
     {
+        //We can't just call parse_declarator since here we need
+        //Access to the names in the parameter list parsed by the TypeBuilder
         auto builder = TypeBuilder();
         parse_declarator_helper(l,builder);
         auto declarator = builder.build_declarator(specified_type);
@@ -301,9 +329,18 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
             if(!params.has_value()){
                 throw parse_error::ParseError("Unexpected beginning of function definition", l.peek_token());
             }
-            return parse_function_def(l, params.value(), declarator);
+            return parse_function_def(l, params.value(), declarator, std::move(type_decls));
         }
-        decls.push_back(parse_init_decl(l,declarator));
+        //if((!declarator.first.has_value()) && (type_decls.size() == 0)){
+        if((!declarator.first.has_value())){
+            handle_abstract_decl(declarator, l.peek_token());
+        }else{
+            if(declarator.second.storage == std::optional<type::SSpecifier>(type::SSpecifier::Typedef)){
+                type_decls.push_back(std::make_unique<ast::TypedefDecl>(declarator.first.value(), declarator.second));
+            }else{
+                decls.push_back(parse_init_decl(l, declarator));
+            }
+        }
     }
 
     while(true){
@@ -313,11 +350,16 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
         }
         check_token_type(l.get_token(), token::TokenType::Comma);
         auto declarator = parse_declarator(specified_type, l);
-        if(!declarator.first.has_value()){
-            throw parse_error::ParseError("Abstract declarator not permitted here", l.peek_token());
+        if((!declarator.first.has_value())){
+            handle_abstract_decl(declarator, l.peek_token());
+        }else{
+            if(declarator.second.storage == std::optional<type::SSpecifier>(type::SSpecifier::Typedef)){
+                type_decls.push_back(std::make_unique<ast::TypedefDecl>(declarator.first.value(), declarator.second));
+            }else{
+                decls.push_back(parse_init_decl(l, declarator));
+            }
         }
-        decls.push_back(parse_init_decl(l, declarator));
     }
-    return std::make_unique<ast::DeclList>(std::move(decls));
+    return std::make_unique<ast::DeclList>(std::move(decls), std::move(type_decls));
 }
 } //namespace parse

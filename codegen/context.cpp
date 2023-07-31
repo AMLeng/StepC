@@ -71,6 +71,10 @@ value::Value* Context::add_string(std::string s, type::CType type){
     auto emplace_pair = string_map.emplace(s,std::make_unique<value::Value>(name,type::PointerType(type)));
     return string_map.at(s).get();
 }
+value::Value* Context::ptr_cast(value::Value* val, type::PointerType t){
+    duplicates.emplace_back(val->get_value(), t);
+    return &duplicates.back();
+}
 std::vector<std::pair<value::Value*,std::string>> Context::undefined_strings() const{
     auto undefined_symbols = std::vector<std::pair<value::Value*,std::string>>{};
     for(const auto& map_pair : string_map){

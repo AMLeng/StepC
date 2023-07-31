@@ -6,10 +6,9 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
     value::Value* result = nullptr;
     switch(op_type){
         case token::TokenType::Minus:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType){return make_command(left->get_type(), "sub", left, right, output, c);},
                 [&](type::FType){return make_command(left->get_type(), "fsub", left, right, output, c);},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType ptr){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     auto element_type = ptr.element_type();
@@ -19,11 +18,11 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     auto size_value = value::Value(std::to_string(type::size(element_type)), type::IType::LLong);
                     return make_command(type::CType(type::IType::LLong), "sdiv", diff, &size_value, output, c);
                     },
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                [](auto t){throw std::runtime_error("Cannot do operation on given type " +type::to_string(t));}
                 ), left->get_type());
             break;
         case token::TokenType::Plus:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType){
                     if(type::is_type<type::IType>(right->get_type())){
                         return make_command(left->get_type(), "add", left, right, output, c);
@@ -38,7 +37,6 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     }
                 },
                 [&](type::FType){return make_command(left->get_type(), "fadd", left, right, output, c);},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
                     auto new_var = c.new_temp(result_type);
                     print_whitespace(c.depth(), output);
@@ -48,10 +46,7 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     output<<type::ir_type(right->get_type())<<" "<<right->get_value()<<std::endl;
                     return new_var;
                     },
-                [&](type::ArrayType){
-                    throw std::runtime_error("Cannot do operation on array type");
-                    },
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                [](auto t){throw std::runtime_error("Cannot do operation on given type " +type::to_string(t));}
                 ), left->get_type());
             break;
         case token::TokenType::Star:
@@ -82,10 +77,9 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                 }, type::get<type::BasicType>(left->get_type())), left,right,output,c);
             break;
         case token::TokenType::Equal:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType){return make_command(type::from_str("_Bool"), "icmp eq", left, right, output, c);},
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp oeq", left, right, output, c);},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     left = convert(type::CType(type::IType::LLong), left, output, c);
@@ -97,14 +91,13 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     output <<" 0, "<< diff->get_value()<<std::endl;
                     return intermediate_bool;
                     },
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                [](auto t){throw std::runtime_error("Cannot do operation on given type " +type::to_string(t));}
                 ), left->get_type());
             break;
         case token::TokenType::NEqual:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType){return make_command(type::from_str("_Bool"), "icmp ne", left, right, output, c);},
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp one", left, right, output, c);},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     left = convert(type::CType(type::IType::LLong), left, output, c);
@@ -116,11 +109,11 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     output <<" 0, "<< diff->get_value()<<std::endl;
                     return intermediate_bool;
                     },
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                [](auto t){throw std::runtime_error("Cannot do operation on given type " +type::to_string(t));}
                 ), left->get_type());
             break;
         case token::TokenType::Less:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType t){
                     if(type::is_signed_int(t)){
                         return make_command(type::from_str("_Bool"), "icmp slt", left, right, output, c);
@@ -129,18 +122,17 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     }
                 },
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp olt", left, right, output, c);},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);
                     return make_command(type::from_str("_Bool"), "icmp slt", left, right, output, c);
                     },
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                [](auto t){throw std::runtime_error("Cannot do operation on given type " +type::to_string(t));}
                 ), left->get_type());
             break;
         case token::TokenType::Greater:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType t){
                     if(type::is_signed_int(t)){
                         return make_command(type::from_str("_Bool"), "icmp sgt", left, right, output, c);
@@ -149,18 +141,17 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     }
                 },
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp ogt", left, right, output, c);},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);
                     return make_command(type::from_str("_Bool"), "icmp sgt", left, right, output, c);
                     },
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                [](auto t){throw std::runtime_error("Cannot do operation on given type " +type::to_string(t));}
                 ), left->get_type());
             break;
         case token::TokenType::LEq:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType t){
                     if(type::is_signed_int(t)){
                         return make_command(type::from_str("_Bool"), "icmp sle", left, right, output, c);
@@ -169,18 +160,17 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     }
                 },
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp ole", left, right, output, c);},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);
                     return make_command(type::from_str("_Bool"), "icmp sle", left, right, output, c);
                     },
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                [](auto t){throw std::runtime_error("Cannot do operation on given type " +type::to_string(t));}
                 ), left->get_type());
             break;
         case token::TokenType::GEq:
-            result = std::visit(type::make_visitor<value::Value*>(
+            result = type::visit(type::make_visitor<value::Value*>(
                 [&](type::IType t){
                     if(type::is_signed_int(t)){
                         return make_command(type::from_str("_Bool"), "icmp sge", left, right, output, c);
@@ -189,14 +179,13 @@ value::Value* bin_op_codegen(value::Value* left, value::Value* right, token::Tok
                     }
                 },
                 [&](type::FType){return make_command(type::from_str("_Bool"), "fcmp oge", left, right, output, c);},
-                [](type::FuncType){throw std::runtime_error("Cannot do operation on function type");},
                 [&](type::PointerType){
                     //IMPLEMENTATION DEFINED VALUE DEPENDENT ON HEADER stddef.h
                     left = convert(type::CType(type::IType::LLong), left, output, c);
                     right = convert(type::CType(type::IType::LLong), right, output, c);
                     return make_command(type::from_str("_Bool"), "icmp sge", left, right, output, c);
                     },
-                [](type::VoidType){throw std::runtime_error("Cannot do operation on void type");}
+                [](auto t){throw std::runtime_error("Cannot do operation on given type " +type::to_string(t));}
                 ), left->get_type());
             break;
         case token::TokenType::LShift:

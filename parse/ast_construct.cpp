@@ -8,7 +8,7 @@
 namespace ast{
 namespace{
 void finish_literal_int_parse(type::CType& original_type, std::string& original_value, token::Token tok){
-    type::IType int_type = std::get<type::IType>(std::get<type::BasicType>(original_type));
+    type::IType int_type = type::get<type::IType>(original_type);
 
     //Consider unsigned if either originally unsigned or is not decimal literal
     bool consider_unsigned = type::is_unsigned_int(original_type) || (original_value.at(0) == '0');
@@ -46,6 +46,7 @@ Decl::~Decl(){}
 Stmt::~Stmt(){}
 BlockItem::~BlockItem(){}
 Expr::~Expr(){}
+ExtDecl::~ExtDecl(){}
 
 StrLiteral::StrLiteral(std::vector<token::Token> toks) : Expr(toks.front()){
     auto ss = std::stringstream{};
@@ -118,7 +119,7 @@ Constant::Constant(const token::Token& tok) : Expr(tok){
                     assert(std::isdigit(literal.back()));
 
             }
-            //literal = type::ir_literal(literal, std::get<type::BasicType>(type));
+            //literal = type::ir_literal(literal, type::get<type::BasicType>(type));
             break;
         default:
             assert(false && "Unknown literal type");

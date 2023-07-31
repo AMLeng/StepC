@@ -1,7 +1,6 @@
 #ifndef _TYPE_POINT_
 #define _TYPE_POINT_
 #include "type.h"
-#include "type/type_derived.h"
 #include <variant>
 #include <vector>
 #include <optional>

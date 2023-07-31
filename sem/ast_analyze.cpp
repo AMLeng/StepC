@@ -1,7 +1,9 @@
 #include "ast.h"
+#include "parse.h"
 #include "type.h"
 #include "sem_error.h"
 #include <array>
+#include <sstream>
 namespace ast{
 namespace{
 template <class... Ts>
@@ -28,24 +30,6 @@ bool is_func_designator(const ast::AST* node){
     auto var = dynamic_cast<const ast::Variable*>(node);
     return var && type::is_type<type::PointerType>(var->type)
         && type::is_type<type::FuncType>(type::get<type::PointerType>(var->type).pointed_type());
-}
-bool is_lval(const ast::AST* node){
-    //We assume that arrays will all decay to pointers, so that nothing of array type is an lvalue
-    if(auto p = dynamic_cast<const ast::Variable*>(node)){
-        return !type::is_type<type::ArrayType>(p->type);
-    }
-    if(auto p = dynamic_cast<const ast::StrLiteral*>(node)){
-        return true;
-    }
-    if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
-        if(p->tok.type == token::TokenType::Star){
-            return true;
-        }
-    }
-    if(dynamic_cast<const ast::ArrayAccess*>(node)){
-        return true;
-    }
-    return false;
 }
 bool is_nullptr_constant(const ast::Expr* node){
     if(type::is_type<type::PointerType>(node->type)){
@@ -369,11 +353,93 @@ ConstantExprType compute_binary_constant(ConstantExprType left, ConstantExprType
     }
     __builtin_unreachable();
 }
-
+template <typename T>
+T lookup_tag(type::CType t, token::Token tok){
+    try{
+        return type::get<T>(type::CType::get_tag(type::get<T>(t).tag));
+    }catch(std::exception& e){
+        throw sem_error::STError("Could not find struct with name "+type::get<T>(t).tag,tok);
+    }
+}
 } //namespace
+bool is_lval(const ast::AST* node){
+    //We assume that arrays will all decay to pointers, so that nothing of array type is an lvalue
+    if(const auto p = dynamic_cast<const ast::Variable*>(node)){
+        return !type::is_type<type::ArrayType>(p->type);
+    }
+    if(dynamic_cast<const ast::StrLiteral*>(node)){
+        return true;
+    }
+    if(const auto p = dynamic_cast<const ast::UnaryOp*>(node)){
+        if(p->tok.type == token::TokenType::Star){
+            return true;
+        }
+    }
+    if(dynamic_cast<const ast::ArrayAccess*>(node)){
+        return true;
+    }
+    if(const auto p = dynamic_cast<const ast::MemberAccess*>(node)){
+        return is_lval(p->arg.get());
+    }
+    return false;
+}
 
+void AmbiguousBlock::analyze(symbol::STable* st){
+    auto input = std::stringstream{};
+    lexer::Lexer l(input, this->unparsed_tokens);
+    if(!st->has_symbol(this->ambiguous_ident.value)){
+        throw sem_error::STError("Could not find identifier "+ambiguous_ident.value+" in symbol table", this->ambiguous_ident);
+    }
+    if(st->resolves_to_typedef(this->ambiguous_ident.value)){
+        parsed_item = parse::parse_decl_list(l);
+    }else{
+        parsed_item = parse::parse_stmt(l);
+    }
+    assert(parsed_item && "Failed to resolve ambiguity in block item");
+    parsed_item->analyze(st);
+}
+
+void TypedefDecl::analyze(symbol::STable* st) {
+    try{
+        st->add_typedef(this->name, this->type);
+    }catch(std::exception& e){
+        throw sem_error::STError("Error adding typedef definition for "+name+" to symbol table:\n"+e.what(), this->tok);
+    }
+}
+void TagDecl::analyze(symbol::STable* st) {
+    std::string name = std::visit(type::overloaded{
+        [](const auto& t){
+            return t.tag;
+        },
+    }, this->type);
+    try{
+        st->add_tag(name, this->type);
+    }catch(std::exception& e){
+        throw sem_error::STError("Error adding tag definition "+name+" to symbol table:\n"+e.what(), this->tok);
+    }
+}
+void EnumVarDecl::analyze(symbol::STable* st) {
+    this->initializer->analyze(st);
+    if(!type::can_assign(this->initializer->type,type::IType::Int)){
+        throw sem_error::TypeError("Invalid type "+type::to_string(this->initializer->type)+" for initializing enum member",tok);
+    }
+    if(!std::holds_alternative<long long int>(this->initializer->constant_value)){
+        throw sem_error::FlowError("Enum member definition must be constant",this->tok);
+    }
+    //Add symbol to symbol table, check that not already present
+    try{
+        st->add_constant(this->tok.value,std::get<long long int>(this->initializer->constant_value));
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
+}
 void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
+    try{
+        this->type = st->mangle_type_or_throw(this->type);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
     if(type::is_type<type::ArrayType>(this->type)){
         auto array_type = type::get<type::ArrayType>(this->type);
         if(!this->assignment.has_value() && !array_type.is_complete()){
@@ -413,10 +479,10 @@ void Expr::initializer_analyze(type::CType& variable_type, symbol::STable* st){
     }
 }
 void InitializerList::initializer_analyze(type::CType& variable_type, symbol::STable* st){
+    auto length = initializers.size();
     if(type::is_type<type::ArrayType>(variable_type)){
         auto array_type = type::get<type::ArrayType>(variable_type);
         auto element_type = array_type.pointed_type();
-        int length = initializers.size();
         if(array_type.is_complete() && array_type.size() < length){
             length = array_type.size();
         }
@@ -427,8 +493,21 @@ void InitializerList::initializer_analyze(type::CType& variable_type, symbol::ST
         for(int i=0; i<length; i++){
             initializers.at(i)->initializer_analyze(element_type, st);
         }
+    }else if(type::is_type<type::StructType>(variable_type)){
+        auto s_type = lookup_tag<type::StructType>(variable_type, tok);
+        if(s_type.members.size() < length){
+            length = s_type.members.size();
+        }
+        for(int i=0; i<length; i++){
+            initializers.at(i)->initializer_analyze(s_type.members.at(i), st);
+        }
+    }else if(type::is_type<type::UnionType>(variable_type)){
+        auto u_type = lookup_tag<type::UnionType>(variable_type, tok);
+        if(u_type.members.size() > 0){
+            initializers.front()->initializer_analyze(u_type.members.front(), st);
+        }
     }else{
-        if(initializers.size() == 0){
+        if(length == 0){
             throw sem_error::TypeError("Cannot have empty initializer for scalar", this->tok);
         }
         initializers.front()->initializer_analyze(variable_type, st);
@@ -449,6 +528,9 @@ void Variable::analyze(symbol::STable* st) {
         return;
     }
     this->type = type_in_table;
+    if(st->resolves_to_constant(this->variable_name)){
+        this->constant_value = st->get_constant_value(this->variable_name);
+    }
 }
 void Conditional::analyze(symbol::STable* st){
     this->analyzed = true;
@@ -468,7 +550,7 @@ void Conditional::analyze(symbol::STable* st){
         [&](auto val){
             if(val == 0){
                 if(!std::holds_alternative<std::monostate>(false_expr->constant_value)){
-                    this->constant_value = true_expr->constant_value;
+                    this->constant_value = false_expr->constant_value;
                 }
             }else{
                 if(!std::holds_alternative<std::monostate>(true_expr->constant_value)){
@@ -482,7 +564,13 @@ void Sizeof::analyze(symbol::STable* st) {
     this->analyzed = true;
     this->arg->analyze(st);
     this->type = type::IType::LLong;
-    this->constant_value = size(arg->type);
+    this->constant_value = type::size(arg->type);
+}
+void Alignof::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    this->type = type::IType::LLong;
+    this->constant_value = type::align(arg->type);
 }
 void FuncCall::analyze(symbol::STable* st) {
     this->analyzed = true;
@@ -513,6 +601,29 @@ void FuncCall::analyze(symbol::STable* st) {
     }catch(std::runtime_error& e){ //Won't catch the STError
         throw sem_error::STError("Function call with expression not referring to a function or function pointer",this->tok);
     }
+}
+void MemberAccess::analyze(symbol::STable* st) {
+    this->analyzed = true;
+    this->arg->analyze(st);
+    if(type::is_type<type::StructType>(this->arg->type)){
+        auto s_type = lookup_tag<type::StructType>(this->arg->type, tok);
+        try{
+            this->type = s_type.members.at(s_type.indices.at(this->index));
+        }catch(std::exception& e){
+            throw sem_error::TypeError("Could not access member "+index+" in struct with name "+s_type.tag,tok);
+        }
+        return;
+    }
+    if(type::is_type<type::UnionType>(this->arg->type)){
+        auto u_type = lookup_tag<type::UnionType>(this->arg->type, tok);
+        try{
+            this->type = u_type.members.at(u_type.indices.at(this->index));
+        }catch(std::exception& e){
+            throw sem_error::TypeError("Could not access member "+index+" in struct with name "+u_type.tag,tok);
+        }
+        return;
+    }
+    throw sem_error::TypeError("Can only perform member access on struct or union type",tok);
 }
 void ArrayAccess::analyze(symbol::STable* st) {
     this->analyzed = true;
@@ -720,7 +831,6 @@ void BinaryOp::analyze(symbol::STable* st){
                 " and "+type::to_string(this->left->type)+" for assignment",tok);
         }
     }
-    
 }
 void NullStmt::analyze(symbol::STable* st){
 }
@@ -898,12 +1008,20 @@ void CompoundStmt::analyze(symbol::STable* st){
 }
 void DeclList::analyze(symbol::STable* st){
     this->analyzed = true;
+    for(const auto& t : tag_decls){
+        t->analyze(st);
+    }
     for(auto& decl : decls){
         decl->analyze(st);
     }
 }
 void FunctionDecl::analyze(symbol::STable* st){
     this->analyzed = true;
+    try{
+        this->type = st->mangle_type_or_throw(this->type);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
     if(st->in_function()){
         /*if(this->type is marked with storage specifier other than extern){
             throw sem_error::TypeError("Non extern function declaration inside function",this->tok);
@@ -919,6 +1037,14 @@ void FunctionDecl::analyze(symbol::STable* st){
 }
 void FunctionDef::analyze(symbol::STable* st) {
     this->analyzed = true;
+    for(const auto& t : tag_decls){
+        t->analyze(st);
+    }
+    try{
+        this->type = st->mangle_type_or_throw(this->type);
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
     auto f_type = type::get<type::FuncType>(this->type);
     if(st->in_function()){
         throw sem_error::FlowError("Function definition inside function",this->tok);

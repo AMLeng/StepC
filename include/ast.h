@@ -41,6 +41,18 @@ struct Stmt : virtual public BlockItem{
     //Statements are things that can appear in the body of a function
     virtual ~Stmt() = 0;
 };
+struct AmbiguousBlock : public BlockItem{
+    //An ambiguous block item arises when a block item begins with an identifier,
+    //since we can't determine without further context if the identifier is a typedef-name
+    //or a variable name
+    std::unique_ptr<BlockItem> parsed_item = nullptr;
+    std::vector<token::Token> unparsed_tokens;
+    token::Token ambiguous_ident;
+    AmbiguousBlock(std::vector<token::Token> toks) : unparsed_tokens(toks), ambiguous_ident(toks.front()) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct Initializer{
     virtual ~Initializer() = 0;
     virtual void initializer_codegen(value::Value* variable, std::ostream& output, context::Context& c) const = 0;
@@ -90,19 +102,45 @@ struct NullStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct TypeDecl : virtual public AST {
+    //This is a ``fake'' ast node, for passing information from the parsing step
+    //To the analysis step
+    token::Token tok;
+    TypeDecl(token::Token tok) : tok(tok) {}
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct TypedefDecl : public TypeDecl {
+    std::string name;
+    type::CType type;
+    TypedefDecl(token::Token tok, type::CType type) : 
+        TypeDecl(tok), name(tok.value), type(std::move(type)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+};
+struct TagDecl : public TypeDecl {
+    type::TagType type;
+    TagDecl(token::Token tok, type::TagType type) : TypeDecl(tok), type(std::move(type)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+};
+struct ExtDecl : virtual public AST{
+    std::vector<std::unique_ptr<TypeDecl>> tag_decls;
+    ExtDecl(std::vector<std::unique_ptr<TypeDecl>> decls) : tag_decls(std::move(decls)) {}
+    virtual ~ExtDecl() = 0;
+};
 struct Decl : virtual public AST{
     const std::string name;
     const token::Token tok;
     type::CType type;
-    Decl(token::Token tok, type::CType type) : tok(tok), name(tok.value), type(type) {}
+    Decl(token::Token tok, type::CType type) 
+        : tok(tok), name(tok.value), type(type) {}
     virtual ~Decl() = 0;
-};
-struct ExtDecl : virtual public AST{
 };
 struct DeclList : public BlockItem, public ExtDecl{
     bool analyzed = false;
     std::vector<std::unique_ptr<Decl>> decls;
-    DeclList(std::vector<std::unique_ptr<Decl>> decls) : decls(std::move(decls)) {}
+    DeclList(std::vector<std::unique_ptr<Decl>> decls, std::vector<std::unique_ptr<TypeDecl>> tags) 
+        : ExtDecl(std::move(tags)), decls(std::move(decls)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -115,13 +153,20 @@ struct FunctionDecl : public Decl{
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
-
-struct VarDecl : public Decl {
+struct VarDecl : public Decl{
     bool analyzed = false;
     std::optional<std::unique_ptr<Initializer>> assignment;
     //Type qualifiers and storage class specifiers to be implemented later
     VarDecl(token::Token tok, type::CType type,std::optional<std::unique_ptr<Initializer>> assignment = std::nullopt) 
         : Decl(tok,type), assignment(std::move(assignment)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct EnumVarDecl : public TypeDecl{
+    std::unique_ptr<Expr> initializer;
+    EnumVarDecl(token::Token tok, std::unique_ptr<Expr> initializer)
+        : TypeDecl(tok), initializer(std::move(initializer)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -145,11 +190,12 @@ struct WhileStmt : public Stmt{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 struct ForStmt : public Stmt{
-    std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>> init_clause;
+    typedef std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>, std::unique_ptr<AmbiguousBlock>> InitClauseTypes;
+    InitClauseTypes init_clause;
     std::unique_ptr<Expr> control_expr;
     std::optional<std::unique_ptr<Expr>> post_expr;
     std::unique_ptr<Stmt> body;
-    ForStmt(std::variant<std::monostate,std::unique_ptr<DeclList>,std::unique_ptr<Expr>> init, std::unique_ptr<Expr> control, 
+    ForStmt(InitClauseTypes init, std::unique_ptr<Expr> control, 
         std::optional<std::unique_ptr<Expr>> post, std::unique_ptr<Stmt> body)
         : init_clause(std::move(init)), control_expr(std::move(control)), 
         post_expr(std::move(post)) , body(std::move(body)){}
@@ -209,8 +255,9 @@ struct CompoundStmt : public Stmt{
 struct FunctionDef : public ExtDecl, public FunctionDecl{
     std::vector<std::unique_ptr<VarDecl>> params;
     std::unique_ptr<CompoundStmt> function_body;
-    FunctionDef(token::Token tok, type::FuncType type, std::vector<std::unique_ptr<VarDecl>> param_decls, std::unique_ptr<CompoundStmt> body) : 
-        FunctionDecl(tok, type), params(std::move(param_decls)), function_body(std::move(body)) {}
+    FunctionDef(token::Token tok, type::FuncType type, std::vector<std::unique_ptr<VarDecl>> param_decls, 
+        std::unique_ptr<CompoundStmt> body, std::vector<std::unique_ptr<TypeDecl>> tags) : 
+        ExtDecl(std::move(tags)), FunctionDecl(tok, type), params(std::move(param_decls)), function_body(std::move(body)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -291,11 +338,29 @@ struct Constant : public Expr{
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
 
+struct MemberAccess : public Expr{
+    std::unique_ptr<Expr> arg;
+    std::string index;
+    MemberAccess(token::Token tok, std::unique_ptr<Expr> argument, std::string index) : 
+        Expr(tok), arg(std::move(argument)), index(std::move(index)) {}
+    void analyze(symbol::STable* st) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
 struct ArrayAccess : public Expr{
     std::unique_ptr<Expr> arg;
     std::unique_ptr<Expr> index;
     ArrayAccess(token::Token tok, std::unique_ptr<Expr> argument, std::unique_ptr<Expr> index) : 
         Expr(tok), arg(std::move(argument)), index(std::move(index)) {}
+    void analyze(symbol::STable* st) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+
+struct Alignof : public Expr{
+    std::unique_ptr<Expr> arg;
+    Alignof(token::Token tok, std::unique_ptr<Expr> arg) :
+        Expr(tok), arg(std::move(arg)) {}
     void analyze(symbol::STable* st) override;
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -346,6 +411,7 @@ struct BinaryOp : public Expr{
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
+bool is_lval(const ast::AST* node);
 
 } //namespace ast
 #endif
