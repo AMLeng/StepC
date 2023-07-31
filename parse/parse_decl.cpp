@@ -198,7 +198,7 @@ namespace{
     }
 
 void handle_abstract_decl(Declarator declarator, token::Token tok){
-    if(type::is_type<type::StructType>(declarator.second)){
+    /*if(type::is_type<type::StructType>(declarator.second)){
         //Do nothing, since handled separately as a TagDecl in parse_specifiers
         return;
     }
@@ -206,7 +206,7 @@ void handle_abstract_decl(Declarator declarator, token::Token tok){
         //Do nothing, since handled separately as a TagDecl in parse_specifiers
         return;
     }
-    throw parse_error::ParseError("Abstract declarator not permitted here", tok);
+    throw parse_error::ParseError("Abstract declarator not permitted here", tok);*/
 }
 } //namespace
 Declarator parse_declarator(type::CType type, lexer::Lexer& l){
@@ -273,7 +273,7 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     auto type_decls = std::move(specifiers.second);
     while(true){
         auto declarator = parse_declarator(specifiers.first, l);
-        if(!declarator.first.has_value()){
+        if((!declarator.first.has_value())){
             handle_abstract_decl(declarator, l.peek_token());
         }else{
             if(declarator.second.storage == std::optional<type::SSpecifier>(type::SSpecifier::Typedef)){
@@ -331,7 +331,8 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
             }
             return parse_function_def(l, params.value(), declarator, std::move(type_decls));
         }
-        if(!declarator.first.has_value()){
+        //if((!declarator.first.has_value()) && (type_decls.size() == 0)){
+        if((!declarator.first.has_value())){
             handle_abstract_decl(declarator, l.peek_token());
         }else{
             if(declarator.second.storage == std::optional<type::SSpecifier>(type::SSpecifier::Typedef)){
@@ -349,7 +350,7 @@ std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
         }
         check_token_type(l.get_token(), token::TokenType::Comma);
         auto declarator = parse_declarator(specified_type, l);
-        if(!declarator.first.has_value()){
+        if((!declarator.first.has_value())){
             handle_abstract_decl(declarator, l.peek_token());
         }else{
             if(declarator.second.storage == std::optional<type::SSpecifier>(type::SSpecifier::Typedef)){

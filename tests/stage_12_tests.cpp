@@ -260,3 +260,17 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     program_pointer->analyze();
 }
+TEST_CASE("enum decl"){
+    auto ss = std::stringstream(
+R"(
+enum x;
+int main(){
+    enum x {b, c};
+    enum x a = 4;
+    return a;
+}
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}

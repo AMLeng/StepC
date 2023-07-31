@@ -22,6 +22,7 @@ protected:
     std::vector<std::unique_ptr<STable>> children;
     std::map<std::string, std::pair<type::CType,bool>> sym_map;
     std::unordered_set<std::string> typedefs;
+    std::unordered_map<std::string, int> constants;
     STable(STable* p) : parent(p), sym_map() {
         if(p && p->in_loop){
             in_loop = true;
@@ -38,19 +39,27 @@ public:
     STable(STable&&) = default;
 
     STable* most_recent_child();
+
+    void add_symbol(std::string name, type::CType type, bool has_def = false);
+    type::CType symbol_type(std::string name) const;
+    bool has_symbol(std::string name);
+
     virtual bool in_function() const = 0;
     virtual void add_extern_decl(const std::string& name, const type::CType& type) = 0;
+
     type::CType get_tag(std::string unmangled_tag) const;
     virtual void add_tag(std::string tag, type::TagType type) = 0;
     type::CType mangle_type_or_throw(type::CType type) const;
     virtual std::string mangle_name(std::string name) const noexcept = 0;
-    void add_symbol(std::string name, type::CType type, bool has_def = false);
+
     void add_typedef(std::string name, type::CType type);
-    bool has_symbol(std::string name);
     //Returns true if the given symbol is, in the current scope
     //A valid typedef-name, and false otherwise
     bool resolves_to_typedef(std::string name) const;
-    type::CType symbol_type(std::string name) const;
+
+    void add_constant(std::string name, int val);
+    bool resolves_to_constant(std::string name) const;
+    int get_constant_value(std::string name) const;
 };
 class GlobalTable : public STable{
     std::map<std::string, type::CType> external_type_map;

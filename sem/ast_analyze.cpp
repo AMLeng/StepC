@@ -418,6 +418,21 @@ void TagDecl::analyze(symbol::STable* st) {
         throw sem_error::STError("Error adding tag definition "+name+" to symbol table:\n"+e.what(), this->tok);
     }
 }
+void EnumVarDecl::analyze(symbol::STable* st) {
+    this->initializer->analyze(st);
+    if(!type::can_assign(this->initializer->type,type::IType::Int)){
+        throw sem_error::TypeError("Invalid type "+type::to_string(this->initializer->type)+" for initializing enum member",tok);
+    }
+    if(!std::holds_alternative<long long int>(this->initializer->constant_value)){
+        throw sem_error::FlowError("Enum member definition must be constant",this->tok);
+    }
+    //Add symbol to symbol table, check that not already present
+    try{
+        st->add_constant(this->tok.value,std::get<long long int>(this->initializer->constant_value));
+    }catch(std::runtime_error& e){
+        throw sem_error::STError(e.what(),this->tok);
+    }
+}
 void VarDecl::analyze(symbol::STable* st) {
     this->analyzed = true;
     try{
@@ -513,6 +528,9 @@ void Variable::analyze(symbol::STable* st) {
         return;
     }
     this->type = type_in_table;
+    if(st->resolves_to_constant(this->variable_name)){
+        this->constant_value = st->get_constant_value(this->variable_name);
+    }
 }
 void Conditional::analyze(symbol::STable* st){
     this->analyzed = true;
@@ -532,7 +550,7 @@ void Conditional::analyze(symbol::STable* st){
         [&](auto val){
             if(val == 0){
                 if(!std::holds_alternative<std::monostate>(false_expr->constant_value)){
-                    this->constant_value = true_expr->constant_value;
+                    this->constant_value = false_expr->constant_value;
                 }
             }else{
                 if(!std::holds_alternative<std::monostate>(true_expr->constant_value)){

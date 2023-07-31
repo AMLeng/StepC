@@ -10,6 +10,7 @@
 namespace parse{
 
 namespace{
+    constexpr int enum_list_binding_power = 3;
     type::CType convert_type_specifiers(std::multiset<std::string> specifiers){
         if(specifiers.size() == 0){
             throw std::runtime_error("Failed to parse declaration specifiers");
@@ -29,43 +30,89 @@ namespace{
         if(l.peek_token().type == token::TokenType::Identifier){
             ident = l.get_token().value;
         }else{
-            //Anonymous struct definition, replace the name with a unique anonymous name
+            //Anonymous tag type definition, replace the name with a unique anonymous name
             check_token_type(l.peek_token(), token::TokenType::LBrace);
             ident = "anon."+std::to_string(tag_type.loc.start_line)+"."+std::to_string(tag_type.loc.start_col);
         }
-        if(l.peek_token().type == token::TokenType::LBrace){
+        if(tag_type.value == "enum"){
+            //We handle enums totally separately
             auto tags = std::vector<std::unique_ptr<ast::TypeDecl>>{};
-            l.get_token();
-            auto members = std::vector<type::CType>{};
-            auto indices = std::map<std::string, int>{};
-            while(l.peek_token().type ==token::TokenType::Keyword){
-                auto specified = parse_specifiers(l);
-                for(auto& t : specified.second){
-                    tags.push_back(std::move(t));
+            auto type = type::CType(type::IType::Int);
+            if(l.peek_token().type == token::TokenType::LBrace){
+                l.get_token();
+                while(l.peek_token().type ==token::TokenType::Identifier){
+                    auto var = l.get_token();
+                    std::unique_ptr<ast::Expr> expr = nullptr;
+                    if(l.peek_token().type == token::TokenType::Assign){
+                        l.get_token();
+                        expr = parse_expr(l, enum_list_binding_power);
+                    }else{
+                        if(tags.size() == 0){
+                            auto fake_token = var;
+                            fake_token.type = token::TokenType::IntegerLiteral;
+                            fake_token.value = "0";
+                            fake_token.sourceline = "FAKE TOKEN: "+fake_token.sourceline;
+                            expr = std::make_unique<ast::Constant>(fake_token);
+                        }else{
+                            auto prev_var = std::make_unique<ast::Variable>(tags.back()->tok);
+                            auto fake_plus = var;
+                            fake_plus.type = token::TokenType::Plus;
+                            fake_plus.value = "+";
+                            fake_plus.sourceline = "FAKE TOKEN: "+fake_plus.sourceline;
+                            auto fake_one = var;
+                            fake_one.type = token::TokenType::IntegerLiteral;
+                            fake_one.value = "1";
+                            fake_one.sourceline = "FAKE TOKEN: "+fake_one.sourceline;
+                            auto one = std::make_unique<ast::Constant>(fake_one);
+                            expr = std::make_unique<ast::BinaryOp>(fake_plus, std::move(prev_var), std::move(one));
+                        }
+                    }
+                    assert(expr && "Failed to assign enum member to a value");
+                    tags.push_back(std::make_unique<ast::EnumVarDecl>(var, std::move(expr)));
+                    if(l.peek_token().type == token::TokenType::Comma){
+                        l.get_token();
+                    }
                 }
-                auto declarator = parse_declarator(specified.first, l);
-                if(declarator.first.has_value()){
-                    indices.emplace(declarator.first.value().value,members.size());
-                }
-                members.push_back(declarator.second);
-                while(l.peek_token().type == token::TokenType::Semicolon){
-                    l.get_token();
-                }
+                check_token_type(l.get_token(), token::TokenType::RBrace);
+
+                tags.push_back(std::make_unique<ast::TagDecl>(tag_type, type::EnumType{ident}));
             }
-            check_token_type(l.get_token(), token::TokenType::RBrace);
-            if(tag_type.value == "struct"){
-                tags.push_back(std::make_unique<ast::TagDecl>(tag_type, type::StructType(ident, members, indices)));
-                return std::make_pair(type::StructType(ident), std::move(tags));
-            }else{
-                tags.push_back(std::make_unique<ast::TagDecl>(tag_type, type::UnionType(ident, members, indices)));
-                return std::make_pair(type::UnionType(ident), std::move(tags));
-            }
+            return std::make_pair(type,std::move(tags));
         }else{
-            auto tags = std::vector<std::unique_ptr<ast::TypeDecl>>{};
-            if(tag_type.value == "struct"){
-                return std::make_pair(type::StructType(ident),std::move(tags));
+            if(l.peek_token().type == token::TokenType::LBrace){
+                auto tags = std::vector<std::unique_ptr<ast::TypeDecl>>{};
+                l.get_token();
+                auto members = std::vector<type::CType>{};
+                auto indices = std::map<std::string, int>{};
+                while(l.peek_token().type ==token::TokenType::Keyword){
+                    auto specified = parse_specifiers(l);
+                    for(auto& t : specified.second){
+                        tags.push_back(std::move(t));
+                    }
+                    auto declarator = parse_declarator(specified.first, l);
+                    if(declarator.first.has_value()){
+                        indices.emplace(declarator.first.value().value,members.size());
+                    }
+                    members.push_back(declarator.second);
+                    while(l.peek_token().type == token::TokenType::Semicolon){
+                        l.get_token();
+                    }
+                }
+                check_token_type(l.get_token(), token::TokenType::RBrace);
+                if(tag_type.value == "struct"){
+                    tags.push_back(std::make_unique<ast::TagDecl>(tag_type, type::StructType(ident, members, indices)));
+                    return std::make_pair(type::StructType(ident), std::move(tags));
+                }else{
+                    tags.push_back(std::make_unique<ast::TagDecl>(tag_type, type::UnionType(ident, members, indices)));
+                    return std::make_pair(type::UnionType(ident), std::move(tags));
+                }
             }else{
-                return std::make_pair(type::UnionType(ident),std::move(tags));
+                auto tags = std::vector<std::unique_ptr<ast::TypeDecl>>{};
+                if(tag_type.value == "struct"){
+                    return std::make_pair(type::StructType(ident),std::move(tags));
+                }else{
+                    return std::make_pair(type::UnionType(ident),std::move(tags));
+                }
             }
         }
     }

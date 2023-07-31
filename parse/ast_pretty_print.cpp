@@ -192,8 +192,14 @@ void AmbiguousBlock::pretty_print(int depth) const{
 void TagDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);
     std::cout<<"TAG "<<std::visit(type::overloaded{
+        [](type::EnumType t)->std::string{return "enum "+t.tag;},
         [](auto& t)->std::string{return type::to_string(t);}
     },type)<<std::endl;
+}
+void EnumVarDecl::pretty_print(int depth) const{
+    AST::print_whitespace(depth);
+    std::cout<<"ENUM MEMBER DECL \""<<tok.value<<"\""<<std::endl;
+    this->initializer->initializer_print(depth);
 }
 void VarDecl::pretty_print(int depth) const{
     AST::print_whitespace(depth);

@@ -202,8 +202,10 @@ void GlobalTable::add_tag(std::string unmangled_tag, type::TagType type){
     std::visit(type::overloaded{
         [&](const auto& t){
             auto mangled_tag = this->mangle_name(unmangled_tag);
-            type::CType::add_tag(mangled_tag, std::decay_t<decltype(t)>(mangled_tag));
-            type::CType::add_tag(mangled_tag, type::get<std::decay_t<decltype(t)>>(this->mangle_type_or_throw(t)));
+            type::CType::add_tag(mangled_tag, std::decay_t<decltype(t)>{mangled_tag});
+            if constexpr(!std::is_same_v<std::decay_t<decltype(t)>,type::EnumType>){
+                type::CType::add_tag(mangled_tag, type::get<std::decay_t<decltype(t)>>(this->mangle_type_or_throw(t)));
+            }
         },
     }, type);
 }
@@ -215,9 +217,13 @@ void BlockTable::add_tag(std::string tag, type::TagType type){
                 this->tags.emplace(tag, this->global->local_tag_count[tag]);
             }
             auto mangled_tag = this->mangle_name(tag);
-            type::CType::add_tag(mangled_tag, std::decay_t<decltype(t)>(mangled_tag));
-            auto mangled_struct = type::get<std::decay_t<decltype(t)>>(this->mangle_type_or_throw(t));
-            type::CType::add_tag(mangled_tag, mangled_struct);
+            type::CType::add_tag(mangled_tag, std::decay_t<decltype(t)>{mangled_tag});
+
+            if constexpr(!std::is_same_v<std::decay_t<decltype(t)>,type::EnumType>){
+                //Must add the mangled tag first in order to properly mangle the struct
+                auto mangled_struct = type::get<std::decay_t<decltype(t)>>(this->mangle_type_or_throw(t));
+                type::CType::add_tag(mangled_tag, mangled_struct);
+            }
         },
     }, type);
 }
@@ -231,6 +237,36 @@ bool STable::resolves_to_typedef(std::string name) const{
         to_search = to_search->parent;
     }
     return false;
+}
+void STable::add_constant(std::string name, int val){
+    if(sym_map.find(name) != sym_map.end()){
+        throw std::runtime_error("Variable "+name+" of already present in symbol table, cannot add as constant with value "+std::to_string(val));
+    }
+    constants.emplace(name, val);
+    sym_map.emplace(name,std::make_pair(type::IType::Int,true));
+}
+bool STable::resolves_to_constant(std::string name) const{
+    //Find the inner most symbol table which contains name, and returns true if it is a constant name in that scope
+    const STable* to_search = this;
+    while(to_search != nullptr){
+        if(to_search->sym_map.find(name) != to_search->sym_map.end()){
+            return to_search->constants.find(name) != to_search->constants.end();
+        }
+        to_search = to_search->parent;
+    }
+    return false;
+}
+int STable::get_constant_value(std::string name) const{
+    //Find the inner most symbol table which contains name, and returns true if it is a constant name in that scope
+    const STable* to_search = this;
+    while(to_search != nullptr){
+        if(to_search->sym_map.find(name) != to_search->sym_map.end()){
+            return to_search->constants.at(name);
+        }
+        to_search = to_search->parent;
+    }
+    throw std::runtime_error("Symbol for constant value "+name+" not found in symbol table");
+    __builtin_unreachable();
 }
 bool STable::has_symbol(std::string name){
     STable* to_search = this;

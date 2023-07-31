@@ -330,6 +330,9 @@ value::Value* NullStmt::codegen(std::ostream& output, context::Context& c)const 
 }
 value::Value* Conditional::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
+    if(!std::holds_alternative<std::monostate>(this->constant_value)){
+        return c.add_literal(this->compute_constant(this->type), this->type);
+    }
     auto condition = cond->codegen(output, c);
     condition = codegen_utility::convert(type::IType::Bool,condition, output, c);
     auto new_tmp = codegen_utility::make_tmp_alloca(this->type, output, c);
@@ -426,6 +429,9 @@ value::Value* ReturnStmt::codegen(std::ostream& output, context::Context& c)cons
 
 value::Value* Variable::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
+    if(!std::holds_alternative<std::monostate>(this->constant_value)){
+        return c.add_literal(this->compute_constant(this->type), this->type);
+    }
     auto var_value = c.get_value(variable_name);
     assert(type::is_type<type::PointerType>(var_value->get_type()) && "Variable not stored as pointer to the actual variable value");
     if(type::is_type<type::ArrayType>(type::get<type::PointerType>(var_value->get_type()).pointed_type())){
@@ -628,6 +634,10 @@ void InitializerList::initializer_codegen(value::Value* variable, std::ostream& 
         initializers.front()->initializer_codegen(variable, output, c);
     }
 }
+value::Value* EnumVarDecl::codegen(std::ostream& output, context::Context& c)const {
+    assert(false && "Should never be called");
+    return nullptr;
+}
 value::Value* TypeDecl::codegen(std::ostream& output, context::Context& c)const {
     assert(false && "Should never be called");
     return nullptr;
@@ -821,6 +831,9 @@ value::Value* Postfix::codegen(std::ostream& output, context::Context& c)const {
 }
 value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
+    if(!std::holds_alternative<std::monostate>(this->constant_value)){
+        return c.add_literal(this->compute_constant(this->type), this->type);
+    }
     std::string t = type::ir_type(this->type);
     switch(tok.type){
         case token::TokenType::Plusplus:
@@ -951,6 +964,9 @@ value::Value* UnaryOp::codegen(std::ostream& output, context::Context& c)const {
 
 value::Value* BinaryOp::codegen(std::ostream& output, context::Context& c)const {
     assert(this->analyzed && "This AST node has not had analysis run on it");
+    if(!std::holds_alternative<std::monostate>(this->constant_value)){
+        return c.add_literal(this->compute_constant(this->type), this->type);
+    }
     switch(tok.type){
         case token::TokenType::PlusAssign:
         case token::TokenType::MinusAssign:

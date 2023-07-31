@@ -103,6 +103,8 @@ struct NullStmt : public Stmt{
 };
 
 struct TypeDecl : virtual public AST {
+    //This is a ``fake'' ast node, for passing information from the parsing step
+    //To the analysis step
     token::Token tok;
     TypeDecl(token::Token tok) : tok(tok) {}
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
@@ -151,12 +153,20 @@ struct FunctionDecl : public Decl{
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;
 };
-struct VarDecl : public Decl {
+struct VarDecl : public Decl{
     bool analyzed = false;
     std::optional<std::unique_ptr<Initializer>> assignment;
     //Type qualifiers and storage class specifiers to be implemented later
     VarDecl(token::Token tok, type::CType type,std::optional<std::unique_ptr<Initializer>> assignment = std::nullopt) 
         : Decl(tok,type), assignment(std::move(assignment)) {}
+    void analyze(symbol::STable*) override;
+    void pretty_print(int depth) const override;
+    value::Value* codegen(std::ostream& output, context::Context& c) const override;
+};
+struct EnumVarDecl : public TypeDecl{
+    std::unique_ptr<Expr> initializer;
+    EnumVarDecl(token::Token tok, std::unique_ptr<Expr> initializer)
+        : TypeDecl(tok), initializer(std::move(initializer)) {}
     void analyze(symbol::STable*) override;
     void pretty_print(int depth) const override;
     value::Value* codegen(std::ostream& output, context::Context& c) const override;

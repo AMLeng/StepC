@@ -223,6 +223,17 @@ CType CType::get_tag(std::string mangled_tag){
 }
 void CType::add_tag(std::string tag, type::TagType type){
     std::visit(type::overloaded{
+        [&](EnumType t)->void{
+            if(CType::tags.find(tag) != CType::tags.end()){
+                auto existing = CType::tags.at(tag);
+                if(!type::is_type<IType>(existing)){
+                    throw std::runtime_error("Tag "+tag+" already declared with different type");
+                }
+                throw std::runtime_error("Enum "+tag+" already declared");
+            }else{
+                CType::tags.emplace(tag, type::IType::Int);
+            }
+        },
         [&](auto t)->void{
             if(CType::tags.find(tag) != CType::tags.end()){
                 auto existing = CType::tags.at(tag);
@@ -303,6 +314,7 @@ bool is_type_specifier(const std::string& s){
         || s == "signed"
         || s == "unsigned"
         || s == "_Bool"
+        || s == "enum"
         || s == "union"
         || s == "struct";
 }

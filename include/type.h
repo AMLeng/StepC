@@ -56,7 +56,10 @@ class CType;
 
 typedef std::variant<std::unique_ptr<FuncType>, std::unique_ptr<PointerType>, 
     std::unique_ptr<StructType>, std::unique_ptr<UnionType>> DerivedPointers;
-typedef std::variant<type::StructType, type::UnionType> TagType;
+struct EnumType{
+    std::string tag;
+};
+typedef std::variant<type::StructType, type::UnionType, type::EnumType> TagType;
 
 class DerivedType{
     DerivedPointers type;
