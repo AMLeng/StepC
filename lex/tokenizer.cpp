@@ -76,22 +76,6 @@ const std::map<char, token::TokenType> single_char_tokens = {{
 
 } //namespace
 
-void Tokenizer::ignore_space(){
-    char next_char = input_stream.peek();
-    while(std::isspace(next_char)){
-        input_stream.ignore(1);
-        if(next_char == '\n'){
-            this->current_pos.first++;
-            this->current_pos.second = 1;
-            auto pos = input_stream.tellg();
-            std::getline(input_stream, current_line);
-            input_stream.seekg(pos);
-        }else{
-            this->current_pos.second++;
-        }
-        next_char = input_stream.peek();
-    }
-}
 void Tokenizer::custom_ignore_one(){
     auto next_to_see = input_stream.peek();
     input_stream.ignore(1); 
@@ -230,10 +214,28 @@ token::Token Tokenizer::TokenizingSubmethods::lex_keyword_ident(Tokenizer& l){
 
 
 token::Token Tokenizer::read_token_from_stream() {
-    ignore_space();
     starting_position = current_pos; //starting_position is a file scope global which should only ever be modified here
-
     char c = custom_peek();
+
+    if(std::isspace(c)){
+        //We know it's a space and not a trigraph so we just ignore it
+        if(c == '\n'){
+            input_stream.ignore(1);
+            this->current_pos.first++;
+            this->current_pos.second = 1;
+            auto pos = input_stream.tellg();
+            std::getline(input_stream, current_line);
+            input_stream.seekg(pos);
+            return create_token(token::TokenType::NEWLINE, "\n", starting_position, current_pos, current_line);
+        }else{
+            do{
+                input_stream.ignore(1);
+                this->current_pos.second++;
+                c = input_stream.peek();
+            }while(std::isspace(c) && c != '\n');
+            return create_token(token::TokenType::SPACE, " ", starting_position, current_pos, current_line);
+        }
+    }
 
     //Straightforward cases (token type determined by first character)
     if(c== EOF){

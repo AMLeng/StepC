@@ -22,9 +22,34 @@ Lexer::Lexer(std::istream& input){
 Lexer::~Lexer() = default;
 
 token::Token Lexer::read_token_from_stream() {
+    //Translation steps 6 and 7
     auto tok = preprocessor->get_token();
-    while(tok.type == token::TokenType::COMMENT){
+    while(tok.type == token::TokenType::COMMENT
+            ||tok.type == token::TokenType::SPACE
+            ||tok.type == token::TokenType::NEWLINE){
         tok = preprocessor->get_token();
+    }
+    if(tok.type == token::TokenType::StrLiteral){
+        int lookahead = 1;
+        auto append = preprocessor->peek_token();
+        while(append.type == token::TokenType::COMMENT
+                ||append.type == token::TokenType::SPACE
+                ||append.type == token::TokenType::NEWLINE
+                ||append.type == token::TokenType::StrLiteral){
+            if(append.type == token::TokenType::StrLiteral){
+                assert(tok.value.back() == '"');
+                tok.value.pop_back();
+                assert(append.value.front() == '"');
+                tok.value += append.value.substr(1);
+                tok.loc.end_line = append.loc.end_line;
+                tok.loc.end_col = append.loc.end_col;
+            }
+            lookahead++;
+            append = preprocessor->peek_token(lookahead);
+        }
+        for(int i=1; i<lookahead; i++){
+            preprocessor->get_token();
+        }
     }
     return tok;
 }

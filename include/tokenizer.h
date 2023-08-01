@@ -15,7 +15,6 @@ class Tokenizer : public TokenStream{
 
     token::Token read_token_from_stream() override;
     struct TokenizingSubmethods;
-    void ignore_space();
     void custom_ignore_one();
     char custom_peek();
     void advance_input(std::string& current_token_value, char& c);

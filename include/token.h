@@ -16,7 +16,7 @@ enum class TokenType{
     Equal,NEqual,Greater,Less,LEq,GEq,
     BitwiseNot,Amp,BitwiseOr,BitwiseXor, LShift,RShift,
     Comma,Plusplus, Minusminus, Ellipsis, StrLiteral,
-    END, COMMENT, SPACE
+    END, COMMENT, SPACE, NEWLINE
 };
 
 struct Token{
@@ -155,6 +155,10 @@ inline std::string string_name(TokenType type){
             return "comment";
         case TokenType::END:
             return "end of input stream";
+        case TokenType::SPACE:
+            return "indeterminate amount of whitespace";
+        case TokenType::NEWLINE:
+            return "newline character";
     }
     //Annotation or g++ complains
     __builtin_unreachable();
