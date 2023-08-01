@@ -1,4 +1,5 @@
 #include "preprocessor.h"
+#include <iostream>
 namespace lexer{
 token::Token Preprocessor::read_token_from_stream(){
     if(tokens.size() == 0){

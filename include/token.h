@@ -16,7 +16,7 @@ enum class TokenType{
     Equal,NEqual,Greater,Less,LEq,GEq,
     BitwiseNot,Amp,BitwiseOr,BitwiseXor, LShift,RShift,
     Comma,Plusplus, Minusminus, Ellipsis, StrLiteral,
-    END, COMMENT
+    END, COMMENT, SPACE
 };
 
 struct Token{
