@@ -19,7 +19,7 @@ void check_token_type(const token::Token& tok, token::TokenType type){
 }
 //Definitions for parsing methods
 
-std::unique_ptr<ast::AmbiguousBlock> parse_ambiguous_block(lexer::Lexer& l){
+std::unique_ptr<ast::AmbiguousBlock> parse_ambiguous_block(lexer::TokenStream& l){
     auto next= l.peek_token();
     auto toks = std::vector<token::Token>{next};
     do{
@@ -30,7 +30,7 @@ std::unique_ptr<ast::AmbiguousBlock> parse_ambiguous_block(lexer::Lexer& l){
     return std::make_unique<ast::AmbiguousBlock>(std::move(toks));
 }
 
-std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
+std::unique_ptr<ast::BlockItem> parse_block_item(lexer::TokenStream& l){
     if(type::is_specifier(l.peek_token().value)){
         return parse_decl_list(l);
     }else if(l.peek_token().type == token::TokenType::Identifier && l.peek_token(2).type != token::TokenType::Colon){
@@ -41,7 +41,7 @@ std::unique_ptr<ast::BlockItem> parse_block_item(lexer::Lexer& l){
     }
 }
 
-std::unique_ptr<ast::Program> construct_ast(lexer::Lexer& l){
+std::unique_ptr<ast::Program> construct_ast(lexer::TokenStream& l){
     type::CType::reset_tables();
     auto next = l.peek_token();
     auto global_decls = std::vector<std::unique_ptr<ast::ExtDecl>>{};

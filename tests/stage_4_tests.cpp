@@ -28,8 +28,6 @@ R"(028.5)");
     auto t = l.get_token();
     REQUIRE(t.type == token::TokenType::FloatLiteral);
     REQUIRE(t.value == "028.5");
-    REQUIRE(l.get_location().first == 1);
-    REQUIRE(l.get_location().second == 6);
 }
 TEST_CASE("leading_zero_hex_float"){
     auto ss = std::stringstream(

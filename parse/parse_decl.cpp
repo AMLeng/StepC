@@ -137,7 +137,7 @@ namespace{
         }
     };
 
-    void parse_declarator_helper(lexer::Lexer& l, TypeBuilder& builder){
+    void parse_declarator_helper(lexer::TokenStream& l, TypeBuilder& builder){
         auto next_tok = l.peek_token();
         switch(next_tok.type){
             case token::TokenType::Identifier:
@@ -209,7 +209,7 @@ void handle_abstract_decl(Declarator declarator, token::Token tok){
     throw parse_error::ParseError("Abstract declarator not permitted here", tok);*/
 }
 } //namespace
-Declarator parse_declarator(type::CType type, lexer::Lexer& l){
+Declarator parse_declarator(type::CType type, lexer::TokenStream& l){
     //This does not parse declarators for function definitions
     auto builder = TypeBuilder();
     parse_declarator_helper(l,builder);
@@ -217,7 +217,7 @@ Declarator parse_declarator(type::CType type, lexer::Lexer& l){
     return ret;
 }
 
-std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
+std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::TokenStream& l){
     check_token_type(l.get_token(), token::TokenType::LParen);
     if(l.peek_token().type == token::TokenType::Ellipsis){
         throw parse_error::ParseError("Named parameter required before \"...\"", l.peek_token());
@@ -267,7 +267,7 @@ std::pair<std::vector<Declarator>,bool> parse_param_list(lexer::Lexer& l){
     return std::make_pair(declarators,variadic);
 }
 
-std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
+std::unique_ptr<ast::DeclList> parse_decl_list(lexer::TokenStream& l){
     auto decls = std::vector<std::unique_ptr<ast::Decl>>{};
     auto specifiers = parse_specifiers(l);
     auto type_decls = std::move(specifiers.second);
@@ -290,7 +290,7 @@ std::unique_ptr<ast::DeclList> parse_decl_list(lexer::Lexer& l){
     return std::make_unique<ast::DeclList>(std::move(decls), std::move(type_decls));
 }
 
-std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vector<Declarator> params, 
+std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::TokenStream& l, std::vector<Declarator> params, 
     Declarator func, std::vector<std::unique_ptr<ast::TypeDecl>> tags){
     auto param_decls = std::vector<std::unique_ptr<ast::VarDecl>>{};
     for(const auto& param_declarator: params){
@@ -307,7 +307,7 @@ std::unique_ptr<ast::FunctionDef> parse_function_def(lexer::Lexer& l, std::vecto
         std::move(param_decls), std::move(function_body), std::move(tags));
 }
 
-std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::Lexer& l){
+std::unique_ptr<ast::ExtDecl> parse_ext_decl(lexer::TokenStream& l){
     while(l.peek_token().type == token::TokenType::Semicolon){
         l.get_token();
     }

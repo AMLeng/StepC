@@ -17,7 +17,7 @@ add_library(type
 add_library (codegen_utils
     codegen/codegen_utility.cpp codegen/binary_operator_codegen.cpp
 )
-add_library(core lex/lexer.cpp 
+add_library(core lex/lexer.cpp lex/tokenizer.cpp
     parse/parse.cpp parse/parse_decl.cpp parse/ast_construct.cpp parse/ast_pretty_print.cpp 
     parse/parse_exprs.cpp parse/parse_stmts.cpp parse/parse_specifiers.cpp
     sem/ast_analyze.cpp sem/symbol.cpp
