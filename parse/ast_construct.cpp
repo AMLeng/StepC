@@ -49,12 +49,23 @@ Expr::~Expr(){}
 ExtDecl::~ExtDecl(){}
 
 StrLiteral::StrLiteral(std::vector<token::Token> toks) : Expr(toks.front()){
+    assert(toks.size() == 1 && "String literals should already have been combined by the preprocessor");
+    auto string = toks.front().value.substr(1,tok.value.size()-2);
+    if(string.back() != '\0'){
+        string.push_back('\0');
+    }
+    this->literal = std::move(string);
+    //The below code is now obsolete since escape characters 
+    //And string concatonations are done by the preprocessor
+    /*
     auto ss = std::stringstream{};
     char back;
     for(const auto& tok : toks){
         auto string = tok.value.substr(1,tok.value.size()-2);
         back = string.back();
+        ss << string;
         for(int i=0; i<string.size(); i++){
+            ss << string.at(i);
             if(string.at(i) != '\\'){
                 ss << string.at(i);
             }else{
@@ -75,8 +86,7 @@ StrLiteral::StrLiteral(std::vector<token::Token> toks) : Expr(toks.front()){
     if(back != '\0'){
         ss << '\0';
     }
-    this->literal = ss.str();
-
+    this->literal = ss.str();*/
 }
 
 Constant::Constant(const token::Token& tok) : Expr(tok){
