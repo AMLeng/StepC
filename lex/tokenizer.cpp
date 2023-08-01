@@ -1,5 +1,6 @@
 #include "lexer.h"
 #include "type.h"
+#include "tokenizer.h"
 #include "lexer_error.h"
 #include <cctype>
 #include <map>

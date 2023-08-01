@@ -1,6 +1,8 @@
 #include "token_stream.h"
 #include "token.h"
 #include "lexer.h"
+#include "tokenizer.h"
+#include "preprocessor.h"
 namespace lexer{
 token::Token TokenStream::read_token_from_stream(){
     return token::Token::make_end_token(std::make_pair(-1,-1));
@@ -12,10 +14,17 @@ TokenStream::TokenStream(std::vector<token::Token> tokens){
     }
 }
 
+Lexer::Lexer(std::istream& input){
+    tokenizer = std::make_unique<Tokenizer>(input);
+    assert(tokenizer && "Failed to construct tokenizer");
+    preprocessor = std::make_unique<Preprocessor>(*tokenizer);
+}
+Lexer::~Lexer() = default;
+
 token::Token Lexer::read_token_from_stream() {
-    auto tok = tokenizer.get_token();
+    auto tok = preprocessor->get_token();
     while(tok.type == token::TokenType::COMMENT){
-        tok = tokenizer.get_token();
+        tok = preprocessor->get_token();
     }
     return tok;
 }
