@@ -14,9 +14,17 @@ class LexError : public std::exception{
                 std::to_string(tok_start.first) +" column "+std::to_string(tok_start.second) +
                 " on token " + value + c + ": ").append(what_arg);
         }
+        LexError(std::string_view what_arg, const token::Token& tok){
+            error_str = ("Lexer error on " + tok.to_string()).append(what_arg);
+        }
         const char* what() const noexcept override{
             return error_str.c_str();
         }
+};
+class PreprocessorError : public LexError{
+    public:
+        PreprocessorError(std::string_view what_arg,token::Token tok)
+            : LexError(what_arg, tok) {}
 };
 
 class NotImplemented : public LexError{

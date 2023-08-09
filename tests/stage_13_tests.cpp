@@ -36,7 +36,7 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     program_pointer->analyze();
 }
-/*TEST_CASE("trigraphs with splice"){
+TEST_CASE("trigraphs with splice"){
     auto ss = std::stringstream(
 R"(
 int main(){
@@ -48,4 +48,36 @@ int main(){
     lexer::Lexer l(ss);
     auto program_pointer = parse::construct_ast(l);
     program_pointer->analyze();
-}*/
+}
+TEST_CASE("object macros"){
+    auto ss = std::stringstream(
+R"(
+#define Blah main
+#define Foo int
+Foo Blah(){
+    Foo x = 3;
+    return x;
+}
+
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}
+
+TEST_CASE("object macros multitoken"){
+    auto ss = std::stringstream(
+R"(
+#define Blah long long
+#define Foo int
+Foo main(){
+    Blah y = 4;
+    Blah Foo x = 3;
+    return sizeof(y) - sizeof(x);
+}
+
+)");
+    lexer::Lexer l(ss);
+    auto program_pointer = parse::construct_ast(l);
+    program_pointer->analyze();
+}

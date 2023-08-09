@@ -15,7 +15,7 @@ enum class TokenType{
     Colon, Question, And, Or,
     Equal,NEqual,Greater,Less,LEq,GEq,
     BitwiseNot,Amp,BitwiseOr,BitwiseXor, LShift,RShift,
-    Comma,Plusplus, Minusminus, Ellipsis, StrLiteral,
+    Comma,Plusplus, Minusminus, Ellipsis, StrLiteral,Hash,
     END, COMMENT, SPACE, NEWLINE
 };
 

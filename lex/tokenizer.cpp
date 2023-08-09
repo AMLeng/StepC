@@ -1,6 +1,7 @@
 #include "lexer.h"
 #include "type.h"
 #include "tokenizer.h"
+#include "preprocessor.h"
 #include "lexer_error.h"
 #include <cctype>
 #include <map>
@@ -25,7 +26,8 @@ bool is_keyword(const std::string& word){
         || word == "default"
         || word == "sizeof"
         || word == "_Alignof"
-        || type::is_specifier(word);
+        || type::is_specifier(word)
+        || is_directive(word);
 }
 
 token::Token create_token(token::TokenType type, std::string value, std::pair<int, int> tok_start, std::pair<int, int> tok_end, const std::string& source){
@@ -71,6 +73,7 @@ const std::map<char, token::TokenType> single_char_tokens = {{
     {'?',token::TokenType::Question},
     {'[',token::TokenType::LBrack},
     {']',token::TokenType::RBrack},
+    {'#',token::TokenType::Hash},
 }};
 
 

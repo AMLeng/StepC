@@ -25,5 +25,6 @@ public:
         return next_tokens.at(n-1);
     }
 };
+bool is_directive(const std::string& s);
 } //namespace lexer
 #endif
