@@ -386,7 +386,7 @@ bool is_lval(const ast::AST* node){
 
 void AmbiguousBlock::analyze(symbol::STable* st){
     auto input = std::stringstream{};
-    lexer::Lexer l(input, this->unparsed_tokens);
+    lexer::TokenStream l(this->unparsed_tokens);
     if(!st->has_symbol(this->ambiguous_ident.value)){
         throw sem_error::STError("Could not find identifier "+ambiguous_ident.value+" in symbol table", this->ambiguous_ident);
     }

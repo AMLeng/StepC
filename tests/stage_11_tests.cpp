@@ -248,7 +248,7 @@ int main(){
     auto program_pointer = parse::construct_ast(l);
     REQUIRE_THROWS_AS(program_pointer->analyze(), sem_error::STError);
 }
-TEST_CASE("String literal lexing"){
+TEST_CASE("String literal lexing combine"){
     auto ss = std::stringstream(
 R"(
     "This is a string literal"
@@ -257,7 +257,6 @@ R"(
             string literal!!!";
 )");
     lexer::Lexer l(ss);
-    l.get_token();
     l.get_token();
     REQUIRE(l.get_token().type == token::TokenType::Semicolon);
 }

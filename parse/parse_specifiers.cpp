@@ -25,7 +25,7 @@ namespace{
             throw;
         }
     }
-    std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_tag_specifiers(lexer::Lexer& l, token::Token tag_type){
+    std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_tag_specifiers(lexer::TokenStream& l, token::Token tag_type){
         std::string ident = "";
         if(l.peek_token().type == token::TokenType::Identifier){
             ident = l.get_token().value;
@@ -74,6 +74,9 @@ namespace{
                     }
                 }
                 check_token_type(l.get_token(), token::TokenType::RBrace);
+                if(tags.size() == 0){
+                    throw parse_error::ParseError("Cannot have enum with no members",tag_type);
+                }
 
                 tags.push_back(std::make_unique<ast::TagDecl>(tag_type, type::EnumType{ident}));
             }
@@ -147,7 +150,7 @@ namespace{
 }//namespace
 
 
-std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_specifiers(lexer::Lexer& l){
+std::pair<type::CType,std::vector<std::unique_ptr<ast::TypeDecl>>> parse_specifiers(lexer::TokenStream& l){
     auto type_specifier_list = std::multiset<std::string>{};
     std::optional<type::CType> base_type = std::nullopt;
     auto tags = std::vector<std::unique_ptr<ast::TypeDecl>>{};

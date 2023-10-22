@@ -38,7 +38,7 @@ namespace{
         {token::TokenType::Comma, {1,2}},
     }};
 
-std::unique_ptr<ast::InitializerList> parse_initializer_list(lexer::Lexer& l){
+std::unique_ptr<ast::InitializerList> parse_initializer_list(lexer::TokenStream& l){
     auto inits = std::vector<std::unique_ptr<ast::Initializer>>{};
     auto tok = l.get_token();
     check_token_type(tok, token::TokenType::LBrace);
@@ -58,7 +58,7 @@ std::unique_ptr<ast::InitializerList> parse_initializer_list(lexer::Lexer& l){
 }
 
 
-std::unique_ptr<ast::StrLiteral> parse_str_literal(lexer::Lexer& l){
+std::unique_ptr<ast::StrLiteral> parse_str_literal(lexer::TokenStream& l){
     auto literals = std::vector<token::Token>{};
     if(l.peek_token().type != token::TokenType::StrLiteral){
         throw parse_error::ParseError("Expected string",l.peek_token());
@@ -68,7 +68,7 @@ std::unique_ptr<ast::StrLiteral> parse_str_literal(lexer::Lexer& l){
     }while(l.peek_token().type == token::TokenType::StrLiteral);
     return std::make_unique<ast::StrLiteral>(literals);
 }
-std::unique_ptr<ast::Constant> parse_constant(lexer::Lexer& l){
+std::unique_ptr<ast::Constant> parse_constant(lexer::TokenStream& l){
     auto constant_value = l.get_token();
     if(!token::matches_type(constant_value, 
                 token::TokenType::IntegerLiteral, 
@@ -78,7 +78,7 @@ std::unique_ptr<ast::Constant> parse_constant(lexer::Lexer& l){
     return std::make_unique<ast::Constant>(constant_value);
 }
     
-std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::Lexer& l){
+std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::TokenStream& l){
     auto op_token = l.get_token();
     if(!token::matches_type(op_token,
                 token::TokenType::Minus,
@@ -96,7 +96,7 @@ std::unique_ptr<ast::UnaryOp> parse_unary_op(lexer::Lexer& l){
 }
 
 
-std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique_ptr<ast::Expr> cond){
+std::unique_ptr<ast::Conditional> parse_conditional(lexer::TokenStream& l, std::unique_ptr<ast::Expr> cond){
     auto question = l.get_token();
     check_token_type(question, token::TokenType::Question);
     auto true_expr = parse_expr(l);
@@ -105,7 +105,7 @@ std::unique_ptr<ast::Conditional> parse_conditional(lexer::Lexer& l, std::unique
     return std::make_unique<ast::Conditional>(question, std::move(cond),std::move(true_expr),std::move(false_expr));
 }
 
-std::unique_ptr<ast::Alignof> parse_alignof(lexer::Lexer& l){
+std::unique_ptr<ast::Alignof> parse_alignof(lexer::TokenStream& l){
     auto tok = l.get_token();
     assert(tok.value == "_Alignof");
     check_token_type(l.get_token(), token::TokenType::LParen);
@@ -113,7 +113,7 @@ std::unique_ptr<ast::Alignof> parse_alignof(lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::RParen);
     return std::make_unique<ast::Alignof>(tok, std::move(arg));
 }
-std::unique_ptr<ast::Sizeof> parse_sizeof(lexer::Lexer& l){
+std::unique_ptr<ast::Sizeof> parse_sizeof(lexer::TokenStream& l){
     auto tok = l.get_token();
     assert(tok.value == "sizeof");
     check_token_type(l.get_token(), token::TokenType::LParen);
@@ -121,7 +121,7 @@ std::unique_ptr<ast::Sizeof> parse_sizeof(lexer::Lexer& l){
     check_token_type(l.get_token(), token::TokenType::RParen);
     return std::make_unique<ast::Sizeof>(tok, std::move(arg));
 }
-std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l, std::unique_ptr<ast::Expr> func){
+std::unique_ptr<ast::FuncCall> parse_function_call(lexer::TokenStream& l, std::unique_ptr<ast::Expr> func){
     auto tok = l.get_token();
     check_token_type(tok, token::TokenType::LParen);
     auto args = std::vector<std::unique_ptr<ast::Expr>>{};
@@ -136,21 +136,21 @@ std::unique_ptr<ast::FuncCall> parse_function_call(lexer::Lexer& l, std::unique_
     return std::make_unique<ast::FuncCall>(tok, std::move(func), std::move(args));
 }
 
-std::unique_ptr<ast::MemberAccess> parse_member_access(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
+std::unique_ptr<ast::MemberAccess> parse_member_access(lexer::TokenStream& l, std::unique_ptr<ast::Expr> arg){
     auto op_token = l.get_token();
     check_token_type(op_token, token::TokenType::Period);
     auto index = l.get_token();
     check_token_type(index, token::TokenType::Identifier);
     return std::make_unique<ast::MemberAccess>(op_token,std::move(arg), index.value);
 }
-std::unique_ptr<ast::ArrayAccess> parse_array_access(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
+std::unique_ptr<ast::ArrayAccess> parse_array_access(lexer::TokenStream& l, std::unique_ptr<ast::Expr> arg){
     auto op_token = l.get_token();
     check_token_type(op_token, token::TokenType::LBrack);
     auto index = parse_expr(l);
     check_token_type(l.get_token(), token::TokenType::RBrack);
     return std::make_unique<ast::ArrayAccess>(op_token,std::move(arg), std::move(index));
 }
-std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast::Expr> arg){
+std::unique_ptr<ast::Postfix> parse_postfix(lexer::TokenStream& l, std::unique_ptr<ast::Expr> arg){
     auto op_token = l.get_token();
     if(!token::matches_type(op_token,
                 token::TokenType::Plusplus,
@@ -161,7 +161,7 @@ std::unique_ptr<ast::Postfix> parse_postfix(lexer::Lexer& l, std::unique_ptr<ast
 }
 } //anon namespace
 
-std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarator){
+std::unique_ptr<ast::Decl> parse_init_decl(lexer::TokenStream& l, Declarator declarator){
     auto var_name = declarator.first.value();
     check_token_type(var_name, token::TokenType::Identifier);
     if(l.peek_token().type == token::TokenType::Assign){
@@ -190,7 +190,7 @@ std::unique_ptr<ast::Decl> parse_init_decl(lexer::Lexer& l, Declarator declarato
         }
     }
 }
-std::unique_ptr<ast::BinaryOp> parse_binary_op(lexer::Lexer& l, std::unique_ptr<ast::Expr> left, int min_bind_power){
+std::unique_ptr<ast::BinaryOp> parse_binary_op(lexer::TokenStream& l, std::unique_ptr<ast::Expr> left, int min_bind_power){
     auto op_token = l.get_token();
     if(binary_op_binding_power.find(op_token.type) == binary_op_binding_power.end()){
         throw parse_error::ParseError("Not valid binary operator",op_token);
@@ -198,12 +198,12 @@ std::unique_ptr<ast::BinaryOp> parse_binary_op(lexer::Lexer& l, std::unique_ptr<
     auto right = parse_expr(l, min_bind_power);
     return std::make_unique<ast::BinaryOp>(op_token,std::move(left),std::move(right));
 }
-std::unique_ptr<ast::Variable> parse_variable(lexer::Lexer& l){
+std::unique_ptr<ast::Variable> parse_variable(lexer::TokenStream& l){
     auto var_tok = l.get_token();
     check_token_type(var_tok, token::TokenType::Identifier);
     return std::make_unique<ast::Variable>(var_tok);
 }
-std::unique_ptr<ast::Expr> parse_expr(lexer::Lexer& l, int min_bind_power){
+std::unique_ptr<ast::Expr> parse_expr(lexer::TokenStream& l, int min_bind_power){
     auto expr_start = l.peek_token();
     std::unique_ptr<ast::Expr> expr_ptr = nullptr;
     switch(expr_start.type){

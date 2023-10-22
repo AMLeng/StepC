@@ -13,8 +13,6 @@ TEST_CASE("recognizes_empty_input_stream"){
     auto ss = std::stringstream("");
     lexer::Lexer l(ss);
     REQUIRE(l.get_token().type == token::TokenType::END);
-    REQUIRE(l.get_location().first == 1);
-    REQUIRE(l.get_location().second == 1);
 }
 TEST_CASE("recognizes_keyword_int"){
     auto ss = std::stringstream("int");
@@ -22,8 +20,6 @@ TEST_CASE("recognizes_keyword_int"){
     auto t = l.get_token();
     REQUIRE(t.type == token::TokenType::Keyword);
     REQUIRE(t.value == "int");
-    REQUIRE(l.get_location().first == 1);
-    REQUIRE(l.get_location().second == 4);
 }
 TEST_CASE("recognizes_keyword_return"){
     auto ss = std::stringstream("return");
@@ -31,8 +27,6 @@ TEST_CASE("recognizes_keyword_return"){
     auto t = l.get_token();
     REQUIRE(t.type == token::TokenType::Keyword);
     REQUIRE(t.value == "return");
-    REQUIRE(l.get_location().first == 1);
-    REQUIRE(l.get_location().second == 7);
 }
 TEST_CASE("recognizes_identifier_main"){
     auto ss = std::stringstream("main");
@@ -94,7 +88,6 @@ TEST_CASE("decimal_literal_lLU"){
     auto ss = std::stringstream("5lLU");
     lexer::Lexer l(ss);
     l.get_token();
-    REQUIRE(l.get_location().second == 3);
     auto t = l.get_token();
     REQUIRE(t.value == "LU");
 }
@@ -102,7 +95,6 @@ TEST_CASE("decimal_literal_uLl"){
     auto ss = std::stringstream("5uLl");
     lexer::Lexer l(ss);
     l.get_token();
-    REQUIRE(l.get_location().second == 4);
     auto t = l.get_token();
     REQUIRE(t.value =="l");
 }
@@ -117,8 +109,6 @@ TEST_CASE("invalid_octal_literal"){
     auto ss = std::stringstream("028");
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(l.get_token(), lexer_error::InvalidLiteral);
-    REQUIRE(l.get_location().first == 1);
-    REQUIRE(l.get_location().second == 4);
 }
 TEST_CASE("hex_literal"){
     auto ss = std::stringstream("0x25afeF");
@@ -131,8 +121,6 @@ TEST_CASE("invalid_hex_literal"){
     auto ss = std::stringstream("0xg28");
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(l.get_token(), lexer_error::InvalidLiteral);
-    REQUIRE(l.get_location().first == 1);
-    REQUIRE(l.get_location().second == 3);
 }
 
 TEST_CASE("whitespace_octal_literal"){
@@ -144,8 +132,6 @@ R"(
     auto t = l.get_token();
     REQUIRE(t.type == token::TokenType::IntegerLiteral);
     REQUIRE(t.value == "025");
-    REQUIRE(l.get_location().first == 3);
-    REQUIRE(l.get_location().second == 12);
 }
 TEST_CASE("whitespace_invalid_octal_literal"){
     auto ss = std::stringstream(R"(  
@@ -153,8 +139,6 @@ TEST_CASE("whitespace_invalid_octal_literal"){
         028)");
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(l.get_token(), lexer_error::InvalidLiteral);
-    REQUIRE(l.get_location().first == 3);
-    REQUIRE(l.get_location().second == 12);
 }
 
 //End lexer unit tests
@@ -207,14 +191,10 @@ TEST_CASE("hex_float_undefined"){
     auto ss = std::stringstream("0xf28.35");
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(l.get_token(), lexer_error::NotImplemented);
-    REQUIRE(l.get_location().first == 1);
-    REQUIRE(l.get_location().second == 6);
 }
 TEST_CASE("dec_float_undefined"){
     auto ss = std::stringstream("28.35");
     lexer::Lexer l(ss);
     REQUIRE_THROWS_AS(l.get_token(), lexer_error::NotImplemented);
-    REQUIRE(l.get_location().first == 1);
-    REQUIRE(l.get_location().second == 3);
 }
 #endif

@@ -17,7 +17,7 @@ add_library(type
 add_library (codegen_utils
     codegen/codegen_utility.cpp codegen/binary_operator_codegen.cpp
 )
-add_library(core lex/lexer.cpp 
+add_library(core lex/lexer.cpp lex/tokenizer.cpp lex/preprocessor.cpp
     parse/parse.cpp parse/parse_decl.cpp parse/ast_construct.cpp parse/ast_pretty_print.cpp 
     parse/parse_exprs.cpp parse/parse_stmts.cpp parse/parse_specifiers.cpp
     sem/ast_analyze.cpp sem/symbol.cpp
@@ -71,6 +71,10 @@ target_link_libraries(stage_11_tests PRIVATE Catch2::Catch2WithMain core)
 add_executable(stage_12_tests tests/stage_12_tests.cpp)
 set_target_properties(stage_12_tests PROPERTIES SUFFIX ".out")
 target_link_libraries(stage_12_tests PRIVATE Catch2::Catch2WithMain core)
+
+add_executable(stage_13_tests tests/stage_13_tests.cpp)
+set_target_properties(stage_13_tests PROPERTIES SUFFIX ".out")
+target_link_libraries(stage_13_tests PRIVATE Catch2::Catch2WithMain core)
 
 add_executable(step_c step_c.cpp)
 target_link_libraries(step_c PRIVATE core)

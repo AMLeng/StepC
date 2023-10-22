@@ -1,446 +1,90 @@
+#include "token_stream.h"
+#include "token.h"
 #include "lexer.h"
-#include "type.h"
 #include "lexer_error.h"
-#include <cctype>
+#include "tokenizer.h"
+#include "preprocessor.h"
+#include <sstream>
 #include <map>
-#include <string>
-#include <exception>
-#include <utility>
 namespace lexer{
-namespace{
-bool is_keyword(const std::string& word){
-    return word == "return"
-        || word == "if"
-        || word == "else"
-        || word == "for"
-        || word == "do"
-        || word == "while"
-        || word == "continue"
-        || word == "break"
-        || word == "goto"
-        || word == "switch"
-        || word == "case"
-        || word == "default"
-        || word == "sizeof"
-        || word == "_Alignof"
-        || type::is_specifier(word);
-}
-
-token::Token create_token(token::TokenType type, std::string value, std::pair<int, int> tok_start, std::pair<int, int> tok_end, const std::string& source){
-    location::Location loc = {tok_start.first, tok_start.second, tok_end.first, tok_end.second};
-    return token::Token{type, value, loc, source};
-}
-const std::map<char, token::TokenType> followed_by_eq = {{
-    {'!',token::TokenType::NEqual},
-    {'>',token::TokenType::GEq},
-    {'<',token::TokenType::LEq},
-    {'=',token::TokenType::Equal},
-    {'+',token::TokenType::PlusAssign},
-    {'-',token::TokenType::MinusAssign},
-    {'*',token::TokenType::MultAssign},
-    {'/',token::TokenType::DivAssign},
-    {'%',token::TokenType::ModAssign},
-    {'^',token::TokenType::BXAssign},
-    {'|',token::TokenType::BOAssign},
-    {'&',token::TokenType::BAAssign},
+namespace {
+std::map<char, char> escape_chars = {{
+    {'a','\a'},{'b','\b'},{'f','\f'},{'n','\n'},
+    {'r','\r'},{'t','\t'},{'v','\v'},{'\\','\\'},
+    {'\'','\''},{'\"','\"'},{'\?','\?'}
 }};
-
-const std::map<char, token::TokenType> single_char_tokens = {{
-    {'(',token::TokenType::LParen},
-    {')',token::TokenType::RParen},
-    {'{',token::TokenType::LBrace},
-    {'}',token::TokenType::RBrace},
-    {';',token::TokenType::Semicolon},
-    {',',token::TokenType::Comma},
-    {'~',token::TokenType::BitwiseNot},
-    {'&',token::TokenType::Amp},
-    {'|',token::TokenType::BitwiseOr},
-    {'^',token::TokenType::BitwiseXor},
-    {'!',token::TokenType::Not},
-    {'-',token::TokenType::Minus},
-    {'+',token::TokenType::Plus},
-    {'*',token::TokenType::Star},
-    {'/',token::TokenType::Div},
-    {'%',token::TokenType::Mod},
-    {'=',token::TokenType::Assign},
-    {'<',token::TokenType::Less},
-    {'>',token::TokenType::Greater},
-    {':',token::TokenType::Colon},
-    {'?',token::TokenType::Question},
-    {'[',token::TokenType::LBrack},
-    {']',token::TokenType::RBrack},
-}};
-
-} //namespace
-
-Lexer::Lexer(std::istream& input, std::vector<token::Token> tokens) 
-    : input_stream(input), current_pos(std::make_pair(1,1)){
-        for(const auto& t : tokens){
-            this->next_tokens.push_back(t);
-        }
-}
-void Lexer::ignore_space(){
-    char next_char = input_stream.peek();
-    while(std::isspace(next_char)){
-        input_stream.ignore(1);
-        if(next_char == '\n'){
-            this->current_pos.first++;
-            this->current_pos.second = 1;
-            auto pos = input_stream.tellg();
-            std::getline(input_stream, current_line);
-            input_stream.seekg(pos);
+std::string convert_escapes(const token::Token& tok){
+    auto string = tok.value;
+    auto ss = std::stringstream{};
+    for(int i=0; i<string.size(); i++){
+        if(string.at(i) != '\\'){
+            ss << string.at(i);
         }else{
-            this->current_pos.second++;
+            i++;
+            if(string.at(i) == '0'){
+                //Hit an early null character
+                ss << '\0';
+                return ss.str();
+            }
+            if(escape_chars.find(string.at(i)) == escape_chars.end()){
+                throw lexer_error::InvalidLiteral("Unknown escape sequence",string, string.at(i), std::make_pair(tok.loc.start_line, tok.loc.start_col));
+            }
+            ss << escape_chars.at(string.at(i));
         }
-        next_char = input_stream.peek();
+    }
+    return ss.str();
+}
+} //anon namespace
+
+token::Token TokenStream::read_token_from_stream(){
+    return token::Token::make_end_token(std::make_pair(-1,-1));
+}
+TokenStream::~TokenStream() = default;
+TokenStream::TokenStream(std::vector<token::Token> tokens){
+    for(const auto& t : tokens){
+        this->next_tokens.push_back(t);
     }
 }
 
-
-void Lexer::advance_input(std::string& already_read, char& next_to_see){
-    input_stream.ignore(1);
-    if(next_to_see == '\n'){
-        this->current_pos.first++;
-        this->current_pos.second = 1;
-        auto pos = input_stream.tellg();
-        std::getline(input_stream, current_line);
-        input_stream.seekg(pos);
-    }else{
-        this->current_pos.second++;
-    }
-    already_read.push_back(next_to_see);
-    next_to_see = input_stream.peek();
+Lexer::Lexer(std::istream& input){
+    tokenizer = std::make_unique<Tokenizer>(input);
+    assert(tokenizer && "Failed to construct tokenizer");
+    preprocessor = std::make_unique<Preprocessor>(*tokenizer);
 }
-
-struct Lexer::LexingSubmethods{
-    static token::Token lex_keyword_ident(Lexer& l);
-    static token::Token lex_numeric_literals(Lexer& l);
-
-    static void handle_int_literal_suffix(Lexer& l, char& c, std::string& token_value);
-    static token::Token lex_hex_fractional(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position);
-    static token::Token lex_decimal_fractional(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position);
-};
-
-token::Token Lexer::LexingSubmethods::lex_keyword_ident(Lexer& l){
-    std::pair<int, int> starting_position = l.current_pos;
-    char c = l.input_stream.peek();
-    std::string token_value = "";
-    assert(std::isalpha(c) || c == '_');
-    do{
-        l.advance_input(token_value, c);
-    }while(std::isalpha(c) || std::isdigit(c) || c == '_');
-
-    if(is_keyword(token_value)){
-        return create_token(token::TokenType::Keyword, token_value, starting_position, l.current_pos, l.current_line);
-    }
-    return create_token(token::TokenType::Identifier, token_value, starting_position, l.current_pos, l.current_line);
-}
-
+Lexer::~Lexer() = default;
 
 token::Token Lexer::read_token_from_stream() {
-    ignore_space();
-
-    char c = input_stream.peek();
-
-    //Straightforward cases (token type determined by first character)
-    if(c== EOF){
-        return token::Token::make_end_token(current_pos);
+    //Translation steps 6 and 7
+    auto tok = preprocessor->get_token();
+    while(tok.type == token::TokenType::COMMENT
+            ||tok.type == token::TokenType::SPACE
+            ||tok.type == token::TokenType::NEWLINE){
+        tok = preprocessor->get_token();
     }
-    if(std::isalpha(c) || c == '_'){
-        return Lexer::LexingSubmethods::lex_keyword_ident(*this);
-    }
-    //Handle ints and floats that start with a digit
-    if(std::isdigit(c)){
-        return Lexer::LexingSubmethods::lex_numeric_literals(*this);
-    }
-
-    std::pair<int, int> starting_position = current_pos;
-    std::string token_value = "";
-    //String literals
-    if(c == '"'){
-        advance_input(token_value, c);
-        while(c != '"'){
-            if(c == '\\'){
-                advance_input(token_value, c);
+    if(tok.type == token::TokenType::StrLiteral){
+        tok.value = convert_escapes(tok);
+        int lookahead = 1;
+        auto append = preprocessor->peek_token();
+        while(append.type == token::TokenType::COMMENT
+                ||append.type == token::TokenType::SPACE
+                ||append.type == token::TokenType::NEWLINE
+                ||append.type == token::TokenType::StrLiteral){
+            if(append.type == token::TokenType::StrLiteral){
+                assert(tok.value.back() == '"');
+                tok.value.pop_back();
+                append.value = convert_escapes(append);
+                assert(append.value.front() == '"');
+                tok.value += append.value.substr(1);
+                tok.loc.end_line = append.loc.end_line;
+                tok.loc.end_col = append.loc.end_col;
             }
-            if(c == EOF){
-                throw lexer_error::InvalidLiteral("Reached EOF in string literal", token_value, c, starting_position);
-            }
-            advance_input(token_value, c);
+            lookahead++;
+            append = preprocessor->peek_token(lookahead);
         }
-        advance_input(token_value, c);
-        return create_token(token::TokenType::StrLiteral, token_value, starting_position, current_pos, current_line);
-    }
-
-    //More complicated cases
-    if(c == '/'){
-        advance_input(token_value, c);
-        if(c == '/'){
-            advance_input(token_value, c);
-            while(current_pos.first == starting_position.first){
-                advance_input(token_value, c);
-            }
-            return create_token(token::TokenType::COMMENT, token_value, starting_position, current_pos, current_line);
-        }
-        if(c == '*'){
-            advance_input(token_value, c);
-            while(true){
-                if(c == '*'){
-                    advance_input(token_value, c);
-                    if(c == '/'){
-                        advance_input(token_value, c);
-                        return create_token(token::TokenType::COMMENT, token_value, starting_position, current_pos, current_line);
-                    }
-                }else{
-                    advance_input(token_value, c);
-                }
-            }
-        }
-        if(c == '='){
-            advance_input(token_value, c);
-            return create_token(token::TokenType::DivAssign, token_value, starting_position, current_pos, current_line);
-        }
-        return create_token(token::TokenType::Div, token_value, starting_position, current_pos, current_line);
-    }
-    if(c == '.'){
-        advance_input(token_value, c);
-        if(c == '.'){
-            advance_input(token_value, c);
-            if(c == '.'){
-                advance_input(token_value, c);
-                return create_token(token::TokenType::Ellipsis, token_value, starting_position, current_pos, current_line);
-            }
-            throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
-        }
-        if(std::isdigit(c)){
-            return Lexer::LexingSubmethods::lex_decimal_fractional(*this, c, token_value, starting_position);
-        }
-        if(std::isalpha(c)){
-            return create_token(token::TokenType::Period, token_value, starting_position, current_pos, current_line);
+        for(int i=1; i<lookahead; i++){
+            preprocessor->get_token();
         }
     }
-    if (c == '<' || c == '>'){
-        advance_input(token_value, c);
-        if(c == token_value.back()){
-            if(c == '<'){
-                advance_input(token_value, c);
-                if(c == '='){
-                    advance_input(token_value, c);
-                    return create_token(token::TokenType::LSAssign, token_value, starting_position, current_pos, current_line);
-                }
-                return create_token(token::TokenType::LShift, token_value, starting_position, current_pos, current_line);
-            }
-            if(c== '>'){
-                advance_input(token_value, c);
-                if(c == '='){
-                    advance_input(token_value, c);
-                    return create_token(token::TokenType::RSAssign, token_value, starting_position, current_pos, current_line);
-                }
-                return create_token(token::TokenType::RShift, token_value, starting_position, current_pos, current_line);
-            }
-        }
-        if(c == '='){
-            auto type = followed_by_eq.at(token_value.back());
-            advance_input(token_value, c);
-            return create_token(type, token_value, starting_position, current_pos, current_line);
-        }
-        auto type = single_char_tokens.at(token_value.back());
-        return create_token(type, token_value, starting_position, current_pos, current_line);
-    }
-    if (c == '&' || c == '|'){
-        advance_input(token_value, c);
-        if(c == token_value.back()){
-            if(c == '&'){
-                advance_input(token_value, c);
-                return create_token(token::TokenType::And, token_value, starting_position, current_pos, current_line);
-            }
-            if(c== '|'){
-                advance_input(token_value, c);
-                return create_token(token::TokenType::Or, token_value, starting_position, current_pos, current_line);
-            }
-        }
-        if(c == '='){
-            auto type = followed_by_eq.at(token_value.back());
-            advance_input(token_value, c);
-            return create_token(type, token_value, starting_position, current_pos, current_line);
-        }
-        auto type = single_char_tokens.at(token_value.back());
-        return create_token(type, token_value, starting_position, current_pos, current_line);
-    }
-    if (c == '+' || c == '-'){
-        advance_input(token_value, c);
-        if(c == token_value.back()){
-            if(c == '+'){
-                advance_input(token_value, c);
-                return create_token(token::TokenType::Plusplus, token_value, starting_position, current_pos, current_line);
-            }
-            if(c== '-'){
-                advance_input(token_value, c);
-                return create_token(token::TokenType::Minusminus, token_value, starting_position, current_pos, current_line);
-            }
-        }
-        if(c == '='){
-            auto type = followed_by_eq.at(token_value.back());
-            advance_input(token_value, c);
-            return create_token(type, token_value, starting_position, current_pos, current_line);
-        }
-        auto type = single_char_tokens.at(token_value.back());
-        return create_token(type, token_value, starting_position, current_pos, current_line);
-    }
-    if(followed_by_eq.find(c) != followed_by_eq.end()){
-        advance_input(token_value, c);
-        if(c == '='){
-            auto type = followed_by_eq.at(token_value.back());
-            advance_input(token_value, c);
-            return create_token(type, token_value, starting_position, current_pos, current_line);
-        }
-        auto type = single_char_tokens.at(token_value.back());
-        return create_token(type, token_value, starting_position, current_pos, current_line);
-    }
-
-    //Handle all remaining single character tokens
-    if(single_char_tokens.find(c) != single_char_tokens.end()){
-        assert(starting_position == current_pos); //Make sure we're actually lexing a single character token
-        auto type = single_char_tokens.at(c);
-        advance_input(token_value, c);
-        return create_token(type, token_value, starting_position, current_pos, current_line);
-    }
-
-    //Other cases/not implemented yet/not parsable
-    throw lexer_error::UnknownInput("Unknown input", token_value, c, starting_position);
-    return create_token(token::TokenType::END, "", starting_position, current_pos, this->current_line);
+    return tok;
 }
-
-token::Token Lexer::LexingSubmethods::lex_decimal_fractional(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position){
-    //Assumes that token_value already contains the integral part, if any
-    if(c == '.'){
-        l.advance_input(token_value, c);
-    }
-    while(std::isdigit(c)){
-        l.advance_input(token_value, c);
-    }
-    if(c == 'e' || c == 'E'){
-        l.advance_input(token_value, c);
-        if(c == '+' || c == '-'){
-            l.advance_input(token_value, c);
-        }
-        if(!std::isdigit(c)){
-            throw lexer_error::InvalidLiteral(
-                    "Decimal floating point in scientific notation missing exponent", token_value, c, starting_position);
-        }
-        while(std::isdigit(c)){
-            l.advance_input(token_value,c);
-        }
-    }
-    //Suffix handling
-    if(c == 'f' || c == 'F' || c == 'l' || c == 'L'){
-        l.advance_input(token_value, c);
-    }
-    return create_token(token::TokenType::FloatLiteral, token_value, starting_position, l.current_pos, l.current_line);
-}
-token::Token Lexer::LexingSubmethods::lex_hex_fractional(Lexer& l, char& c, std::string& token_value, const std::pair<int,int>& starting_position){
-    //Assumes that token_value already contains the integral part, if any
-    if(c == '.'){
-        l.advance_input(token_value, c);
-    }
-    while(std::isxdigit(c)){
-        l.advance_input(token_value, c);
-    }
-    if(c != 'p' && c != 'P'){
-        throw lexer_error::InvalidLiteral(
-                "Hexadecimal floating point values are required to have an exponent", token_value, c, starting_position);
-    }
-    l.advance_input(token_value, c);
-    if(c == '+' || c == '-'){
-        l.advance_input(token_value, c);
-    }
-    if(!std::isdigit(c)){
-        throw lexer_error::InvalidLiteral(
-                "Hexadecimal floating point values are required to have a decimal exponent", token_value, c, starting_position);
-    }
-    while(std::isdigit(c)){
-        l.advance_input(token_value,c);
-    }
-    //Suffix handling
-    if(c == 'f' || c == 'F' || c == 'l' || c == 'L'){
-        l.advance_input(token_value, c);
-    }
-    return create_token(token::TokenType::FloatLiteral, token_value, starting_position, l.current_pos, l.current_line);
-}
-
-void Lexer::LexingSubmethods::handle_int_literal_suffix(Lexer& l, char& c, std::string& token_value){
-    bool u_read = false;
-    if(c == 'u' || c == 'U'){
-        l.advance_input(token_value, c);
-    }
-    if(c == 'l' || c == 'L'){
-        l.advance_input(token_value, c);
-        //This ensures we only consider ll and LL
-        //Not mixed suffixes like lL or Ll
-        if(c == token_value.back()){
-            l.advance_input(token_value,c);
-        }
-    }
-    if(c == 'u' || c == 'U' && !u_read){
-        l.advance_input(token_value, c);
-    }
-}
-
-token::Token Lexer::LexingSubmethods::lex_numeric_literals(Lexer& l){
-    char c = l.input_stream.peek();
-    std::string token_value = "";
-    std::pair<int, int> starting_position = l.current_pos;
-    if(c == '0'){
-        l.advance_input(token_value, c);
-        if(c == 'x' || c == 'X'){
-            l.advance_input(token_value, c);
-            if(!std::isxdigit(c)){
-                throw lexer_error::InvalidLiteral("Invalid hexadecimal literal", token_value, c, starting_position);
-            }
-            while(std::isxdigit(c)){
-                l.advance_input(token_value, c);
-            }
-            if(c != '.' && c != 'p' && c != 'P'){
-                //Hex Integer
-                Lexer::LexingSubmethods::handle_int_literal_suffix(l,c,token_value);
-                return create_token(token::TokenType::IntegerLiteral, token_value, starting_position, l.current_pos, l.current_line);
-            }else{
-                //Hex floating point
-                return Lexer::LexingSubmethods::lex_hex_fractional(l,c,token_value, starting_position);
-            }
-        }else{
-            //Octal integer or decimal float
-            bool non_octal_digit = false;
-            while(std::isdigit(c)){
-                if(c == '8' || c == '9'){
-                    non_octal_digit = true;
-                }
-                l.advance_input(token_value, c);
-            }
-            if(c != '.' && c != 'e' && c != 'E'){
-                //Octal integer
-                if(non_octal_digit){
-                    throw lexer_error::InvalidLiteral("Invalid octal integer", token_value, c, starting_position);
-                }
-                Lexer::LexingSubmethods::handle_int_literal_suffix(l,c,token_value);
-                return create_token(token::TokenType::IntegerLiteral, token_value, starting_position, l.current_pos, l.current_line);
-            }else{
-                //Decimal float with a leading 0
-                return Lexer::LexingSubmethods::lex_decimal_fractional(l,c,token_value, starting_position);
-            }
-        }
-    }
-    while(std::isdigit(c)){
-        l.advance_input(token_value,c);
-    }
-    if(c != '.' && c != 'e' && c != 'E'){
-        Lexer::LexingSubmethods::handle_int_literal_suffix(l,c,token_value);
-        return create_token(token::TokenType::IntegerLiteral, token_value, starting_position, l.current_pos, l.current_line);
-    }else{
-        //Decimal floating point
-        return Lexer::LexingSubmethods::lex_decimal_fractional(l,c,token_value, starting_position);
-    }
-}
-
-
 } //namespace lexer
